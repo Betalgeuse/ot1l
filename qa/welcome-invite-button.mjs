@@ -121,6 +121,7 @@ assert.equal(ephemeralEffects.at(-1)?.userId, "UMEMBER");
 assert.equal(ephemeralEffects.at(-1)?.channelId, "CWELCOME");
 const memberLink = ephemeralEffects.at(-1)?.text;
 assert.match(memberLink, /^https:\/\/otl1\.hyuk\.me\/r\/[A-Za-z0-9_-]{32}/);
+assert.doesNotMatch(memberLink, /남은|인원|remaining/i);
 
 // Given the same member presses again, when the stable link already exists,
 // then it is returned privately without minting a different token.

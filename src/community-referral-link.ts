@@ -51,7 +51,7 @@ export async function handleReferralLinkMessage(
     userId: input.userId,
     text:
       issued.kind === "issued"
-        ? `${env.PUBLIC_APPLICATION_ORIGIN.replace(/\/$/, "")}/r/${token}${issued.remaining === undefined ? "" : `\n남은 소개 가능 인원: ${issued.remaining}명`}`
+        ? `${env.PUBLIC_APPLICATION_ORIGIN.replace(/\/$/, "")}/r/${token}`
         : "현재는 초대 링크를 사용할 수 없어요. 잠시 후 다시 확인해 주세요.",
   });
   return true;
