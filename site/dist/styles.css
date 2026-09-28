@@ -174,13 +174,12 @@ main > section { scroll-margin-top:82px; }
 
 .phrase-nowrap{white-space:nowrap}
 .affiliation-marquee{position:relative;z-index:1;width:100vw;margin:0 0 var(--space-48);margin-left:calc(50% - 50vw);overflow:hidden;mask-image:linear-gradient(90deg,transparent,#000 7%,#000 93%,transparent);-webkit-mask-image:linear-gradient(90deg,transparent,#000 7%,#000 93%,transparent)}
-.affiliation-track{display:flex;width:max-content;animation:affiliation-marquee 28s linear infinite;will-change:transform}
+.affiliation-track{display:flex;width:max-content;animation:affiliation-marquee 40s linear infinite;will-change:transform}
 .affiliation-group{display:flex;flex:none;align-items:center;gap:clamp(42px,6vw,88px);padding-right:clamp(42px,6vw,88px)}
 .affiliation-group img{display:block;flex:none;width:auto;max-width:220px;height:54px;object-fit:contain;filter:saturate(.9);transition:filter 180ms ease,transform 180ms ease}
-.affiliation-group img[src$="snu.png"]{width:58px;height:64px}
 .affiliation-group img[src$="snu-mba.png"]{height:64px}
 .affiliation-marquee:hover .affiliation-track{animation-play-state:paused}
 .affiliation-group img:hover{filter:saturate(1.08);transform:translateY(-2px)}
 @keyframes affiliation-marquee{to{transform:translateX(-50%)}}
-@media (max-width:760px){.affiliation-marquee{margin-bottom:var(--space-36)}.affiliation-track{animation-duration:22s}.affiliation-group{gap:var(--space-42);padding-right:var(--space-42)}.affiliation-group img{max-width:170px;height:42px}.affiliation-group img[src$="snu.png"]{width:46px;height:52px}.affiliation-group img[src$="snu-mba.png"]{height:52px}}
+@media (max-width:760px){.affiliation-marquee{margin-bottom:var(--space-36)}.affiliation-track{animation-duration:32s}.affiliation-group{gap:var(--space-42);padding-right:var(--space-42)}.affiliation-group img{max-width:170px;height:42px}.affiliation-group img[src$="snu-mba.png"]{height:52px}}
 @media (prefers-reduced-motion:reduce){.affiliation-marquee{overflow-x:auto;mask-image:none;-webkit-mask-image:none}.affiliation-track{animation:none}.affiliation-group[aria-hidden="true"]{display:none}.affiliation-group img:hover{transform:none}}
