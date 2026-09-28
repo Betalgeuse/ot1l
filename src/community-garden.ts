@@ -73,9 +73,13 @@ export async function prepareGardenPublication(
   forDate: string,
 ): Promise<PreparedGarden> {
   const day = await context.store.day({ ...context.scope, date: forDate });
+  const status = payloadRecord(await statusMessage(context, day, null));
+  const blocks = Array.isArray(status.blocks)
+    ? status.blocks.filter((block) => payloadRecord(block).type !== "section")
+    : [];
   return {
     prior: await context.store.listRecords(context.scope, "card"),
-    message: payloadRecord(await statusMessage(context, day, null)),
+    message: { ...status, blocks },
   };
 }
 
