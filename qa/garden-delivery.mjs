@@ -154,6 +154,16 @@ try {
   );
   assert.equal(prepared.length, 3);
   assert.ok(prepared.every((item) => item.payloadDigest === prepared[0].payloadDigest));
+  assert.equal(
+    prepared[0].payload.blocks.some((block) => block.type === "section"),
+    false,
+    "public garden delivery omits duplicate status text blocks",
+  );
+  assert.equal(
+    prepared[0].payload.blocks.some((block) => block.type === "image"),
+    true,
+    "public garden delivery keeps the garden image",
+  );
   assert.ok(cards.some((r) => r.kind === "card"));
   console.log(
     "PASS durable garden retries post failure, reconciles accepted response, then retires old image after durable sent receipt",
