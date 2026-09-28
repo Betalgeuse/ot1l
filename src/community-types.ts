@@ -78,6 +78,11 @@ export type CommunityRecord = CommunityScope & {
 };
 export type RecordKey = CommunityScope & { readonly key: string };
 export type ReminderJob = RecordKey & { readonly date: string; readonly kind: "goal" | "review" };
+export type ReviewHighlight = {
+  readonly userId: string;
+  readonly outcome: Outcome;
+  readonly reviewedAt: string;
+};
 export type ChannelMember = {
   readonly userId: string;
   readonly displayName: string;

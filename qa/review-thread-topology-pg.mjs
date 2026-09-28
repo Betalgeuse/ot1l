@@ -70,6 +70,7 @@ try {
   await psql(`UPDATE otl.community_garden_deliveries SET status='sent',attempts=1,payload='{"text":"old","blocks":[{"type":"image"}]}',payload_digest=repeat('a',64),message_ts='1700.1' WHERE delivery_id=(SELECT min(delivery_id) FROM otl.community_garden_deliveries WHERE team_id='T-REVIEW' AND user_id='U1');
     UPDATE otl.community_garden_projections p SET published_revision=d.day_revision,message_ts=d.message_ts,payload_digest=d.payload_digest FROM otl.community_garden_deliveries d WHERE d.projection_key=p.projection_key AND d.message_ts='1700.1'`);
   await run(join(pgBin, "psql"), ["-X", "-v", "ON_ERROR_STOP=1", "-f", "migrations/031_review_thread_gardens.sql"], "upgrade");
+  await run(join(pgBin, "psql"), ["-X", "-v", "ON_ERROR_STOP=1", "-f", "migrations/059_early_review_recognition.sql"], "upgrade");
   assert.equal(await psql("SELECT count(*) FROM otl.community_review_roots"), "0");
 
   await psql(`INSERT INTO otl.workspace_members(team_id,user_id,display_name,is_bot,is_app_user,slack_deleted,directory_synced_at)
@@ -157,7 +158,7 @@ try {
   });
 
   const bound = await call("bind_review_root", { teamId: "T-REVIEW", channelId: "C-REVIEW", userId: "UADMIN", date: "2026-09-18", messageTs: "1800.1" });
-  assert.deepEqual({ root: bound.threadTs, enqueued: bound.enqueued }, { root: "1800.1", enqueued: 1 });
+  assert.deepEqual({ root: bound.threadTs, enqueued: bound.enqueued }, { root: "1800.1", enqueued: 0 });
   assert.equal((await call("bind_review_root", { teamId: "T-REVIEW", channelId: "C-REVIEW", userId: "UADMIN", date: "2026-09-18", messageTs: "1800.1" })).enqueued, 0);
   assert.equal(await psql("SELECT count(*) FROM otl.community_review_roots WHERE team_id='T-REVIEW' AND day='2026-09-18'"), "1");
 
@@ -229,8 +230,9 @@ try {
   assert.equal(await psql("SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='otl' AND p.proname IN ('review_root_ts','enqueue_review_garden','community_execute') AND (NOT coalesce(p.proconfig,'{}')@>ARRAY['search_path=pg_catalog, otl'] OR has_function_privilege('public',p.oid,'EXECUTE'))"), "0");
   assert.equal(await psql("SELECT count(*) FROM otl.schema_migrations WHERE version='031-review-thread-gardens'"), "1");
 
-  await applyThrough("fresh", 31);
+  await applyThrough("fresh", 59);
   assert.equal(await psql("SELECT count(*) FROM otl.schema_migrations WHERE version='031-review-thread-gardens'", "fresh"), "1");
+  assert.equal(await psql("SELECT count(*) FROM otl.schema_migrations WHERE version='059-early-review-recognition'", "fresh"), "1");
   assert.match(await readFile(join(temp, "postgres.log"), "utf8"), /database system is ready/);
   console.log(`REVIEW_THREAD_OBSERVABLES=${await psql(`SELECT jsonb_build_object(
     'roots',count(*) FILTER(WHERE metric='root'),
@@ -249,7 +251,7 @@ try {
     UNION ALL SELECT 'sent_attempts',attempts FROM otl.community_garden_deliveries WHERE team_id='T-REVIEW' AND message_ts='1800.3'
     UNION ALL SELECT 'reminder_attempts',reminder_attempts FROM otl.community_records WHERE team_id='T-REVIEW' AND user_id='U2' AND record_key='reminder:2026-09-18:review'
   ) observed`)}`);
-  console.log("PASS review topology 031: baseline fan-out/top-level, exact review root, held replies, review-only gardens, idempotent concurrency, replacement-before-retirement, reversible payload, tenant isolation, fresh+upgrade");
+  console.log("PASS review topology 059: no automatic early-review garden copy, exact review root, held replies, explicit review gardens, idempotent concurrency, replacement-before-retirement, reversible payload, tenant isolation, fresh+upgrade");
 } finally {
   if (started) await run(join(pgBin, "pg_ctl"), ["-D", data, "-m", "fast", "-w", "stop"]).catch(() => {});
   await rm(temp, { recursive: true, force: true });

@@ -10,9 +10,10 @@ import type {
   RecordKey,
   ReminderBatch,
   ReminderBatchFinish,
+  ReviewHighlight,
   SupportPreferences,
 } from "./community-types";
-import { date, InputError, type Json, object, string } from "./input";
+import { date, InputError, type Json, list, object, string } from "./input";
 import type { NeonStore } from "./store";
 
 function bool(value: unknown): boolean {
@@ -42,6 +43,20 @@ function preferences(value: unknown): SupportPreferences {
     goalTime: time(input.goalTime),
     reviewTime: time(input.reviewTime),
     timezone: input.timezone,
+  };
+}
+function reviewHighlight(value: unknown): ReviewHighlight {
+  const input = object(value);
+  const result = string(input.outcome);
+  if (!["pending", "complete", "partial", "not_done"].includes(result))
+    throw new InputError("Invalid review highlight outcome");
+  const reviewedAt = string(input.reviewedAt);
+  if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(reviewedAt))
+    throw new InputError("Invalid review highlight time");
+  return {
+    userId: string(input.userId),
+    outcome: result as ReviewHighlight["outcome"],
+    reviewedAt,
   };
 }
 export function parseCommunityRecord(value: Json): CommunityRecord | null {
@@ -102,6 +117,28 @@ export class CommunityScheduleStore {
   async reminderTriggerDue(teamId: string, channelId: string, now: string): Promise<boolean> {
     if (!Number.isFinite(Date.parse(now))) throw new InputError("Invalid time");
     return bool(await this.call("reminder_trigger_due", { teamId, channelId, now }));
+  }
+  async reviewHighlights(
+    teamId: string,
+    channelId: string,
+    forDate: string,
+    eligibleUserIds: readonly string[],
+  ): Promise<readonly ReviewHighlight[]> {
+    date(forDate);
+    if (eligibleUserIds.length === 0) return [];
+    return list(
+      await this.db.queryJson(
+        `SELECT coalesce(jsonb_agg(jsonb_build_object(
+          'userId',d.user_id,'outcome',d.outcome,
+          'reviewedAt',to_char(to_timestamp(d.last_event_time) AT TIME ZONE 'Asia/Seoul','HH24:MI')
+        ) ORDER BY d.last_event_time,d.user_id),'[]'::jsonb)
+        FROM otl.community_days d
+        WHERE d.team_id=$1 AND d.channel_id=$2 AND d.day=$3::date
+          AND d.goal<>'' AND NOT d.resting AND d.reflection<>'' AND d.last_event_time>=0
+          AND d.user_id IN (SELECT jsonb_array_elements_text($4::jsonb))`,
+        [teamId, channelId, forDate, JSON.stringify(eligibleUserIds)],
+      ),
+    ).map(reviewHighlight);
   }
   async reconcileChannelMembers(
     input: CommunityScope,

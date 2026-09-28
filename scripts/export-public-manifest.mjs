@@ -78,6 +78,7 @@ export const PUBLIC_RUNTIME_MIGRATION_PATHS = [
   "migrations/056_feedback_static_inspection.sql",
   "migrations/057_common_delivery_short_lease.sql",
   "migrations/058_verified_feedback_deployment.sql",
+  "migrations/059_early_review_recognition.sql",
 ];
 
 // `src` and `site` are copied as directories, but these paths keep the membership
@@ -238,6 +239,7 @@ export const PUBLIC_QA_NAMES = [
   "version-map.mjs",
   "community-common-delivery.mjs",
   "community-schedule-overlap.mjs",
+  "community-early-review-prompt.mjs",
   "community-membership-store-error-code.mjs",
   "membership-reminder-audit-pg.mjs",
   "current-member-reminders.sql",
