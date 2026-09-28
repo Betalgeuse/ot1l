@@ -81,7 +81,7 @@ const env = {
   SLACK_TEAM_ID: "TQA",
   SLACK_BOT_TOKEN: "xoxb-test",
   DATABASE_URL: "postgresql://user:pass@qa.neon.tech/test",
-  PUBLIC_APPLICATION_ORIGIN: "https://otl1.hyuk.me",
+  PUBLIC_APPLICATION_ORIGIN: "https://ot1l.hyuk.me",
   REFERRAL_TOKEN_SECRET: "referral-secret-for-stable-member-links",
   COMMUNITY_WELCOME_CHANNEL_ID: "CWELCOME",
   COMMUNITY_CHANNEL_ID: "CADMIN",
@@ -120,7 +120,7 @@ assert.equal(issueInputs.at(-1)?.userId, "UMEMBER");
 assert.equal(ephemeralEffects.at(-1)?.userId, "UMEMBER");
 assert.equal(ephemeralEffects.at(-1)?.channelId, "CWELCOME");
 const memberLink = ephemeralEffects.at(-1)?.text;
-assert.match(memberLink, /^https:\/\/otl1\.hyuk\.me\/r\/[A-Za-z0-9_-]{32}/);
+assert.match(memberLink, /^https:\/\/ot1l\.hyuk\.me\/r\/[A-Za-z0-9_-]{32}/);
 assert.doesNotMatch(memberLink, /남은|인원|remaining/i);
 
 // Given the same member presses again, when the stable link already exists,
@@ -134,7 +134,7 @@ assert.equal(issueInputs.at(-1)?.userId, "UMEMBER");
 await press(click("UOTHER"));
 assert.equal(issueInputs.at(-1)?.userId, "UOTHER");
 assert.notEqual(ephemeralEffects.at(-1)?.text, memberLink);
-assert.match(ephemeralEffects.at(-1)?.text, /^https:\/\/otl1\.hyuk\.me\/r\/[A-Za-z0-9_-]{32}/);
+assert.match(ephemeralEffects.at(-1)?.text, /^https:\/\/ot1l\.hyuk\.me\/r\/[A-Za-z0-9_-]{32}/);
 
 // Given the database reports an unavailable member, when they press the button,
 // then no invitation token is exposed in the private explanation.
@@ -152,13 +152,13 @@ assert.doesNotMatch(ephemeralEffects.at(-1)?.text, /\/r\//);
 await press(click("UBYPASS"), { ...env, PUBLIC_APPLICATIONS_ENABLED: "false" });
 assert.equal(issueInputs.length, issuedBeforeDisabledPress + 1);
 assert.equal(issueInputs.at(-1)?.userId, "UBYPASS");
-assert.match(ephemeralEffects.at(-1)?.text, /^https:\/\/otl1\.hyuk\.me\/r\/[A-Za-z0-9_-]{32}/);
+assert.match(ephemeralEffects.at(-1)?.text, /^https:\/\/ot1l\.hyuk\.me\/r\/[A-Za-z0-9_-]{32}/);
 
 // Public daily-scrum member surfaces may expose the same actor-scoped invite action.
 await press(click("UPUBLIC", { container: { channel_id: "CPUBLIC" } }));
 assert.equal(issueInputs.at(-1)?.userId, "UPUBLIC");
 assert.equal(ephemeralEffects.at(-1)?.channelId, "CPUBLIC");
-assert.match(ephemeralEffects.at(-1)?.text, /^https:\/\/otl1\.hyuk\.me\/r\/[A-Za-z0-9_-]{32}/);
+assert.match(ephemeralEffects.at(-1)?.text, /^https:\/\/ot1l\.hyuk\.me\/r\/[A-Za-z0-9_-]{32}/);
 
 // Given a forged workspace or a different channel, when it replays the action,
 // then authorization rejects it before a link or private Slack effect is created.

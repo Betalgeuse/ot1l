@@ -22,12 +22,14 @@ const WITHDRAW = /^\/receipt\/(RCP-[A-Z0-9-]{4,64})\/withdraw$/;
 const INTEREST_RECEIPT = /^\/receipt\/(INT-[A-Z0-9-]{4,64})$/;
 const INTEREST_WITHDRAW = /^\/receipt\/(INT-[A-Z0-9-]{4,64})\/withdraw$/;
 const GENERIC_ERROR = "요청을 지금 처리할 수 없어요. 잠시 뒤 새로 확인해 주세요.";
+export const CANONICAL_ORIGIN = "https://ot1l.hyuk.me";
+const LEGACY_HOSTNAME = "otl1.hyuk.me";
 
 export const SHARE_COPY = (token: string): string =>
-  `매일 제일 중요한 일 하나 정해서 같이 끝내는 모임이야. 같이 할래?\nhttps://otl1.hyuk.me/r/${token}`;
+  `매일 제일 중요한 일 하나 정해서 같이 끝내는 모임이야. 같이 할래?\n${CANONICAL_ORIGIN}/r/${token}`;
 
 const securityHeaders = {
-  "Content-Security-Policy": "default-src 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'; form-action 'self' https://otl1.hyuk.me; script-src 'self' https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline'; img-src 'self' data:; frame-src https://challenges.cloudflare.com; connect-src 'self' https://challenges.cloudflare.com; upgrade-insecure-requests",
+  "Content-Security-Policy": `default-src 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'; form-action 'self' ${CANONICAL_ORIGIN}; script-src 'self' https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline'; img-src 'self' data:; frame-src https://challenges.cloudflare.com; connect-src 'self' https://challenges.cloudflare.com; upgrade-insecure-requests`,
   "Cross-Origin-Opener-Policy": "same-origin",
   "Cross-Origin-Resource-Policy": "same-origin",
   "Permissions-Policy": "camera=(), microphone=(), geolocation=(), payment=()",
@@ -189,8 +191,8 @@ async function referralPage(request: Request, env: SiteEnv, token: string): Prom
   canonicalUrl.hash = "";
   const directJoinPage = renderInterestSlots(html, env)
     .replace("<!-- __REFERRAL_SLOT__ -->", referralSection(token, inviterByline))
-    .replace('<link rel="canonical" href="https://otl1.hyuk.me/">', `<link rel="canonical" href="${escapeHtml(canonicalUrl.href)}">`)
-    .replace('<meta property="og:url" content="https://otl1.hyuk.me/">', `<meta property="og:url" content="${escapeHtml(canonicalUrl.href)}">`)
+    .replace(`<link rel="canonical" href="${CANONICAL_ORIGIN}/">`, `<link rel="canonical" href="${escapeHtml(canonicalUrl.href)}">`)
+    .replace(`<meta property="og:url" content="${CANONICAL_ORIGIN}/">`, `<meta property="og:url" content="${escapeHtml(canonicalUrl.href)}">`)
     .replace('content="ONE THING 1 LINE · 오늘 가장 중요한 업무 하나"', 'content="ONE THING 1 LINE · 같이 원띵 해요"')
     .replace('<title>ONE THING 1 LINE · 오늘 가장 중요한 업무 하나</title>', '<title>ONE THING 1 LINE · 함께하기</title>')
     .replace('<a class="wordmark" href="#home"', '<a class="wordmark" href="#referral-invite"')
@@ -345,6 +347,11 @@ async function withdraw(request: Request, env: SiteEnv, receiptId: string): Prom
 const siteWorker = {
   async fetch(request: Request, env: SiteEnv): Promise<Response> {
     const url = new URL(request.url);
+    if (url.hostname === LEGACY_HOSTNAME) {
+      url.protocol = "https:";
+      url.hostname = new URL(CANONICAL_ORIGIN).hostname;
+      return secured(Response.redirect(url, 308));
+    }
     const referral = url.pathname.match(REFERRAL);
     const applyRoute = url.pathname.match(APPLY);
     const receipt = url.pathname.match(RECEIPT);

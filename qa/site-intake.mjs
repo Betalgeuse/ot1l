@@ -14,7 +14,7 @@ const referralToken = "A".repeat(32);
 const receiptId = `RCP-${"B".repeat(32)}`;
 const hmacSecret = "site-core-secret-with-enough-entropy-123456";
 const turnstileSecret = "turnstile-test-secret";
-const expectedShare = `매일 제일 중요한 일 하나 정해서 같이 끝내는 모임이야. 같이 할래?\nhttps://otl1.hyuk.me/r/${referralToken}`;
+const expectedShare = `매일 제일 중요한 일 하나 정해서 같이 끝내는 모임이야. 같이 할래?\nhttps://ot1l.hyuk.me/r/${referralToken}`;
 
 assert.equal(SHARE_COPY(referralToken), expectedShare);
 const realNow = Date.now;
@@ -30,7 +30,7 @@ const assets = {
   async fetch(request) {
     const path = new URL(request.url).pathname;
     if (path === "/index.html") {
-      return new Response('<html><head><link rel="canonical" href="https://otl1.hyuk.me/"><meta property="og:url" content="https://otl1.hyuk.me/"><meta property="og:title" content="ONE THING 1 LINE · 오늘 가장 중요한 업무 하나"><title>ONE THING 1 LINE · 오늘 가장 중요한 업무 하나</title></head><body><nav><a href="#invitation">함께하기</a></nav><main id="main"><!-- __REFERRAL_SLOT__ --><section id="home">홈페이지</section><section id="invitation">__INTEREST_COPY__ __INTEREST_CTA__</section></main></body></html>', {
+      return new Response('<html><head><link rel="canonical" href="https://ot1l.hyuk.me/"><meta property="og:url" content="https://ot1l.hyuk.me/"><meta property="og:title" content="ONE THING 1 LINE · 오늘 가장 중요한 업무 하나"><title>ONE THING 1 LINE · 오늘 가장 중요한 업무 하나</title></head><body><nav><a href="#invitation">함께하기</a></nav><main id="main"><!-- __REFERRAL_SLOT__ --><section id="home">홈페이지</section><section id="invitation">__INTEREST_COPY__ __INTEREST_CTA__</section></main></body></html>', {
         headers: { "content-type": "text/html;charset=UTF-8" },
       });
     }
@@ -99,7 +99,7 @@ globalThis.fetch = async (url, init) => {
   return Response.json({ success: true, hostname: "example.com" });
 };
 
-const call = (path, init = {}) => siteWorker.fetch(new Request(`https://otl1.hyuk.me${path}`, init), env);
+const call = (path, init = {}) => siteWorker.fetch(new Request(`https://ot1l.hyuk.me${path}`, init), env);
 const form = (overrides = {}) => {
   const value = new FormData();
   value.set("email", "  PERSON@Example.COM ");

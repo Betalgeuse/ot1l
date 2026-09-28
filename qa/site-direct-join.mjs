@@ -38,10 +38,10 @@ const form = (email = "person@example.com") => {
   value.set("cf-turnstile-response", "synthetic-turnstile-token");
   return value;
 };
-const call = (env, body = form()) => siteWorker.fetch(new Request(`https://otl1.hyuk.me/r/${referralToken}/apply`, { method: "POST", body }), env);
+const call = (env, body = form()) => siteWorker.fetch(new Request(`https://ot1l.hyuk.me/r/${referralToken}/apply`, { method: "POST", body }), env);
 
 try {
-  const page = await siteWorker.fetch(new Request(`https://otl1.hyuk.me/r/${referralToken}`), baseEnv);
+  const page = await siteWorker.fetch(new Request(`https://ot1l.hyuk.me/r/${referralToken}`), baseEnv);
   const html = await page.text();
   assert.doesNotMatch(html, /name="displayName"|name="intent"/);
   assert.doesNotMatch(html, /name="email"|name="consent"/);

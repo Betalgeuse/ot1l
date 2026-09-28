@@ -71,6 +71,7 @@ const suites = [
   "site-direct-join",
   "site-trust-strip",
   "site-referral-composition",
+  "site-canonical-domain",
   "community-common-delivery",
   "community-schedule-overlap",
   "community-early-review-prompt",

@@ -22,13 +22,13 @@ const env = {
   PUBLIC_INTEREST_ENABLED: "false",
 };
 
-const referral = await siteWorker.fetch(new Request(`https://otl1.hyuk.me/r/${token}`), env);
+const referral = await siteWorker.fetch(new Request(`https://ot1l.hyuk.me/r/${token}`), env);
 assert.equal(referral.status, 200);
 const referralHtml = await referral.text();
 assert.deepEqual(assetReads, ["/index.html"], "referral must render from the canonical homepage asset only");
 
 assetReads.length = 0;
-const homepage = await siteWorker.fetch(new Request("https://otl1.hyuk.me/"), env);
+const homepage = await siteWorker.fetch(new Request("https://ot1l.hyuk.me/"), env);
 const homepageHtml = await homepage.text();
 assert.deepEqual(assetReads, ["/index.html"]);
 
@@ -43,9 +43,9 @@ assert.match(referralHtml, /data-copy/);
 assert.match(referralHtml, /alt="전남대학교 의과대학"/);
 assert.equal(referralHtml.match(/class="affiliation-marquee/g)?.length, 1);
 assert.doesNotMatch(referralHtml, /application-form-section|__REFERRAL_|__INVITER_|__SHARE_|__INTEREST_/);
-assert.match(referralHtml, /<link rel="canonical" href="https:\/\/otl1\.hyuk\.me\/r\/C{32}">/);
+assert.match(referralHtml, /<link rel="canonical" href="https:\/\/ot1l\.hyuk\.me\/r\/C{32}">/);
 assetReads.length = 0;
-const retiredTemplate = await siteWorker.fetch(new Request("https://otl1.hyuk.me/referral.html"), env);
+const retiredTemplate = await siteWorker.fetch(new Request("https://ot1l.hyuk.me/referral.html"), env);
 assert.equal(retiredTemplate.status, 404);
 assert.deepEqual(assetReads, [], "retired referral template must not reach static assets");
 console.log("PASS referral composes one invite section above the canonical homepage");
