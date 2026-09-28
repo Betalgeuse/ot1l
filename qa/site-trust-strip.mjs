@@ -1,10 +1,16 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 const html = await readFile("site/dist/index.html", "utf8");
-const section = /<aside class="affiliation-proof[\s\S]*?<\/aside>/.exec(html)?.[0] ?? "";
-assert.match(section, /Trusted by people from/);
-for (const affiliation of ["서울대학교", "SNU MBA", "배달의민족"]) assert.match(section, new RegExp(affiliation));
-assert.match(section, /현재·이전 소속/);
-assert.match(section, /공식 제휴나 후원을 의미하지 않습니다/);
-assert.doesNotMatch(section, /<img|<svg/);
-console.log("PASS trust strip names member affiliations without implying institutional endorsement");
+const css = await readFile("site/dist/styles.css", "utf8");
+const garden = /<section class="chapter chapter--leaf chapter--reactions"[\s\S]*?<\/section>/.exec(html)?.[0] ?? "";
+const section = /<aside class="affiliation-marquee[\s\S]*?<\/aside>/.exec(garden)?.[0] ?? "";
+for (const affiliation of ["서울대학교", "서울대학교 경영전문대학원", "배달의민족", "포스텍", "카이스트", "이화여자대학교"]) {
+  assert.match(section, new RegExp(`alt="${affiliation}"`));
+}
+for (const asset of ["snu.png", "snu-mba.png", "baemin.png", "postech.png", "kaist.gif", "ewha.png"]) {
+  assert.equal(section.match(new RegExp(`/assets/affiliations/${asset.replace(".", "\\.")}`, "g"))?.length, 2);
+}
+assert.doesNotMatch(section, /현재·이전 소속|공식 제휴|후원|Trusted by/);
+assert.match(css, /@keyframes affiliation-marquee\{to\{transform:translateX\(-50%\)\}\}/);
+assert.match(css, /prefers-reduced-motion:reduce[\s\S]*?\.affiliation-track\{animation:none\}/);
+console.log("PASS approved affiliation logos loop left inside the member section");
