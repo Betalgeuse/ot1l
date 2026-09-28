@@ -27,6 +27,13 @@ assert.deepEqual(
   day4.cells.map((c) => c.day),
   [1, 2, 3, 4],
 );
+const day4Png = await renderBoard(day4);
+const day4Dimensions = new DataView(day4Png.buffer, day4Png.byteOffset + 16, 8);
+assert.deepEqual(
+  [day4Dimensions.getUint32(0), day4Dimensions.getUint32(4)],
+  [640, 372],
+  "4-cell garden uses four columns so its OT1L header is centered over the visible cells",
+);
 const day5 = buildBoard(
   { startDate: "2026-09-14", palette, goals: weekdays("2026-09-14", "2026-09-18") },
   "2026-09-18",

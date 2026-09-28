@@ -12,10 +12,9 @@ const COLUMNS = 8;
 const COLUMN_WIDTH = 76;
 const ROW_HEIGHT = 130;
 const BRAND_HEIGHT = 44;
-const BOARD_WIDTH = COLUMNS * COLUMN_WIDTH + 16;
 
-function drawBrand(raster: Raster): void {
-  const center = BOARD_WIDTH / 2;
+function drawBrand(raster: Raster, boardWidth: number): void {
+  const center = boardWidth / 2;
   for (const [offset, glyph, ink] of [
     [-33, "O", TEXT],
     [-11, "T", TEXT],
@@ -29,10 +28,10 @@ function drawBrand(raster: Raster): void {
 function drawCell(
   raster: Raster,
   cell: Cell,
-  placement: { readonly index: number; readonly board: Board },
+  placement: { readonly index: number; readonly board: Board; readonly columns: number },
 ): void {
-  const x = 8 + (placement.index % COLUMNS) * COLUMN_WIDTH;
-  const y = BRAND_HEIGHT + 12 + Math.floor(placement.index / COLUMNS) * ROW_HEIGHT;
+  const x = 8 + (placement.index % placement.columns) * COLUMN_WIDTH;
+  const y = BRAND_HEIGHT + 12 + Math.floor(placement.index / placement.columns) * ROW_HEIGHT;
   const centerX = x + 38;
   label(raster, "DAY", { center: { x: centerX, y }, ink: SECONDARY });
   label(raster, String(cell.day), { center: { x: centerX, y: y + 20 }, ink: TEXT });
@@ -97,11 +96,14 @@ function assertNever(value: never): never {
 }
 
 export async function renderBoard(board: Board): Promise<Uint8Array> {
+  const columns = Math.max(1, Math.min(COLUMNS, board.cells.length));
+  const boardWidth = columns * COLUMN_WIDTH + 16;
   const raster = new Raster({
-    width: BOARD_WIDTH,
-    height: BRAND_HEIGHT + Math.ceil(board.cells.length / COLUMNS) * ROW_HEIGHT + 12,
+    width: boardWidth,
+    height: BRAND_HEIGHT + Math.ceil(board.cells.length / columns) * ROW_HEIGHT + 12,
   });
-  drawBrand(raster);
-  for (const [index, cell] of board.cells.entries()) drawCell(raster, cell, { index, board });
+  drawBrand(raster, boardWidth);
+  for (const [index, cell] of board.cells.entries())
+    drawCell(raster, cell, { index, board, columns });
   return encodePng(raster.pixels, raster);
 }
