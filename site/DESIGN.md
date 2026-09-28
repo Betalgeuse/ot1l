@@ -62,7 +62,7 @@ Intersection observers reveal sections only after JavaScript has attached the mo
 
 ## 5. Responsive rules and accepted debt
 
-The nav collapses at 760px, chapter typography scales through `clamp()`, the brand lockup remains on one visual line, and text wraps naturally without horizontal scrolling at 320px. The book moves below the promise on narrow screens without changing its aspect ratio. The referral page reuses the homepage rhythm, reaction stage, two-thread replay, and real board; only its hero copy and final application form change. Its form and receipt remain readable when the site's animation script does not run; Turnstile still needs its own script to validate a submission. The site Worker resolves opaque links through the core binding and sends validated applications through a signed request.
+The nav collapses at 760px, chapter typography scales through `clamp()`, the brand lockup remains on one visual line, and text wraps naturally without horizontal scrolling at 320px. The book moves below the promise on narrow screens without changing its aspect ratio. `index.html` is the only source for the homepage and member referral experience. The site Worker renders a referral by inserting exactly one invitation section into the homepage's `__REFERRAL_SLOT__`; every later homepage section, asset, and interaction stays shared. The invitation section links directly to the validated shared Slack invite route and offers the member-specific copy text. The signed form endpoint remains available for compatibility, but the current referral page collects no email or personal data before Slack. The Worker resolves opaque links through the core binding.
 
 ## 6. Reactions and member invitation
 

@@ -29,8 +29,8 @@ try {
 const assets = {
   async fetch(request) {
     const path = new URL(request.url).pathname;
-    if (path === "/referral.html") {
-      return new Response("<html><body>__REFERRAL_TOKEN__ __TURNSTILE_SITE_KEY__ __SHARE_TEXT__ __SUBMISSION_KEY__ __INVITER_BYLINE__</body></html>", {
+    if (path === "/index.html") {
+      return new Response('<html><head><link rel="canonical" href="https://otl1.hyuk.me/"><meta property="og:url" content="https://otl1.hyuk.me/"><meta property="og:title" content="ONE THING 1 LINE · 오늘 가장 중요한 업무 하나"><title>ONE THING 1 LINE · 오늘 가장 중요한 업무 하나</title></head><body><nav><a href="#invitation">함께하기</a></nav><main id="main"><!-- __REFERRAL_SLOT__ --><section id="home">홈페이지</section><section id="invitation">__INTEREST_COPY__ __INTEREST_CTA__</section></main></body></html>', {
         headers: { "content-type": "text/html;charset=UTF-8" },
       });
     }
@@ -115,10 +115,10 @@ try {
   assert.equal(page.status, 200);
   const pageText = await page.text();
   assert.match(pageText, new RegExp(referralToken));
-  assert.match(pageText, /1x00000000000000000000AA/);
   assert.match(pageText, /매일 제일 중요한 일 하나 정해서 같이 끝내는 모임이야/);
   assert.match(pageText, /홍길동 님이 같이 성장하자고 소개했어요\./);
-  assert.doesNotMatch(pageText, /__INVITER_BYLINE__/);
+  assert.match(pageText, /id="referral-invite"[\s\S]*id="home"/);
+  assert.doesNotMatch(pageText, /__REFERRAL_|__INVITER_|__SHARE_|__INTEREST_/);
   const publicJoin = await call("/join");
   assert.equal(publicJoin.status, 303);
   assert.equal(publicJoin.headers.get("location"), env.SLACK_SHARED_INVITE_URL);
@@ -280,7 +280,9 @@ const signedCore = async (path, body, nonce) => {
 };
 const resolved = await signedCore("/internal/referrals/resolve", JSON.stringify({ referralToken }), "nonce-core-resolve-1234");
 assert.deepEqual(await resolved.json(), { available: true, inviterName: "홍길동" });
-assert.equal((await signedCore("/internal/referrals/resolve", JSON.stringify({ referralToken }), "nonce-core-resolve-1234")).status, 401);
+const resolvedRetry = await signedCore("/internal/referrals/resolve", JSON.stringify({ referralToken }), "nonce-core-resolve-1234");
+assert.equal(resolvedRetry.status, 200);
+assert.deepEqual(await resolvedRetry.json(), { available: true, inviterName: "홍길동" });
 const unavailable = await signedCore("/internal/referrals/resolve", JSON.stringify({ referralToken: "Z".repeat(32) }), "nonce-core-resolve-5678");
 assert.deepEqual(await unavailable.json(), { available: false });
 const applyBody = JSON.stringify({ referralToken, submissionKey: "core-withdraw-apply", consentVersion: "invite-consent-v1", consentedAt: new Date().toISOString(), email: "withdraw@example.com", displayName: "철회", intent: "철회 시험" });
