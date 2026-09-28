@@ -45,6 +45,15 @@ const fakeStore = {
   async members() {
     return ["UONE", "UTWO"];
   },
+  async listDays() {
+    return ["UONE", "UTWO"].map((userId) => ({
+      teamId: "TQA", channelId: "CPUBLIC", userId, date: fixtureDate,
+      goal: "test goal", outcome: "pending", reflection: "", resting: false, revision: 1,
+    }));
+  },
+  async reviewHighlights() {
+    return [];
+  },
   async claimReminderBatch(input) {
     if (claimedBatchTimes.has(input.now)) return null;
     claimedBatchTimes.add(input.now);

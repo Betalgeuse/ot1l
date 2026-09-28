@@ -60,7 +60,7 @@
 
 후기나 수행 상태가 저장되면 `review_prompt / recorded` projection으로 같은 parent thread의 잔디를 갱신합니다. 이전 작성 상태 카드가 있으면 새 카드 게시와 DB 영수증을 먼저 완료한 뒤 이전 카드의 이미지만 제거하고 댓글은 보존합니다.
 
-공통 10시·18시 prompt에 대한 재촉과 prompt 자체의 안내 카드는 공통 prompt root를 사용합니다. 회원이 직접 남긴 목표·후기에서 생성되는 잔디와 확인 답글은 회원 메시지의 parent thread를 사용합니다. Slack은 답글 안에 nested thread를 만들 수 없으므로 reply timestamp가 아니라 parent timestamp를 사용합니다.
+공통 10시·18시 prompt에 대한 재촉과 prompt 자체의 안내 카드는 공통 prompt root를 사용합니다. 18시 prompt를 만들 때 목표가 있고 후기가 비어 있는 회원만 요청하며, 이미 후기를 남긴 회원은 마지막 기록 시각과 결과를 읽어 칭찬합니다. 이미 회원 원문에 게시된 잔디를 새 18시 prompt 아래로 복사하지 않습니다. 회원이 직접 남긴 목표·후기에서 생성되는 잔디와 확인 답글은 회원 메시지의 parent thread를 사용합니다. Slack은 답글 안에 nested thread를 만들 수 없으므로 reply timestamp가 아니라 parent timestamp를 사용합니다.
 
 ## 입력별 기대 결과
 

@@ -6,7 +6,7 @@ import { sendDailyIntroductionReminders } from "./community-introduction-channel
 import { collectCurrentChannelMembers } from "./community-membership";
 import { sendReminderBatches } from "./community-reminder-batch";
 import type { CommunityStore } from "./community-store";
-import type { ChannelMembershipSnapshot } from "./community-types";
+import type { ChannelMembershipSnapshot, ReviewHighlight } from "./community-types";
 import { InputError, object, string } from "./input";
 
 export type CommunityScheduleEnv = {
@@ -31,6 +31,8 @@ type ScheduleStore = Pick<
   | "finishRecord"
   | "reconcileChannelMembers"
   | "members"
+  | "listDays"
+  | "reviewHighlights"
   | "reminderTriggerDue"
   | "claimReminderBatch"
   | "claimReviewReminderBatch"
@@ -80,9 +82,24 @@ async function commonText(
   date: string,
   kind: Kind,
   memberIds: readonly string[],
+  highlights: readonly ReviewHighlight[] = [],
 ): Promise<string> {
-  const base = await customBotEmoji(env.SLACK_BOT_TOKEN, promptText(date, kind));
-  return `${base}${memberIds.length ? `\n${memberIds.map((id) => `<@${id}>`).join(" ")}` : ""}`;
+  const parts = [promptText(date, kind)];
+  if (memberIds.length)
+    parts.push(
+      `${kind === "review" ? "오늘 후기를 기다리는 분" : "함께할 분"}: ${memberIds.map((id) => `<@${id}>`).join(" ")}`,
+    );
+  if (kind === "review" && highlights.length) {
+    const lines = highlights.map((item) => {
+      const [hour, minute] = item.reviewedAt.split(":");
+      const at = `${Number(hour)}시 ${minute}분`;
+      return item.outcome === "complete"
+        ? `• <@${item.userId}>님은 ${at}에 미리 다 했네요!!! :muscle:`
+        : `• <@${item.userId}>님은 ${at}에 오늘을 미리 돌아봤네요!!! :memo:`;
+    });
+    parts.push(`미리 남긴 분도 있어요!!!\n${lines.join("\n")}`);
+  }
+  return customBotEmoji(env.SLACK_BOT_TOKEN, parts.join("\n\n"));
 }
 export async function runCommunitySchedule(
   env: CommunityScheduleEnv,
@@ -140,12 +157,30 @@ export async function runCommunitySchedule(
   const eligibleMembers =
     snapshot && scheduledKinds.length ? await store.members(scope.teamId, scope.channelId) : [];
   for (const kind of scheduledKinds) {
+    let mentionedMembers = eligibleMembers;
+    let highlights: readonly ReviewHighlight[] = [];
+    if (kind === "review") {
+      const eligible = new Set(eligibleMembers);
+      const days = await store.listDays(scope.teamId, scope.channelId, date);
+      mentionedMembers = days
+        .filter(
+          (day) =>
+            eligible.has(day.userId) && day.goal !== "" && !day.resting && day.reflection === "",
+        )
+        .map((day) => day.userId);
+      highlights = await store.reviewHighlights(
+        scope.teamId,
+        scope.channelId,
+        date,
+        eligibleMembers,
+      );
+    }
     await enqueueCommonDelivery(
       store,
       scope,
       date,
       kind,
-      await commonText(env, date, kind, eligibleMembers),
+      await commonText(env, date, kind, mentionedMembers, highlights),
     );
   }
   common += await sendCommonDeliveries({

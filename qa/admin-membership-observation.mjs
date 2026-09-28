@@ -39,6 +39,12 @@ const store = {
   async members() {
     return ["UONE"];
   },
+  async listDays() {
+    return [{ teamId: "TQA", channelId: "CPUBLIC", userId: "UONE", date: "2026-09-18", goal: "test", outcome: "pending", reflection: "", resting: false, revision: 1 }];
+  },
+  async reviewHighlights() {
+    return [];
+  },
   async finishCommonDelivery() {
     return false;
   },

@@ -73,6 +73,7 @@ const suites = [
   "site-referral-composition",
   "community-common-delivery",
   "community-schedule-overlap",
+  "community-early-review-prompt",
   "dormant-shoutout",
 ];
 for (const suite of suites) execFileSync("bun", [`qa/${suite}.mjs`], { stdio: "inherit" });
