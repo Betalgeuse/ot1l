@@ -9,7 +9,13 @@ type Notification = {
   readonly bugId: string;
   readonly channelId: string;
   readonly threadTs: string;
-  readonly kind: "task_started" | "task_ready" | "task_failed" | "merge_ready" | "change_merged";
+  readonly kind:
+    | "task_started"
+    | "task_ready"
+    | "task_failed"
+    | "merge_ready"
+    | "change_merged"
+    | "change_deployed";
   readonly taskUrl: string;
   readonly attempt: number;
   readonly reporterId: string | null;
@@ -34,7 +40,14 @@ function parseNotification(value: unknown): Notification {
     notificationId < 1 ||
     !Number.isSafeInteger(attempt) ||
     attempt < 1 ||
-    !["task_started", "task_ready", "task_failed", "merge_ready", "change_merged"].includes(kind) ||
+    ![
+      "task_started",
+      "task_ready",
+      "task_failed",
+      "merge_ready",
+      "change_merged",
+      "change_deployed",
+    ].includes(kind) ||
     !/^https:\/\/chatgpt[.]com\/codex\/tasks\/task_[a-z]_[a-f0-9]{32}$/.test(taskUrl)
   )
     throw new TypeError("invalid agent notification");
@@ -64,12 +77,14 @@ function parseNotification(value: unknown): Notification {
 }
 
 function notificationText(input: Notification): string {
-  if (input.kind === "change_merged") {
-    const mentions = [...new Set([input.adminId, input.reporterId].filter(Boolean))]
-      .map((id) => `<@${id}>`)
-      .join(" ");
-    return `${mentions}\n수정을 완료하고 반영했어요! ✅\n${input.summary ?? "승인한 To-Be 기준으로 수정·검증·병합했습니다."}`;
+  const mentions = [...new Set([input.adminId, input.reporterId].filter(Boolean))]
+    .map((id) => `<@${id}>`)
+    .join(" ");
+  if (input.kind === "change_deployed") {
+    return `${mentions}\n운영 배포와 실제 동작 확인을 완료했어요! ✅\n${input.summary ?? "승인한 To-Be가 운영 환경에서 확인됐습니다."}`;
   }
+  if (input.kind === "change_merged")
+    return `${mentions}\n수정안을 main에 병합했어요. 운영 배포와 실제 동작 확인을 기다리고 있습니다.\n${input.bugId}`;
   if (input.kind === "merge_ready")
     return `수정안과 검증이 준비됐어요. 변경 내용을 확인한 뒤 병합을 승인해 주세요.\n${input.summary ?? "전체 검사를 통과했습니다."}`;
   return `${input.bugId} 자동 개선을 완료하지 못했어요. 운영자가 확인할게요.`;
@@ -135,6 +150,7 @@ export async function sendAgentNotifications(
       if (
         item.kind === "task_failed" ||
         item.kind === "change_merged" ||
+        item.kind === "change_deployed" ||
         item.kind === "merge_ready"
       )
         await callSlack(env.SLACK_BOT_TOKEN, "chat.postMessage", {
@@ -144,7 +160,7 @@ export async function sendAgentNotifications(
             ? mergeReadyMessage(item)
             : { text: notificationText(item) }),
         });
-      if (item.kind === "change_merged") {
+      if (item.kind === "change_deployed") {
         await removeReactions(env.SLACK_BOT_TOKEN, {
           channel: item.channelId,
           ts: item.threadTs,

@@ -58,10 +58,7 @@ try {
     DATABASE_URL:
       "postgresql://runtime:secret@ep-example-pooler.c-3.ap-southeast-1.aws.neon.tech/neondb?sslmode=require",
   };
-  const ready = await sendAgentNotifications(
-    env,
-    new Date("2026-09-24T12:59:00Z"),
-  );
+  const ready = await sendAgentNotifications(env, new Date("2026-09-24T12:59:00Z"));
   assert.deepEqual(ready, { claimed: 1, sent: 1, failed: 0 });
   const readyPost = calls.find((call) => call.url.includes("chat.postMessage"));
   assert.equal(readyPost.body.thread_ts, "1790252981.933479");
@@ -69,28 +66,40 @@ try {
   assert.match(readyPost.body.blocks[0].text.text, /변경 내용 보기/);
   assert.equal(readyPost.body.blocks[1].elements[0].text.text, "병합 승인");
   assert.equal(readyPost.body.blocks[1].elements[0].action_id, "community_feedback_merge_approve");
-  assert.equal(calls.some((call) => call.url.includes("reactions.")), false);
+  assert.equal(
+    calls.some((call) => call.url.includes("reactions.")),
+    false,
+  );
 
   calls.length = 0;
   notificationKind = "change_merged";
-  const result = await sendAgentNotifications(
-    env,
-    new Date("2026-09-24T13:00:00Z"),
-  );
+  const result = await sendAgentNotifications(env, new Date("2026-09-24T13:00:00Z"));
   assert.deepEqual(result, { claimed: 1, sent: 1, failed: 0 });
   const post = calls.find((call) => call.url.includes("chat.postMessage"));
   assert.equal(post.body.thread_ts, "1790252981.933479");
   assert.match(post.body.text, /<@UADMIN> <@UREPORTER>/);
-  assert.match(post.body.text, /입력 경계를 수정하고 회귀 검사를 통과했습니다/);
+  assert.match(post.body.text, /운영 배포와 실제 동작 확인을 기다리고 있습니다/);
   assert.doesNotMatch(post.body.text, /github[.]com/);
   assert.doesNotMatch(post.body.text, /chatgpt[.]com/);
   const reactionMethods = calls
     .filter((call) => call.url.includes("reactions."))
     .map((call) => new URL(call.url).pathname.split("/").at(-1));
-  assert.deepEqual(reactionMethods, ["reactions.remove", "reactions.add"]);
+  assert.deepEqual(reactionMethods, []);
   const finish = calls.find((call) => call.body.query?.includes("bug_runner_finish_notification"));
   assert.match(finish.body.params[0], /"status":"sent"/);
-  console.log("PASS agent notifications: review precedes merge and merged result replaces loading with check");
+  calls.length = 0;
+  notificationKind = "change_deployed";
+  const deployed = await sendAgentNotifications(env, new Date("2026-09-24T13:01:00Z"));
+  assert.deepEqual(deployed, { claimed: 1, sent: 1, failed: 0 });
+  const deployedPost = calls.find((call) => call.url.includes("chat.postMessage"));
+  assert.match(deployedPost.body.text, /운영 배포와 실제 동작 확인을 완료했어요/);
+  const deployedReactionMethods = calls
+    .filter((call) => call.url.includes("reactions."))
+    .map((call) => new URL(call.url).pathname.split("/").at(-1));
+  assert.deepEqual(deployedReactionMethods, ["reactions.remove", "reactions.add"]);
+  console.log(
+    "PASS agent notifications: review, merge, deployment, and final check remain distinct",
+  );
 } finally {
   globalThis.fetch = originalFetch;
 }
