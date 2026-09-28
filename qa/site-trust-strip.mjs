@@ -1,0 +1,10 @@
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+const html = await readFile("site/dist/index.html", "utf8");
+const section = /<aside class="affiliation-proof[\s\S]*?<\/aside>/.exec(html)?.[0] ?? "";
+assert.match(section, /Trusted by people from/);
+for (const affiliation of ["서울대학교", "SNU MBA", "배달의민족"]) assert.match(section, new RegExp(affiliation));
+assert.match(section, /현재·이전 소속/);
+assert.match(section, /공식 제휴나 후원을 의미하지 않습니다/);
+assert.doesNotMatch(section, /<img|<svg/);
+console.log("PASS trust strip names member affiliations without implying institutional endorsement");

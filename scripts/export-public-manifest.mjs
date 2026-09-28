@@ -221,6 +221,7 @@ export const PUBLIC_QA_NAMES = [
   "review-thread-topology-pg.mjs",
   "site-intake.mjs",
   "site-direct-join.mjs",
+  "site-trust-strip.mjs",
   "dormant-shoutout.mjs",
   "docs-links.mjs",
   "version-map.mjs",
