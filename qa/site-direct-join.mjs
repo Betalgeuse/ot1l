@@ -48,6 +48,8 @@ try {
   assert.match(html, /name="consent"/);
   assert.match(html, />Slack에서 함께하기</);
   assert.match(html, /class="slack-mark"[^>]*aria-hidden="true"/);
+  assert.match(html, /src="\/assets\/slack-mark\.png"/);
+  assert.doesNotMatch(html, /<svg class="slack-mark"/);
 
   const accepted = await call(baseEnv);
   assert.equal(accepted.status, 303);
