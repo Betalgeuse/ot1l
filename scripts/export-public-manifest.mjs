@@ -111,6 +111,7 @@ export const PUBLIC_MEMBERSHIP_SOURCE_PATHS = [
   "site/dist/assets/affiliations/ewha.png",
   "site/dist/assets/affiliations/visang.png",
   "site/dist/assets/affiliations/samsung.png",
+  "site/dist/assets/affiliations/jnu-medical.png",
   "site/dist/assets/otl1-emoji/ack-yes.png",
   "site/dist/assets/otl1-emoji/finish_flag.png",
   "site/qa/generate-example-board.mts",
