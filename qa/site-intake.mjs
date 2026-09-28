@@ -116,7 +116,7 @@ try {
   const pageText = await page.text();
   assert.match(pageText, new RegExp(referralToken));
   assert.match(pageText, /매일 제일 중요한 일 하나 정해서 같이 끝내는 모임이야/);
-  assert.match(pageText, /홍길동 님이 같이 성장하자고 소개했어요\./);
+  assert.match(pageText, /홍길동 님이 같이 원띵 하자고 초대했어요\./);
   assert.match(pageText, /id="referral-invite"[\s\S]*id="home"/);
   assert.doesNotMatch(pageText, /__REFERRAL_|__INVITER_|__SHARE_|__INTEREST_/);
   const publicJoin = await call("/join");
