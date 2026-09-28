@@ -162,7 +162,7 @@ function referralSection(token: string, inviterByline: string): string {
           <div class="chapter-label"><span>지인의 소개</span><span>초대</span></div>
           <div class="referral-brand">ONE THING 1 LINE</div>
           <div class="hero-copy reveal">
-            <p class="eyebrow">같이 성장하자는 초대</p>
+            <p class="eyebrow">같이 원띵 해요</p>
             <h1 id="referral-title">초대받았어요!</h1>
             <p class="inviter-byline">${inviterByline}</p>
             <p>신뢰하는 지인의 소개로 오늘 가장 중요한 업무 하나를 함께 해냅니다.</p>
@@ -182,7 +182,7 @@ async function referralPage(request: Request, env: SiteEnv, token: string): Prom
   if (!resolved.available) return message(GENERIC_ERROR, 404);
   const html = await assetHtml(env, request, "index.html");
   const inviterByline = resolved.inviterName
-    ? `${escapeHtml(resolved.inviterName)} 님이 같이 성장하자고 소개했어요.`
+    ? `${escapeHtml(resolved.inviterName)} 님이 같이 원띵 하자고 초대했어요.`
     : "지인의 소개로 이곳에 도착했어요.";
   const canonicalUrl = new URL(request.url);
   canonicalUrl.search = "";
@@ -191,7 +191,7 @@ async function referralPage(request: Request, env: SiteEnv, token: string): Prom
     .replace("<!-- __REFERRAL_SLOT__ -->", referralSection(token, inviterByline))
     .replace('<link rel="canonical" href="https://otl1.hyuk.me/">', `<link rel="canonical" href="${escapeHtml(canonicalUrl.href)}">`)
     .replace('<meta property="og:url" content="https://otl1.hyuk.me/">', `<meta property="og:url" content="${escapeHtml(canonicalUrl.href)}">`)
-    .replace('content="ONE THING 1 LINE · 오늘 가장 중요한 업무 하나"', 'content="ONE THING 1 LINE · 같이 성장하자는 초대"')
+    .replace('content="ONE THING 1 LINE · 오늘 가장 중요한 업무 하나"', 'content="ONE THING 1 LINE · 같이 원띵 해요"')
     .replace('<title>ONE THING 1 LINE · 오늘 가장 중요한 업무 하나</title>', '<title>ONE THING 1 LINE · 함께하기</title>')
     .replace('<a class="wordmark" href="#home"', '<a class="wordmark" href="#referral-invite"')
     .replace('<a href="#invitation">함께하기</a>', '<a href="#referral-invite">Slack 참여</a>');
