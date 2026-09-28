@@ -36,7 +36,7 @@ const env = {
   SITE_CORE_HMAC_SECRET: "synthetic-secret-only",
   TURNSTILE_SITE_KEY: "1x00000000000000000000AA",
 };
-const submit = (ip) => siteWorker.fetch(new Request(`https://otl1.hyuk.me/r/${token}/apply`, {
+const submit = (ip) => siteWorker.fetch(new Request(`https://ot1l.hyuk.me/r/${token}/apply`, {
   method: "POST",
   headers: { "cf-connecting-ip": ip },
   body: new URLSearchParams(),
@@ -56,7 +56,7 @@ const oversized = new ReadableStream({
     if (bodyPulls === 12) controller.close();
   },
 });
-const oversizedResponse = await siteWorker.fetch(new Request(`https://otl1.hyuk.me/r/${token}/apply`, {
+const oversizedResponse = await siteWorker.fetch(new Request(`https://ot1l.hyuk.me/r/${token}/apply`, {
   method: "POST",
   headers: { "cf-connecting-ip": "203.0.113.3", "content-type": "application/x-www-form-urlencoded" },
   body: oversized,
@@ -66,7 +66,7 @@ assert.equal(oversizedResponse.status, 422);
 assert.ok(bodyPulls <= 4, `oversized stream consumed ${bodyPulls} chunks`);
 console.log("BOUNDED_REQUEST_BODY=PASS");
 
-const receiptPage = await siteWorker.fetch(new Request(`https://otl1.hyuk.me/receipt/${receipt}`), env);
+const receiptPage = await siteWorker.fetch(new Request(`https://ot1l.hyuk.me/receipt/${receipt}`), env);
 assert.equal(receiptPage.status, 200);
 assert.match(receiptPage.headers.get("content-security-policy") ?? "", /default-src 'self'/);
 assert.equal(receiptPage.headers.get("x-content-type-options"), "nosniff");

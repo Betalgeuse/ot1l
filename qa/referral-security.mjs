@@ -46,7 +46,7 @@ class SecurityBucket {
   }
 }
 const bucket = new SecurityBucket();
-const env = { SITE_CORE_HMAC_SECRET: secret, SLACK_TEAM_ID: "TQA", COMMUNITY_ADMIN_ID: "UADMIN", INVITE_EMAIL_PEPPER: Buffer.alloc(32, 3).toString("base64url"), INVITE_PRIVATE_OBJECTS: bucket, INVITE_PRIVATE_KEK: Buffer.alloc(32, 4).toString("base64url"), INVITE_PRIVATE_KEK_VERSION: "invite-kek-2026-01", REFERRAL_TOKEN_SECRET: "referral-secret", PUBLIC_APPLICATION_ORIGIN: "https://otl1.hyuk.me", SLACK_SIGNING_SECRET: "slack-secret", SLACK_BOT_TOKEN: "xoxb-test" };
+const env = { SITE_CORE_HMAC_SECRET: secret, SLACK_TEAM_ID: "TQA", COMMUNITY_ADMIN_ID: "UADMIN", INVITE_EMAIL_PEPPER: Buffer.alloc(32, 3).toString("base64url"), INVITE_PRIVATE_OBJECTS: bucket, INVITE_PRIVATE_KEK: Buffer.alloc(32, 4).toString("base64url"), INVITE_PRIVATE_KEK_VERSION: "invite-kek-2026-01", REFERRAL_TOKEN_SECRET: "referral-secret", PUBLIC_APPLICATION_ORIGIN: "https://ot1l.hyuk.me", SLACK_SIGNING_SECRET: "slack-secret", SLACK_BOT_TOKEN: "xoxb-test" };
 const request = async ({ signature, nonce = "nonce-security-123456", timestamp = now, requestBody = body }) => handleReferralIntakeRequest(new Request("https://core.invalid/internal/referrals/apply", { method: "POST", headers: { "content-type": "application/json", "x-otl-timestamp": String(timestamp), "x-otl-nonce": nonce, "x-otl-signature": signature }, body: requestBody }), env, store);
 const signature = await signReferralServiceRequest({ method: "POST", path: "/internal/referrals/apply", body, timestamp: now, nonce: "nonce-security-123456" }, secret);
 assert.equal((await request({ signature: "0".repeat(64) })).status, 401);

@@ -145,7 +145,7 @@ const env = {
   SITE_CORE_HMAC_SECRET: secret,
   SLACK_TEAM_ID: "TQA",
   COMMUNITY_ADMIN_ID: "UADMIN",
-  PUBLIC_APPLICATION_ORIGIN: "https://otl1.hyuk.me",
+  PUBLIC_APPLICATION_ORIGIN: "https://ot1l.hyuk.me",
   REFERRAL_TOKEN_SECRET: key,
   INVITE_EMAIL_PEPPER: key,
   INVITE_PRIVATE_OBJECTS: bucket,
@@ -319,7 +319,7 @@ const slack = {
   },
 };
 assert.equal(await handleReferralLinkMessage({ teamId: "TQA", channelId: "CQA", userId: "UMEMBER", text: "내 초대 링크" }, env, store, slack), true);
-assert.match(slackEffects.at(-1).text, /^https:\/\/otl1\.hyuk\.me\/r\/[A-Za-z0-9_-]{32}$/);
+assert.match(slackEffects.at(-1).text, /^https:\/\/ot1l\.hyuk\.me\/r\/[A-Za-z0-9_-]{32}$/);
 const stable = slackEffects.at(-1).text;
 await handleReferralLinkMessage({ teamId: "TQA", channelId: "CQA", userId: "UMEMBER", text: "내 초대 링크" }, env, store, slack);
 assert.equal(slackEffects.at(-1).text, stable);
