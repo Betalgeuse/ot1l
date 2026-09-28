@@ -109,7 +109,6 @@ export const PUBLIC_MEMBERSHIP_SOURCE_PATHS = [
   "site/dist/assets/affiliations/baemin.png",
   "site/dist/assets/affiliations/postech.png",
   "site/dist/assets/affiliations/kaist.gif",
-  "site/dist/assets/affiliations/ewha.png",
   "site/dist/assets/affiliations/visang.png",
   "site/dist/assets/affiliations/samsung.png",
   "site/dist/assets/affiliations/jnu-medical.png",
