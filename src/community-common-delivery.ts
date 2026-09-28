@@ -127,13 +127,15 @@ export async function sendCommonDeliveries(input: {
       );
       sent += 1;
     } catch (error) {
-      if (!(error instanceof CommunitySlackError)) throw error;
       await input.store.finishCommonDelivery({
         ...input.scope,
         leaseToken: delivery.leaseToken,
         status: "failed",
-        errorCode: reminderRetryCode(error),
-        ...(error.retryAfterSeconds === null ? {} : { retryAfterSeconds: error.retryAfterSeconds }),
+        errorCode:
+          error instanceof CommunitySlackError ? reminderRetryCode(error) : "transport_error",
+        ...(error instanceof CommunitySlackError && error.retryAfterSeconds !== null
+          ? { retryAfterSeconds: error.retryAfterSeconds }
+          : {}),
       });
       return sent;
     }

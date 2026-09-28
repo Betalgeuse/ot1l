@@ -111,8 +111,46 @@ try {
   assert.deepEqual(finishes, [
     { ...scope, leaseToken: "retry", status: "sent", messageTs: "200.2" },
   ]);
+
+  const interruptedFinishes = [];
+  let interruptedClaimed = false;
+  const interruptedStore = {
+    async claimCommonDelivery() {
+      if (interruptedClaimed) return null;
+      interruptedClaimed = true;
+      return {
+        leaseToken: "interrupted",
+        attempt: 1,
+        firstAttemptAt: "2026-09-28T01:00:00Z",
+        key: "common:2026-09-28:goal",
+        text,
+        date: "2026-09-28",
+        kind: "goal",
+      };
+    },
+    async putRecord() {
+      throw new TypeError("simulated post-receipt interruption");
+    },
+    async finishCommonDelivery(value) {
+      interruptedFinishes.push(value);
+      return true;
+    },
+  };
+  globalThis.fetch = async () => Response.json({ ok: true, ts: "300.3" });
+  assert.equal(
+    await sendCommonDeliveries({
+      token: "token",
+      now: "2026-09-28T01:00:00Z",
+      scope,
+      store: interruptedStore,
+    }),
+    0,
+  );
+  assert.deepEqual(interruptedFinishes, [
+    { ...scope, leaseToken: "interrupted", status: "failed", errorCode: "transport_error" },
+  ]);
   console.log(
-    "PASS common delivery: bounded 429 retry and exact multi-page history reconciliation prevent duplicate posts",
+    "PASS common delivery: bounded retry, interrupted receipt recovery, and history reconciliation prevent lost posts",
   );
 } finally {
   globalThis.fetch = originalFetch;

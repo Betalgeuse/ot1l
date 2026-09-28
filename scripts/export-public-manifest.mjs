@@ -76,6 +76,7 @@ export const PUBLIC_RUNTIME_MIGRATION_PATHS = [
   "migrations/054_feedback_merge_approval.sql",
   "migrations/055_feedback_merge_approval_timestamp.sql",
   "migrations/056_feedback_static_inspection.sql",
+  "migrations/057_common_delivery_short_lease.sql",
 ];
 
 // `src` and `site` are copied as directories, but these paths keep the membership

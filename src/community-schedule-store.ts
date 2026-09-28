@@ -240,7 +240,11 @@ export class CommunityScheduleStore {
     input: CommunityScope & { readonly now: string; readonly leaseToken: string },
   ): Promise<CommonDelivery | null> {
     if (!Number.isFinite(Date.parse(input.now))) throw new InputError("Invalid time");
-    return commonDelivery(await this.call("claim_common_delivery", input));
+    return commonDelivery(
+      await this.db.queryJson("SELECT otl.claim_common_delivery_v2($1::jsonb)", [
+        JSON.stringify(input),
+      ]),
+    );
   }
   async finishCommonDelivery(
     input: CommunityScope & {
