@@ -6,8 +6,8 @@ const slackInvite = "https://join.slack.com/t/otl1/shared_invite/zt-synthetic-to
 const calls = [];
 const assets = {
   async fetch(request) {
-    if (new URL(request.url).pathname !== "/referral.html") return new Response("not found", { status: 404 });
-    return new Response(await Bun.file("site/dist/referral.html").text(), { headers: { "content-type": "text/html" } });
+    if (new URL(request.url).pathname !== "/index.html") return new Response("not found", { status: 404 });
+    return new Response(await Bun.file("site/dist/index.html").text(), { headers: { "content-type": "text/html" } });
   },
 };
 const core = {
@@ -44,9 +44,11 @@ try {
   const page = await siteWorker.fetch(new Request(`https://otl1.hyuk.me/r/${referralToken}`), baseEnv);
   const html = await page.text();
   assert.doesNotMatch(html, /name="displayName"|name="intent"/);
-  assert.match(html, /name="email"/);
-  assert.match(html, /name="consent"/);
+  assert.doesNotMatch(html, /name="email"|name="consent"/);
   assert.match(html, />Slack에서 함께하기</);
+  assert.match(html, /href="\/join"/);
+  assert.match(html, /id="referral-invite"/);
+  assert.match(html, /id="home"/);
   assert.match(html, /class="slack-mark"[^>]*aria-hidden="true"/);
   assert.match(html, /src="\/assets\/slack-mark\.png"/);
   assert.doesNotMatch(html, /<svg class="slack-mark"/);
@@ -79,7 +81,7 @@ try {
   }
 
   assert.doesNotMatch(JSON.stringify(calls), /join\.slack\.com|zt-synthetic-token/);
-  console.log("PASS site direct join: email-only form, signed Core start, safe 303, fail-closed invite URL, no receipt cookie or secret leak");
+  console.log("PASS site direct join: homepage-composed CTA, signed legacy start, safe 303, fail-closed invite URL, no receipt cookie or secret leak");
 } finally {
   globalThis.fetch = originalFetch;
 }

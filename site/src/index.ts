@@ -147,6 +147,31 @@ async function verifyTurnstile(request: Request, env: SiteEnv, token: string, ac
 async function assetHtml(env: SiteEnv, request: Request, name: string): Promise<string> {
   return (await env.ASSETS.fetch(new Request(new URL(`/${name}`, request.url)))).text();
 }
+function renderInterestSlots(html: string, env: SiteEnv): string {
+  return html
+    .replace("__INTEREST_COPY__", interestEnabled(env)
+      ? "소개 링크가 없다면 운영자에게 비공개 참여 문의를 남길 수 있습니다. 문의만으로 회원이 되거나 초대를 받지는 않습니다."
+      : "소개 링크가 없는 분을 위한 비공개 참여 문의를 준비하고 있습니다. 문의만으로 회원이 되거나 초대를 받지는 않습니다.")
+    .replace("__INTEREST_CTA__", interestEnabled(env)
+      ? '<a class="interest-pending" href="/interest">비공개 참여 문의 남기기</a>'
+      : '<span class="interest-pending">참여 문의 준비 중</span>');
+}
+function referralSection(token: string, inviterByline: string): string {
+  return `<section class="chapter chapter--paper chapter--referral-hero referral-invite-section" id="referral-invite" aria-labelledby="referral-title">
+        <div class="chapter-inner">
+          <div class="chapter-label"><span>지인의 소개</span><span>초대</span></div>
+          <div class="referral-brand">ONE THING 1 LINE</div>
+          <div class="hero-copy reveal">
+            <p class="eyebrow">같이 성장하자는 초대</p>
+            <h1 id="referral-title">초대받았어요!</h1>
+            <p class="inviter-byline">${inviterByline}</p>
+            <p>신뢰하는 지인의 소개로 오늘 가장 중요한 업무 하나를 함께 해냅니다.</p>
+            <a class="button slack-join-button" href="/join"><img class="slack-mark" src="/assets/slack-mark.png" width="22" height="22" alt="" aria-hidden="true"><span>Slack에서 함께하기</span></a>
+            <div class="share-panel referral-share-panel"><p class="eyebrow">함께하고 싶은 사람에게</p><p id="share-copy">${escapeHtml(SHARE_COPY(token))}</p><button type="button" class="button button--quiet" data-copy aria-describedby="copy-status">초대 문구 복사</button><span id="copy-status" class="copy-status" role="status" aria-live="polite"></span></div>
+          </div>
+        </div>
+      </section>`;
+}
 function message(messageText: string, status: number): Response {
   return new Response(`<!doctype html><html lang="ko"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><link rel="stylesheet" href="/styles.css"><body class="status-page"><main><p class="eyebrow">ONE THING</p><h1>${messageText}</h1><a href="/">처음으로</a></main></body></html>`, { status, headers: { "content-type": "text/html;charset=UTF-8" } });
 }
@@ -155,23 +180,21 @@ async function referralPage(request: Request, env: SiteEnv, token: string): Prom
   if (!(await env.RATE_LIMITER.limit({ key: `lookup:${lookupKey}` })).success) return message(GENERIC_ERROR, 429);
   const resolved = await availableLink(env, token);
   if (!resolved.available) return message(GENERIC_ERROR, 404);
-  const html = await assetHtml(env, request, "referral.html");
+  const html = await assetHtml(env, request, "index.html");
   const inviterByline = resolved.inviterName
     ? `${escapeHtml(resolved.inviterName)} 님이 같이 성장하자고 소개했어요.`
     : "지인의 소개로 이곳에 도착했어요.";
-  const directJoinPage = html
-    .replaceAll("__REFERRAL_TOKEN__", token)
-    .replaceAll("__REFERRAL_URL__", escapeHtml(request.url))
-    .replaceAll("__TURNSTILE_SITE_KEY__", env.TURNSTILE_SITE_KEY)
-    .replaceAll("__SHARE_TEXT__", SHARE_COPY(token))
-    .replaceAll("__SUBMISSION_KEY__", crypto.randomUUID())
-    .replaceAll("__INVITER_BYLINE__", inviterByline)
-    .replace(
-      'class="button slack-join-button" href="#application-form"',
-      'class="button slack-join-button" href="/join"',
-    )
-    .replace('action="/r/' + token + '/apply" method="post"', 'action="/join" method="get"')
-    .replaceAll(" required", "");
+  const canonicalUrl = new URL(request.url);
+  canonicalUrl.search = "";
+  canonicalUrl.hash = "";
+  const directJoinPage = renderInterestSlots(html, env)
+    .replace("<!-- __REFERRAL_SLOT__ -->", referralSection(token, inviterByline))
+    .replace('<link rel="canonical" href="https://otl1.hyuk.me/">', `<link rel="canonical" href="${escapeHtml(canonicalUrl.href)}">`)
+    .replace('<meta property="og:url" content="https://otl1.hyuk.me/">', `<meta property="og:url" content="${escapeHtml(canonicalUrl.href)}">`)
+    .replace('content="ONE THING 1 LINE · 오늘 가장 중요한 업무 하나"', 'content="ONE THING 1 LINE · 같이 성장하자는 초대"')
+    .replace('<title>ONE THING 1 LINE · 오늘 가장 중요한 업무 하나</title>', '<title>ONE THING 1 LINE · 함께하기</title>')
+    .replace('<a class="wordmark" href="#home"', '<a class="wordmark" href="#referral-invite"')
+    .replace('<a href="#invitation">함께하기</a>', '<a href="#referral-invite">Slack 참여</a>');
   return new Response(directJoinPage, { headers: { "content-type": "text/html;charset=UTF-8" } });
 }
 
@@ -331,9 +354,9 @@ const siteWorker = {
     let response: Response;
     if (request.method === "GET" && (url.pathname === "/" || url.pathname === "/index.html")) {
       const html = await assetHtml(env, request, "index.html");
-      response = new Response(html.replace("__INTEREST_COPY__", interestEnabled(env) ? "소개 링크가 없다면 운영자에게 비공개 참여 문의를 남길 수 있습니다. 문의만으로 회원이 되거나 초대를 받지는 않습니다." : "소개 링크가 없는 분을 위한 비공개 참여 문의를 준비하고 있습니다. 문의만으로 회원이 되거나 초대를 받지는 않습니다.").replace("__INTEREST_CTA__", interestEnabled(env) ? '<a class="interest-pending" href="/interest">비공개 참여 문의 남기기</a>' : '<span class="interest-pending">참여 문의 준비 중</span>'), { headers: { "content-type": "text/html;charset=UTF-8" } });
+      response = new Response(renderInterestSlots(html, env).replace("<!-- __REFERRAL_SLOT__ -->", ""), { headers: { "content-type": "text/html;charset=UTF-8" } });
     }
-    else if (url.pathname === "/interest.html" || url.pathname === "/receipt.html") response = message(GENERIC_ERROR, 404);
+    else if (url.pathname === "/interest.html" || url.pathname === "/receipt.html" || url.pathname === "/referral.html") response = message(GENERIC_ERROR, 404);
     else if (request.method === "GET" && url.pathname === "/interest") response = await interestPage(request, env);
     else if (request.method === "POST" && url.pathname === "/interest") response = await submitInterest(request, env);
     else if (request.method === "GET" && url.pathname === "/join") {

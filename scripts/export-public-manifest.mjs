@@ -232,6 +232,7 @@ export const PUBLIC_QA_NAMES = [
   "site-intake.mjs",
   "site-direct-join.mjs",
   "site-trust-strip.mjs",
+  "site-referral-composition.mjs",
   "dormant-shoutout.mjs",
   "docs-links.mjs",
   "version-map.mjs",

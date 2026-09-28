@@ -70,6 +70,7 @@ const suites = [
   "referral-direct-join",
   "site-direct-join",
   "site-trust-strip",
+  "site-referral-composition",
   "community-common-delivery",
   "community-schedule-overlap",
   "dormant-shoutout",

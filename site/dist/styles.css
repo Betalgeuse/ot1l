@@ -146,6 +146,9 @@ main > section { scroll-margin-top:82px; }
 .minimal-invitation .interest-callout p { margin:var(--space-10) 0; }
 .referral-brand { margin-top:var(--space-24); font-size:clamp(1rem,2vw,1.45rem); font-weight:900; letter-spacing:.08em; }
 .chapter--referral-hero .hero-copy { max-width:900px; }
+.referral-invite-section .hero-copy { padding-bottom:var(--space-64); }
+.referral-share-panel { max-width:720px; margin-top:var(--space-48); padding-top:var(--space-24); border-top:var(--line-hairline) solid var(--rule); }
+.referral-share-panel p:not(.eyebrow) { white-space:pre-line; }
 
 @media (max-width:760px) {
   .wordmark { font-size:var(--type-12); }
