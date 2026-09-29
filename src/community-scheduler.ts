@@ -144,6 +144,8 @@ export async function runCommunitySchedule(
       ? await store.members(scope.teamId, scope.channelId)
       : [];
   for (const kind of scheduledKinds) {
+    const commonKey = `common:${date}:${kind}`;
+    if (await store.getRecord({ ...scope, key: commonKey })) continue;
     let mentionedMembers = eligibleMembers;
     let highlights: readonly ReviewHighlight[] = [];
     if (kind === "review") {
