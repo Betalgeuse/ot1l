@@ -28,6 +28,20 @@ const text = (value, name, max = 10_000) => {
 };
 export const sha256 = (value) => createHash("sha256").update(value).digest("hex");
 
+export function buildFixBranch(publicAlias, jobId) {
+  text(publicAlias, "publicAlias", 100);
+  if (!Number.isSafeInteger(jobId) || jobId < 1) fail("INVALID_JOB", "job id is invalid");
+  const issuePrefix = `ot1-${jobId}-`;
+  const maxSlugLength = 120 - issuePrefix.length;
+  const slug = publicAlias
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, maxSlugLength)
+    .replace(/-$/g, "");
+  return `feedback/${issuePrefix}${slug || "feedback"}`;
+}
+
 export function parseLease(value) {
   const root = object(value, "lease");
   const job = object(root.job, "job");

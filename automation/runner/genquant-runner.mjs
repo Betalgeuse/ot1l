@@ -12,6 +12,7 @@ import { lstat, mkdir, open, readFile, unlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { isAbsolute, join, resolve } from "node:path";
 import {
+  buildFixBranch,
   buildFixPrompt,
   buildReproductionPrompt,
   parseLease,
@@ -268,11 +269,7 @@ async function fixTaskArtifact(config, lease, taskId, runId) {
     const artifactDigest = sha256(diff);
     command("bun", ["install", "--frozen-lockfile"], { cwd: worktree, timeout: 180_000 });
     command("bun", ["run", "check"], { cwd: worktree, timeout: 20 * 60_000 });
-    const slug = lease.publicAlias
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-|-$/g, "");
-    const branch = `feedback/${slug}-${lease.jobId}`;
+    const branch = buildFixBranch(lease.publicAlias, lease.jobId);
     command("git", ["-C", worktree, "switch", "-c", branch]);
     command("git", ["-C", worktree, "add", "--", ...paths]);
     command("git", [
