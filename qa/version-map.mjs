@@ -39,7 +39,7 @@ function assertRoadmap(document) {
     assert.equal(matches.length, 1, `${version} must have one active roadmap outcome`);
     assert.match(matches[0][1], new RegExp(outcome));
   }
-  assert.match(document, /v0\.0\.56 이후는 미출시 계획/);
+  assert.match(document, /v0\.0\.57 이후는 미출시 계획/);
   assert.match(document, /7개.*관측.*평일/);
   assert.match(document, /7일.*유예/);
   assert.match(document, /사유.*7일.*연장/);
@@ -56,7 +56,7 @@ function assertRoadmap(document) {
 }
 
 function assertHistory(document) {
-  assert.match(document, /현재 운영 기능 기준은 \*\*v0\.0\.55\*\*/);
+  assert.match(document, /현재 운영 기능 기준은 \*\*v0\.0\.56\*\*/);
   assert.match(document, /## 2026-09-20 미출시 초대 한도·관심 문의 삽입 재정렬/);
   for (const [version] of required) assert.match(document, new RegExp(`\\| ${version} \\|`));
   assert.match(document, /미출시 welcome·친구 초대·본명·초대 페이지 원자적 재정렬/);
