@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import {
+  buildFixBranch,
   buildFixPrompt,
   buildReproductionPrompt,
   parseLease,
@@ -8,6 +9,16 @@ import {
   parseTaskUrl,
   reproductionPath,
 } from "../automation/runner/contract.mjs";
+
+assert.equal(buildFixBranch("public-alias", 42), "feedback/ot1-42-public-alias");
+assert.equal(buildFixBranch("  피드백 / 改善  ", 43), "feedback/ot1-43-feedback");
+assert.equal(
+  buildFixBranch("A".repeat(100), Number.MAX_SAFE_INTEGER),
+  `feedback/ot1-${Number.MAX_SAFE_INTEGER}-${"a".repeat(99)}`,
+);
+assert.equal(buildFixBranch("A".repeat(100), Number.MAX_SAFE_INTEGER).length, 129);
+assert.match(buildFixBranch("trailing --- punctuation!", 44), /^feedback\/ot1-44-[a-z0-9-]+$/);
+assert.throws(() => buildFixBranch("alias", 0), /job id is invalid/);
 
 const packet = {
   schemaVersion: "bug_packet.v1",
