@@ -30,7 +30,7 @@ globalThis.fetch = async (url, options = {}) => {
                   ...(notificationKind === "merge_ready"
                     ? {
                         prNumber: 9,
-                        prUrl: "https://github.com/Betalgeuse/otl1/pull/9",
+                        prUrl: "https://github.com/Betalgeuse/ot1l/pull/9",
                         packetRevision: 3,
                         asIs: "기계적인 질문이 반복됩니다.",
                         toBe: "맥락 질문 뒤 관리자가 병합을 승인합니다.",
@@ -55,6 +55,7 @@ try {
   const env = {
     SLACK_TEAM_ID: "TQA",
     SLACK_BOT_TOKEN: "xoxb-test",
+    COMMUNITY_CODEX_REPOSITORY: "Betalgeuse/ot1l",
     DATABASE_URL:
       "postgresql://runtime:secret@ep-example-pooler.c-3.ap-southeast-1.aws.neon.tech/neondb?sslmode=require",
   };

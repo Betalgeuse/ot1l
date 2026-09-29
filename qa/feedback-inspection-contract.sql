@@ -22,14 +22,14 @@ INSERT INTO otl.bug_report_revisions(
  true,clock_timestamp(),repeat('c',64)
 );
 INSERT INTO otl.bug_runner_repository_heads(team_id,repository,branch,head_sha,observed_at,worker_id)
-VALUES('T-FBINSPECT','Betalgeuse/otl1','main',repeat('d',40),clock_timestamp(),'contract-runner');
+VALUES('T-FBINSPECT','Betalgeuse/ot1l','main',repeat('d',40),clock_timestamp(),'contract-runner');
 
 DO $$
 DECLARE queued jsonb; leased jsonb; started jsonb; finished jsonb;
 BEGIN
  queued:=otl.bug_admin_queue(jsonb_build_object(
    'teamId','T-FBINSPECT','bugId','BUG-FBINSPECT0001','reporterId','U-REPORTER','adminId','U-ADMIN',
-   'packetRevision',1,'repository','Betalgeuse/otl1','branch','main',
+   'packetRevision',1,'repository','Betalgeuse/ot1l','branch','main',
    'approvalReceipt',repeat('e',64),'idempotencyKey','fb-inspection-queue'
  ));
  IF queued->>'accepted'<>'true' THEN RAISE EXCEPTION 'feedback queue rejected: %',queued; END IF;

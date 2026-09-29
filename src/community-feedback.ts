@@ -444,6 +444,9 @@ export async function approveCodexMerge(
     ),
   );
   if (approved.accepted !== true) throw new InputError("이 수정안은 지금 병합할 수 없어요.");
+  const repository = context.env.COMMUNITY_CODEX_REPOSITORY;
+  if (!repository || !/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repository))
+    throw new InputError("GenQuant 작업 저장소 연결을 확인해 주세요.");
   await callSlack(context.env.SLACK_BOT_TOKEN, "chat.update", {
     channel: context.scope.channelId,
     ts: context.source,
@@ -453,7 +456,7 @@ export async function approveCodexMerge(
         type: "section",
         text: {
           type: "mrkdwn",
-          text: `*병합 승인됨*\n<https://github.com/Betalgeuse/otl1/pull/${input.prNumber}|변경 내용 보기> · 반영 중`,
+          text: `*병합 승인됨*\n<https://github.com/${repository}/pull/${input.prNumber}|변경 내용 보기> · 반영 중`,
         },
       },
     ],

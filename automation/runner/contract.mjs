@@ -5,6 +5,8 @@ const SHA = /^[a-f0-9]{40,64}$/;
 const DIGEST = /^[a-f0-9]{64}$/;
 const TASK_ID = /^task_[a-z]_[a-f0-9]{32}$/;
 const TASK_URL = /^https:\/\/chatgpt[.]com\/codex\/tasks\/(task_[a-z]_[a-f0-9]{32})$/;
+const GITHUB_REPOSITORY_URL =
+  /^https:\/\/github[.]com\/([A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+?)(?:[.]git)?$/;
 
 export class RunnerContractError extends Error {
   constructor(code, message) {
@@ -27,6 +29,12 @@ const text = (value, name, max = 10_000) => {
   return value;
 };
 export const sha256 = (value) => createHash("sha256").update(value).digest("hex");
+
+export function githubRepositorySlug(repositoryUrl) {
+  const match = GITHUB_REPOSITORY_URL.exec(text(repositoryUrl, "CODEX_REPOSITORY_URL", 2_000));
+  if (!match) fail("CONFIGURATION", "repository URL is invalid");
+  return match[1];
+}
 
 export function buildFixBranch(publicAlias, jobId) {
   text(publicAlias, "publicAlias", 100);
@@ -194,8 +202,7 @@ export function validateRunnerConfig(env) {
     "CODEX_ACCOUNT_ALIAS",
   ];
   for (const name of required) text(env[name], name, 2_000);
-  if (!/^https:\/\/github[.]com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+(?:[.]git)?$/.test(env.CODEX_REPOSITORY_URL))
-    fail("CONFIGURATION", "repository URL is invalid");
+  githubRepositorySlug(env.CODEX_REPOSITORY_URL);
   return env;
 }
 
