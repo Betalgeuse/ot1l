@@ -1,6 +1,7 @@
 import { sendAgentNotifications } from "./community-agent-notifications";
 import { armBugDeliveryClock } from "./community-bug-clock-client";
 import { runDueGardenDeliveries } from "./community-garden-delivery";
+import { collectCurrentChannelMembers } from "./community-membership";
 import { runMembershipDue } from "./community-membership-schedule";
 import type { CommunityEnv } from "./community-runtime";
 import { runCommunitySchedule } from "./community-scheduler";
@@ -67,12 +68,29 @@ export async function communityCron(env: CommunityEnv, scheduledTime: number): P
         }),
       );
     }
-    const membership = await runMembershipDue(
-      env,
-      new NeonStore(env.DATABASE_URL),
-      channel,
-      scheduledTime,
-    );
+    let membership = {
+      possiblyMore: false,
+      nextDue: null as number | null,
+      nextCursor: null as string | null,
+      interestNextCursor: null as string | null,
+    };
+    try {
+      membership = await runMembershipDue(
+        env,
+        new NeonStore(env.DATABASE_URL),
+        channel,
+        scheduledTime,
+      );
+    } catch (error) {
+      if (!(error instanceof Error)) throw error;
+      console.error(
+        JSON.stringify({
+          event: "community.cron.queue.failed",
+          queue: "membership",
+          errorType: error.name,
+        }),
+      );
+    }
     if (
       (membership.possiblyMore || membership.nextCursor) &&
       env.COMMUNITY_CLOCK &&
@@ -84,11 +102,35 @@ export async function communityCron(env: CommunityEnv, scheduledTime: number): P
       );
     let result: { readonly common: number; readonly personal: number } = { common: 0, personal: 0 };
     try {
+      const scheduleStore = new CommunityStore(new NeonStore(env.DATABASE_URL));
       result = await runCommunitySchedule(
         { ...env, COMMUNITY_CHANNEL_ID: channel, COMMUNITY_ADMIN_ID: env.COMMUNITY_ADMIN_ID },
-        new CommunityStore(new NeonStore(env.DATABASE_URL)),
+        scheduleStore,
         new Date(scheduledTime),
       );
+      if (result.common > 0 && channel === env.COMMUNITY_PUBLIC_CHANNEL_ID) {
+        try {
+          const snapshot = await collectCurrentChannelMembers(
+            env.SLACK_BOT_TOKEN,
+            channel,
+            env.COMMUNITY_BOT_USER_ID ?? "",
+            new Date(scheduledTime).toISOString(),
+          );
+          await scheduleStore.reconcileChannelMembers(
+            { teamId: env.SLACK_TEAM_ID, channelId: channel, userId: env.COMMUNITY_ADMIN_ID },
+            snapshot,
+          );
+        } catch (error) {
+          if (!(error instanceof Error)) throw error;
+          console.error(
+            JSON.stringify({
+              event: "community.cron.queue.failed",
+              queue: "membership_refresh",
+              errorType: error.name,
+            }),
+          );
+        }
+      }
     } catch (error) {
       if (!(error instanceof Error)) throw error;
       console.error(

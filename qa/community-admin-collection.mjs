@@ -233,17 +233,7 @@ try {
     200,
   );
   await Promise.all(pending);
-  assert.equal(reconciles.length, 2);
-  assert.ok(
-    reconciles.every(
-      (entry) =>
-        entry.scope.channelId === "CPUBLIC" && entry.snapshot.eligibleHumanIds.length === 2,
-    ),
-  );
-  assert.deepEqual(
-    reconciles.map((entry) => entry.snapshot.observedAt),
-    [new Date(fixtureNow).toISOString(), new Date(fixtureNow).toISOString()],
-  );
+  assert.equal(reconciles.length, 0, "collection QA must use the durable member snapshot");
   assert.equal(batchClaims.length, 2);
   assert.deepEqual(
     batchClaims.map((entry) => entry.now),

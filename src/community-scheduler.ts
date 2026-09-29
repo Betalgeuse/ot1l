@@ -3,10 +3,9 @@ import { enqueueCommonDelivery, sendCommonDeliveries } from "./community-common-
 import { customBotEmoji } from "./community-emoji";
 import { sendDailyFeedbackPrompt } from "./community-feedback";
 import { sendDailyIntroductionReminders } from "./community-introduction-channel";
-import { collectCurrentChannelMembers } from "./community-membership";
 import { sendReminderBatches } from "./community-reminder-batch";
 import type { CommunityStore } from "./community-store";
-import type { ChannelMembershipSnapshot, ReviewHighlight } from "./community-types";
+import type { ReviewHighlight } from "./community-types";
 import { InputError, object, string } from "./input";
 
 export type CommunityScheduleEnv = {
@@ -22,14 +21,12 @@ export type CommunityScheduleEnv = {
   readonly COMMUNITY_INTRO_CANVAS_URL?: string;
   readonly COMMUNITY_INTRO_CHANNEL_ID?: string;
 };
-export type ScheduleClock = { readonly now: () => Date };
 type ScheduleStore = Pick<
   CommunityStore,
   | "getRecord"
   | "putRecord"
   | "claimRecord"
   | "finishRecord"
-  | "reconcileChannelMembers"
   | "members"
   | "listDays"
   | "reviewHighlights"
@@ -105,7 +102,6 @@ export async function runCommunitySchedule(
   env: CommunityScheduleEnv,
   store: ScheduleStore,
   nowDate: Date,
-  clock: ScheduleClock = { now: () => nowDate },
 ): Promise<{ readonly common: number; readonly personal: number }> {
   const scope = {
     teamId: env.SLACK_TEAM_ID,
@@ -113,7 +109,6 @@ export async function runCommunitySchedule(
     userId: env.COMMUNITY_ADMIN_ID,
   };
   const now = nowDate.toISOString();
-  const observedAt = clock.now().toISOString();
   const local = new Date(nowDate.getTime() + 9 * 60 * 60 * 1000).toISOString();
   const date = local.slice(0, 10);
   const minute = local.slice(11, 16);
@@ -131,10 +126,9 @@ export async function runCommunitySchedule(
     if (!schedule?.enabled) return false;
     if (optionalDay && kind === "review") return false;
     const due = optionalDay ? "10:00" : kind === "goal" ? schedule.goalTime : schedule.reviewTime;
-    const late = minutes(minute) - minutes(due);
-    return late >= 0 && late <= 5;
+    const end = optionalDay || kind === "review" ? "22:00" : schedule.reviewTime;
+    return minutes(minute) >= minutes(due) && minutes(minute) < minutes(end);
   });
-  let snapshot: ChannelMembershipSnapshot | null = null;
   const publicChannel = env.COMMUNITY_PUBLIC_CHANNEL_ID === scope.channelId;
   const navigation = {
     ...(env.COMMUNITY_GUIDE_CANVAS_URL ? { guideUrl: env.COMMUNITY_GUIDE_CANVAS_URL } : {}),
@@ -144,18 +138,11 @@ export async function runCommunitySchedule(
     !optionalDay && publicChannel
       ? await store.reminderTriggerDue(scope.teamId, scope.channelId, now)
       : false;
-  if (!optionalDay && publicChannel && (scheduledKinds.length > 0 || targetedDue)) {
-    snapshot = await collectCurrentChannelMembers(
-      env.SLACK_BOT_TOKEN,
-      scope.channelId,
-      env.COMMUNITY_BOT_USER_ID ?? "",
-      observedAt,
-    );
-    await store.reconcileChannelMembers(scope, snapshot);
-  }
   let common = 0;
   const eligibleMembers =
-    snapshot && scheduledKinds.length ? await store.members(scope.teamId, scope.channelId) : [];
+    publicChannel && !optionalDay && scheduledKinds.length
+      ? await store.members(scope.teamId, scope.channelId)
+      : [];
   for (const kind of scheduledKinds) {
     let mentionedMembers = eligibleMembers;
     let highlights: readonly ReviewHighlight[] = [];
