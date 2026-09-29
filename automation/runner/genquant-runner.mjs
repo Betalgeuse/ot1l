@@ -15,6 +15,7 @@ import {
   buildFixBranch,
   buildFixPrompt,
   buildReproductionPrompt,
+  githubRepositorySlug,
   parseLease,
   parseReproductionReceipt,
   parseTaskStatus,
@@ -225,6 +226,7 @@ async function validateTaskArtifact(config, lease, taskId, runId) {
 
 async function fixTaskArtifact(config, lease, taskId, runId) {
   const repository = await ensureRepository(config.BUG_RUNNER_ROOT, config.CODEX_REPOSITORY_URL);
+  const repositorySlug = githubRepositorySlug(config.CODEX_REPOSITORY_URL);
   command("git", ["-C", repository, "fetch", "--no-tags", "origin", config.CODEX_BASE_BRANCH], {
     timeout: 180_000,
   });
@@ -295,7 +297,7 @@ async function fixTaskArtifact(config, lease, taskId, runId) {
         "pr",
         "create",
         "--repo",
-        "Betalgeuse/otl1",
+        repositorySlug,
         "--base",
         "main",
         "--head",
@@ -309,7 +311,7 @@ async function fixTaskArtifact(config, lease, taskId, runId) {
       { cwd: worktree, timeout: 120_000 },
     ).trim();
     const pr = JSON.parse(
-      command("gh", ["pr", "view", prUrl, "--repo", "Betalgeuse/otl1", "--json", "number,url"], {
+      command("gh", ["pr", "view", prUrl, "--repo", repositorySlug, "--json", "number,url"], {
         cwd: worktree,
       }),
     );
@@ -360,12 +362,13 @@ async function processApprovedMerge(db, config, workerId) {
   const changeId = Number(claim.changeId);
   if (!Number.isSafeInteger(prNumber) || !Number.isSafeInteger(changeId))
     throw new Error("merge claim identity invalid");
-  const prUrl = `https://github.com/Betalgeuse/otl1/pull/${prNumber}`;
+  const repositorySlug = githubRepositorySlug(config.CODEX_REPOSITORY_URL);
+  const prUrl = `https://github.com/${repositorySlug}/pull/${prNumber}`;
   try {
-    command("gh", ["pr", "ready", prUrl, "--repo", "Betalgeuse/otl1"]);
+    command("gh", ["pr", "ready", prUrl, "--repo", repositorySlug]);
     command(
       "gh",
-      ["pr", "merge", prUrl, "--repo", "Betalgeuse/otl1", "--squash", "--delete-branch"],
+      ["pr", "merge", prUrl, "--repo", repositorySlug, "--squash", "--delete-branch"],
       { timeout: 180_000 },
     );
     const merged = JSON.parse(
@@ -374,7 +377,7 @@ async function processApprovedMerge(db, config, workerId) {
         "view",
         prUrl,
         "--repo",
-        "Betalgeuse/otl1",
+        repositorySlug,
         "--json",
         "state,mergeCommit",
       ]),
@@ -409,7 +412,7 @@ async function processApprovedMerge(db, config, workerId) {
 async function processOne(config) {
   const db = sqlClient(config.BUG_RUNNER_DATABASE_URL);
   const workerId = config.BUG_RUNNER_WORKER_ID ?? "genquant-primary";
-  const repository = new URL(config.CODEX_REPOSITORY_URL).pathname.replace(/^\/+|[.]git$/g, "");
+  const repository = githubRepositorySlug(config.CODEX_REPOSITORY_URL);
   const remoteHead = command("git", [
     "ls-remote",
     config.CODEX_REPOSITORY_URL,
@@ -500,7 +503,9 @@ async function processOne(config) {
         resultDigest,
         branch: fix.branch,
         headSha: fix.headSha,
+        repository,
         prNumber: fix.prNumber,
+        prUrl: fix.prUrl,
         summary,
       });
       log("bug.runner.merge_ready", { bugId: lease.bugId, jobId: lease.jobId, runId });

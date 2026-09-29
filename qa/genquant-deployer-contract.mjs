@@ -14,7 +14,7 @@ assert.throws(() => validateDeployerConfig({}), /missing deployer config/);
 assert.equal(validateDeployerConfig({
   BUG_RUNNER_DATABASE_URL: "postgresql://u:p@example.neon.tech/db",
   SLACK_TEAM_ID: "TQA",
-  CODEX_REPOSITORY_URL: "https://github.com/Betalgeuse/otl1.git",
+  CODEX_REPOSITORY_URL: "https://github.com/Betalgeuse/ot1l.git",
   CODEX_BASE_BRANCH: "main",
   BUG_DEPLOY_CHECKOUT: "/home/opc/otl1-bug-runner/current",
   BUG_DEPLOY_SERVICE: "otl1-bug-runner.service",

@@ -29,4 +29,4 @@ bun install --frozen-lockfile
 bun run check
 ```
 
-공개 코드: https://github.com/Betalgeuse/otl1
+공개 코드: https://github.com/Betalgeuse/ot1l

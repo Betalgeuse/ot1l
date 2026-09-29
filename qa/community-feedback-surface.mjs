@@ -157,7 +157,7 @@ try {
           "postgresql://runtime:secret@ep-example-pooler.c-3.ap-southeast-1.aws.neon.tech/neondb?sslmode=require",
         SLACK_BOT_TOKEN: "fake",
         BUG_RUNNER_ENABLED: "true",
-        COMMUNITY_CODEX_REPOSITORY: "Betalgeuse/otl1",
+        COMMUNITY_CODEX_REPOSITORY: "Betalgeuse/ot1l",
         COMMUNITY_CODEX_BRANCH: "main",
         COMMUNITY_FEEDBACK_CHANNEL_ID: "CFEEDBACK",
       },
@@ -191,7 +191,7 @@ try {
   assert.equal(calls.find((call) => call.method === "users.info")?.authorization, "Bearer fake");
   const queueCall = calls.find((call) => call.method === "sql");
   assert.match(queueCall.body.params[0], /"reporterId":"UREPORTER"/);
-  assert.match(queueCall.body.params[0], /"repository":"Betalgeuse\/otl1"/);
+  assert.match(queueCall.body.params[0], /"repository":"Betalgeuse\/ot1l"/);
   assert.match(queueCall.body.params[0], /"branch":"main"/);
   await approveCodexMerge(
     {
@@ -199,6 +199,7 @@ try {
         DATABASE_URL:
           "postgresql://runtime:secret@ep-example-pooler.c-3.ap-southeast-1.aws.neon.tech/neondb?sslmode=require",
         SLACK_BOT_TOKEN: "fake",
+        COMMUNITY_CODEX_REPOSITORY: "Betalgeuse/ot1l",
       },
       scope: { teamId: "TQA", channelId: "CFEEDBACK", userId: "UADMIN" },
       source: "123.100",
@@ -232,7 +233,7 @@ try {
               "postgresql://runtime:secret@ep-example-pooler.c-3.ap-southeast-1.aws.neon.tech/neondb?sslmode=require",
             SLACK_BOT_TOKEN: "fake",
             BUG_RUNNER_ENABLED: "true",
-            COMMUNITY_CODEX_REPOSITORY: "Betalgeuse/otl1",
+            COMMUNITY_CODEX_REPOSITORY: "Betalgeuse/ot1l",
             COMMUNITY_CODEX_BRANCH: "main",
           },
           scope: { teamId: "TQA", channelId: "CFEEDBACK", userId: "UADMIN" },

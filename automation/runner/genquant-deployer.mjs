@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { resolve } from "node:path";
-import { sha256 } from "./contract.mjs";
+import { githubRepositorySlug, sha256 } from "./contract.mjs";
 
 const SHA = /^[a-f0-9]{40}$/;
 const SAFE_ERROR = /^[a-z0-9_]{1,120}$/;
@@ -42,8 +42,11 @@ export function validateDeployerConfig(env) {
   ])
     if (typeof env[name] !== "string" || !env[name].trim())
       throw new Error(`missing deployer config: ${name}`);
-  if (!/^https:\/\/github[.]com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+(?:[.]git)?$/.test(env.CODEX_REPOSITORY_URL))
+  try {
+    githubRepositorySlug(env.CODEX_REPOSITORY_URL);
+  } catch {
     throw new Error("invalid deploy repository URL");
+  }
   if (!/^[A-Za-z0-9_.@-]+[.]service$/.test(env.BUG_DEPLOY_SERVICE))
     throw new Error("invalid deploy service");
   return env;

@@ -29,7 +29,7 @@ type Notification = {
   readonly toBe: string | null;
 };
 
-function parseNotification(value: unknown): Notification {
+function parseNotification(value: unknown, repository: string): Notification {
   const row = object(value);
   const payload = object(row.payload);
   const notificationId = Number(row.notification_id);
@@ -67,7 +67,8 @@ function parseNotification(value: unknown): Notification {
     prNumber: Number.isSafeInteger(Number(payload.prNumber)) ? Number(payload.prNumber) : null,
     prUrl:
       typeof payload.prUrl === "string" &&
-      /^https:\/\/github[.]com\/Betalgeuse\/otl1\/pull\/\d+$/.test(payload.prUrl)
+      payload.prUrl.startsWith(`https://github.com/${repository}/pull/`) &&
+      /^https:\/\/github[.]com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\/pull\/\d+$/.test(payload.prUrl)
         ? payload.prUrl
         : null,
     packetRevision: Number.isSafeInteger(Number(payload.packetRevision))
@@ -137,7 +138,10 @@ function mergeReadyMessage(input: Notification) {
 }
 
 export async function sendAgentNotifications(
-  env: Pick<CommunityEnv, "SLACK_TEAM_ID" | "SLACK_BOT_TOKEN" | "DATABASE_URL">,
+  env: Pick<
+    CommunityEnv,
+    "SLACK_TEAM_ID" | "SLACK_BOT_TOKEN" | "DATABASE_URL" | "COMMUNITY_CODEX_REPOSITORY"
+  >,
   now = new Date(),
 ): Promise<{ readonly claimed: number; readonly sent: number; readonly failed: number }> {
   const db = new NeonStore(env.DATABASE_URL);
@@ -148,8 +152,11 @@ export async function sendAgentNotifications(
   if (!Array.isArray(claimed)) throw new TypeError("invalid agent notification batch");
   let sent = 0;
   let failed = 0;
+  const repository = env.COMMUNITY_CODEX_REPOSITORY;
+  if (!repository || !/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repository))
+    throw new TypeError("invalid agent repository");
   for (const raw of claimed) {
-    const item = parseNotification(raw);
+    const item = parseNotification(raw, repository);
     try {
       if (
         item.kind === "task_failed" ||

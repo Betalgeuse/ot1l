@@ -80,6 +80,7 @@ export const PUBLIC_RUNTIME_MIGRATION_PATHS = [
   "migrations/058_verified_feedback_deployment.sql",
   "migrations/059_early_review_recognition.sql",
   "migrations/060_genquant_runner_auto_deploy.sql",
+  "migrations/061_repository_identity.sql",
 ];
 
 // `src` and `site` are copied as directories, but these paths keep the membership
