@@ -34,13 +34,12 @@ const card = communityStatusMessage({
 });
 assert.match(card.text, /의미 있는 진전/);
 
-assert.equal(
-  parseReflectionHeader(
-    "후기: 진전. 접근법 두 개를 검증해 하나를 버리고 다음 행동을 정했어요.",
-    "2026-09-30",
-  )?.outcome,
-  "progress",
+const progressHeader = parseReflectionHeader(
+  "후기: 진전. 접근법 두 개를 검증해 하나를 버리고 다음 행동을 정했어요.",
+  "2026-09-30",
 );
+assert.equal(progressHeader?.outcome, "progress");
+assert.equal(progressHeader?.text, "접근법 두 개를 검증해 하나를 버리고 다음 행동을 정했어요.");
 assert.deepEqual(parseInterpretation({ intent: "reflection", outcome: "progress" }), {
   intent: "reflection",
   outcome: "progress",

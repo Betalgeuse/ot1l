@@ -131,9 +131,13 @@ export function parseReflectionHeader(text: string, today: string): ReflectionHe
       /(?:모두|전부|다)\s*(?:완료|달성|했)|완료했|달성했/.test(checkedTail)
     )
       return null;
-    const substance = checkedTail.replace(/:[a-zA-Z0-9_+-]+:/g, "");
+    const reflectionText = checkedTail
+      .replace(/^[\s.!。！,，…]+/u, "")
+      .replace(/^[:：]\s+/u, "")
+      .trim();
+    const substance = reflectionText.replace(/:[a-zA-Z0-9_+-]+:/g, "");
     const hasReflection = outcome !== "rest" && /[\p{L}\p{N}]/u.test(substance);
-    return { date, outcome, text: original, hasReflection };
+    return { date, outcome, text: hasReflection ? reflectionText : original, hasReflection };
   }
   return null;
 }
