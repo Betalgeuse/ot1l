@@ -23,11 +23,12 @@ export function pilotReply(result: Interpretation): string {
     case "ignore":
       return `목표나 수행 상태에 대한 본인 보고로 보지 않았어요.${suffix}`;
     case "unclear":
-      return `오늘 *ONE THING*을 완료하셨나요? 완료·일부 진행·못함·오늘 쉬기 중 하나로 알려주세요.${suffix}`;
+      return `오늘 *ONE THING*은 어디까지 갔나요? 완료·의미 있는 진전·부분 완료·미완료·휴식 중 하나로 알려주세요.${suffix}`;
     case "reflection": {
       const labels = {
         complete: "완료",
-        partial: "부분 진행",
+        progress: "의미 있는 진전",
+        partial: "부분 완료",
         not_done: "미수행",
         unknown: "확인 필요",
       };

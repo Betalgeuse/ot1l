@@ -48,7 +48,7 @@ function preferences(value: unknown): SupportPreferences {
 function reviewHighlight(value: unknown): ReviewHighlight {
   const input = object(value);
   const result = string(input.outcome);
-  if (!["pending", "complete", "partial", "not_done"].includes(result))
+  if (!["pending", "complete", "progress", "partial", "not_done"].includes(result))
     throw new InputError("Invalid review highlight outcome");
   const reviewedAt = string(input.reviewedAt);
   if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(reviewedAt))

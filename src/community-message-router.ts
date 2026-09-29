@@ -167,7 +167,7 @@ export async function dispatchCommunityMessage(
     case "unclear":
       if (!intent.currentDateSafe) {
         await ephemeral(context, {
-          text: "날짜가 있는 수행 기록은 한 날짜와 완료·부분 완료·미완료·휴식을 함께 알려주세요. 아직 기록을 바꾸지 않았어요.",
+          text: "날짜가 있는 수행 기록은 한 날짜와 완료·의미 있는 진전·부분 완료·미완료·휴식을 함께 알려주세요. 아직 기록을 바꾸지 않았어요.",
         });
         return;
       }

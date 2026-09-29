@@ -42,7 +42,10 @@ mock.module("../src/community-records.ts", () => ({
     context.store.current = {
       ...current,
       outcome:
-        change.action === "complete" || change.action === "partial" || change.action === "not_done"
+        change.action === "complete" ||
+        change.action === "progress" ||
+        change.action === "partial" ||
+        change.action === "not_done"
           ? change.action
           : current.outcome,
       resting: change.action === "rest",
@@ -116,13 +119,15 @@ const context = {
 
 await captureReflectionAwaitingOutcome(context, day);
 assert.equal(posts.length, 1);
-assert.match(posts[0].text, /2026-09-15 결과는 완료·부분 완료·미완료·휴식/);
+assert.match(posts[0].text, /완료: 오늘 정한 결과까지/);
+assert.match(posts[0].text, /진전: 결과까지 못 갔지만/);
 assert.doesNotMatch(JSON.stringify(posts[0]), /자료조사 방향/);
 const pending = [...store.records.values()].find((record) => record.kind === "reflection_outcome");
 assert.equal(pending.status, "pending", "unanswered question persists indefinitely");
 const buttons = posts[0].blocks.at(-1).elements;
 assert.deepEqual(buttons.map((button) => button.action_id), [
   "community_complete",
+  "community_progress",
   "community_partial",
   "community_not_done",
   "community_rest",
@@ -278,6 +283,24 @@ await processRecordAction(
 );
 assert.equal(fourthStore.current.outcome, "partial");
 assert.equal(fourthStore.current.reflection, day.reflection);
+
+const progressStore = fakeStore(day);
+const progressContext = { ...context, store: progressStore, key: "interaction:progress" };
+await captureReflectionAwaitingOutcome(progressContext, day);
+const progressPending = [...progressStore.records.values()].find(
+  (record) => record.kind === "reflection_outcome",
+);
+const progressButton = posts.at(-1).blocks.at(-1).elements.find(
+  (button) => button.action_id === "community_progress",
+);
+await processRecordAction(
+  progressContext,
+  "community_progress",
+  progressPending.key,
+  JSON.parse(progressButton.value),
+);
+assert.equal(progressStore.current.outcome, "progress");
+assert.equal(progressStore.current.reflection, day.reflection);
 
 console.log(
   "PASS durable public outcome question is private-text-free, retryable, owner/date/revision-bound, and optional",

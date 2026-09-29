@@ -25,7 +25,8 @@ export async function adminCommand(context: CommunityContext, text: string): Pro
       const labels = {
         pending: "완료 여부 미확인",
         complete: "완료",
-        partial: "일부 진행",
+        progress: "의미 있는 진전",
+        partial: "부분 완료",
         not_done: "미수행",
       } as const;
       const rows = days.map(

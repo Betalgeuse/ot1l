@@ -24,6 +24,7 @@ function outcome(value: unknown): Outcome {
   switch (value) {
     case "pending":
     case "complete":
+    case "progress":
     case "partial":
     case "not_done":
       return value;

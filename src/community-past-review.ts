@@ -10,7 +10,7 @@ export type PastReviewBinding = {
 };
 
 export type PastReviewInput = PastReviewBinding & {
-  readonly outcome: "complete" | "partial" | "not_done";
+  readonly outcome: "complete" | "progress" | "partial" | "not_done";
   readonly reflection: string;
 };
 
@@ -41,9 +41,10 @@ export async function openPastReviewModal(
   if (!reviewable(day, binding))
     throw new InputError("이미 정리됐거나 그 뒤에 바뀐 기록이에요. 현재 상태를 확인해 주세요.");
   const options = [
-    { text: { type: "plain_text", text: "완료했어요" }, value: "complete" },
-    { text: { type: "plain_text", text: "일부 진행했어요" }, value: "partial" },
-    { text: { type: "plain_text", text: "못 했어요" }, value: "not_done" },
+    { text: { type: "plain_text", text: "계획 완료" }, value: "complete" },
+    { text: { type: "plain_text", text: "의미 있는 진전" }, value: "progress" },
+    { text: { type: "plain_text", text: "부분 완료" }, value: "partial" },
+    { text: { type: "plain_text", text: "미완료" }, value: "not_done" },
   ];
   const initial = options.find((option) => option.value === day.outcome);
   await openView(context.env.SLACK_BOT_TOKEN, {
@@ -161,9 +162,10 @@ export async function openPastReviewPickerModal(
             type: "static_select",
             action_id: "value",
             options: [
-              { text: { type: "plain_text", text: "완료했어요" }, value: "complete" },
-              { text: { type: "plain_text", text: "일부 진행했어요" }, value: "partial" },
-              { text: { type: "plain_text", text: "못 했어요" }, value: "not_done" },
+              { text: { type: "plain_text", text: "계획 완료" }, value: "complete" },
+              { text: { type: "plain_text", text: "의미 있는 진전" }, value: "progress" },
+              { text: { type: "plain_text", text: "부분 완료" }, value: "partial" },
+              { text: { type: "plain_text", text: "미완료" }, value: "not_done" },
             ],
           },
         },
@@ -199,7 +201,7 @@ export function parsePastReviewSubmission(
   const errors: Record<string, string> = {};
   if (!reflection || [...reflection].length > 2000)
     errors.reflection = "후기는 1~2000자로 적어 주세요.";
-  if (!["complete", "partial", "not_done"].includes(selected))
+  if (!["complete", "progress", "partial", "not_done"].includes(selected))
     errors.outcome = "완료 상태를 골라 주세요.";
   if (Object.keys(errors).length) return { errors };
   const selectedDate = values.date
@@ -208,7 +210,10 @@ export function parsePastReviewSubmission(
   const binding = pastReviewBinding(
     selectedDate === undefined ? metadata : object(JSON.parse(string(selectedDate))),
   );
-  const outcome = selected === "complete" || selected === "partial" ? selected : "not_done";
+  const outcome =
+    selected === "complete" || selected === "progress" || selected === "partial"
+      ? selected
+      : "not_done";
   return { ...binding, outcome, reflection };
 }
 

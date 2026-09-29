@@ -6,7 +6,7 @@ export type StatusCard = {
   readonly userId: string;
   readonly date: string;
   readonly goal: string | null;
-  readonly outcome: "complete" | "partial" | "not_done" | "unknown";
+  readonly outcome: "complete" | "progress" | "partial" | "not_done" | "unknown";
   readonly reflection: string | null;
   readonly rest: boolean;
   readonly undoValue: string | null;
@@ -46,8 +46,9 @@ function button(choice: CommunityChoice): Json {
 export function communityStatusMessage(input: StatusCard): Json {
   const labels = {
     complete: "완료 ✅",
-    partial: "일부 진행 🌱",
-    not_done: "아직 못 했어요",
+    progress: "의미 있는 진전 🔎",
+    partial: "부분 완료 🌱",
+    not_done: "미완료",
     unknown: "완료 여부 미확인",
   } as const;
   const status = input.rest ? "오늘은 쉬어요 ☕" : labels[input.outcome];
