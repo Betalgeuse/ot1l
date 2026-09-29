@@ -156,6 +156,10 @@ export async function applyChange(context: CommunityContext, change: DayChange):
     return;
   }
   if (!result.changed) {
+    if (result.gardenDeliveryKey) {
+      await publishStatus(context, result.day, null, result.gardenDeliveryKey);
+      return;
+    }
     await textReply(context, "이미 반영된 기록이에요.");
     return;
   }
