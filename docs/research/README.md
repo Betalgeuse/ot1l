@@ -4,4 +4,5 @@
 
 ## 최근 조사
 
-- [프라이빗 하우스 운영 모델: Soho House부터 Hampton·YPO까지](./DESIGN_JOURNAL.md#2026-09-29--프라이빗-하우스-운영-모델-조사)
+- [프라이빗 하우스 운영 설계](./PRIVATE_HOUSE.md): 사례 조사, 사교·이벤트 구조, Townhall 익명 의견 수렴 계획
+- [이론 기반 설계 일지](./DESIGN_JOURNAL.md): 판단 변화, 근거와 한계의 날짜별 기록
