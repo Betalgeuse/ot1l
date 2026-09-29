@@ -11,6 +11,7 @@ const suites = [
   "community-feedback-surface",
   "community-agent-notifications",
   "genquant-runner-contract",
+  "genquant-deployer-contract",
   "bug-runner-bootstrap",
   "community-questions",
   "private-controls",

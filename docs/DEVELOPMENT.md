@@ -144,3 +144,7 @@ cd /tmp/otl1-public-review && bun run check
 ## 즉시 Slack 참여 로컬 검증
 
 `SLACK_SHARED_INVITE_URL`은 Site Worker secret 이름으로만 선언하고 값은 저장소에 기록하지 않습니다. 로컬 QA는 합성 `join.slack.com` URL과 fake Core를 사용하며 외부 Slack으로 이동하거나 가입을 만들지 않습니다. migration 042, `qa/referral-direct-join.mjs`, `qa/site-direct-join.mjs`, `qa/instant-shared-invite-pg.mjs`와 release rehearsal이 모두 통과한 뒤에도 운영 migration·secret 설치·플래그 활성화·실제 `team_join` 관찰은 별도 단계입니다. 공유 링크는 방문자에게 최종 노출될 수 있으므로 유출 시 두 referral flag를 닫고 Slack에서 링크를 회수·교체합니다.
+
+### GenQuant 조건부 자동 배포
+
+관리자가 병합을 승인하면 `otl1-bug-deployer.timer`가 병합된 정확한 SHA를 DB lease로 가져옵니다. 현재 배포 SHA부터 승인 SHA까지의 모든 변경 경로가 `automation/runner/`, runner 계약 QA, `ops/genquant/`, 문서와 공개 manifest에만 속할 때만 fast-forward합니다. runner 계약 테스트, systemd 재시작, exact HEAD, 서비스 `active`, 실제 `feedback/ot1-<job>-...` 브랜치 probe를 모두 통과해야 `bug_runner_finish_deployment`가 운영 영수증을 기록합니다. `src/`, `site/`, migration, package 또는 그 밖의 경로가 하나라도 포함되면 `manual_required`로 남기며 자동 배포하지 않습니다. 진행 중인 leased job이 있으면 deployment claim 자체를 보류합니다.

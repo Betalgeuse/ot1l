@@ -1,0 +1,20 @@
+[Unit]
+Description=OT1L approved GenQuant runner deployment
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=%h/.config/otl1-bug-runner/env
+Environment=PATH=%h/.npm-global/bin:/usr/local/bin:/usr/bin:/bin
+Environment="NODE_OPTIONS=--dns-result-order=ipv4first --no-network-family-autoselection"
+WorkingDirectory=%h/otl1-bug-runner/current
+ExecStart=/usr/bin/node automation/runner/genquant-deployer.mjs
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=%h/otl1-bug-runner/current %h/.local/state/otl1-bug-runner
+StandardOutput=append:%h/.local/state/otl1-bug-runner/deployer.log
+StandardError=append:%h/.local/state/otl1-bug-runner/deployer.log

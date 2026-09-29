@@ -97,6 +97,16 @@ try {
     .filter((call) => call.url.includes("reactions."))
     .map((call) => new URL(call.url).pathname.split("/").at(-1));
   assert.deepEqual(deployedReactionMethods, ["reactions.remove", "reactions.add"]);
+  calls.length = 0;
+  notificationKind = "deployment_manual";
+  const manual = await sendAgentNotifications(env, new Date("2026-09-24T13:02:00Z"));
+  assert.deepEqual(manual, { claimed: 1, sent: 1, failed: 0 });
+  const manualPost = calls.find((call) => call.url.includes("chat.postMessage"));
+  assert.match(manualPost.body.text, /운영자 배포가 필요해요/);
+  const manualReactionMethods = calls
+    .filter((call) => call.url.includes("reactions."))
+    .map((call) => new URL(call.url).pathname.split("/").at(-1));
+  assert.deepEqual(manualReactionMethods, ["reactions.remove", "reactions.add"]);
   console.log(
     "PASS agent notifications: review, merge, deployment, and final check remain distinct",
   );
