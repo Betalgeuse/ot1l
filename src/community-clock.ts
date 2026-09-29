@@ -13,13 +13,10 @@ import {
   runBugDeliveryClockAlarm,
 } from "./community-clock-bug";
 import { publishGardenRequest } from "./community-clock-garden";
-import { refreshCommunitySchedule } from "./community-clock-schedule";
+import { refreshCommunityQueueClock } from "./community-clock-schedule";
 import { runDueGardenDeliveries } from "./community-garden-delivery";
 import { runMembershipDue } from "./community-membership-schedule";
 import type { CommunityEnv } from "./community-runtime";
-import { runCommunitySchedule } from "./community-scheduler";
-import { CommunitySlackError } from "./community-social";
-import { CommunityStore } from "./community-store";
 import { InputError } from "./input";
 import { NeonStore } from "./store";
 
@@ -113,7 +110,7 @@ export class CommunityClock extends DurableObject<CommunityEnv> {
   }
 
   private refreshSchedule(channelId: string): Promise<{ readonly next: number | null }> {
-    return refreshCommunitySchedule(this.env, this.ctx.storage, channelId);
+    return refreshCommunityQueueClock(this.env, this.ctx.storage, channelId);
   }
 
   async inspect(): Promise<ClockInspection> {
@@ -143,7 +140,6 @@ export class CommunityClock extends DurableObject<CommunityEnv> {
       if (!role) await this.ctx.storage.put("role", COMMUNITY_SCHEDULE_CLOCK_ROLE);
       try {
         const now = new Date(Date.now());
-        let scheduleRetry: number | null = null;
         let garden: { readonly processed: number; readonly nextDue: number | null } = {
           processed: 0,
           nextDue: null,
@@ -161,60 +157,38 @@ export class CommunityClock extends DurableObject<CommunityEnv> {
           );
           garden = { processed: 0, nextDue: now.getTime() + 60_000 };
         }
-        const membership = await runMembershipDue(
-          this.env,
-          new NeonStore(this.env.DATABASE_URL),
-          channelId,
-          now.getTime(),
-          await this.ctx.storage.get<string>("referralReconcileCursor"),
-          await this.ctx.storage.get<string>("interestReconcileCursor"),
-        );
+        let membership = {
+          possiblyMore: false,
+          nextDue: null as number | null,
+          nextCursor: null as string | null,
+          interestNextCursor: null as string | null,
+        };
+        try {
+          membership = await runMembershipDue(
+            this.env,
+            new NeonStore(this.env.DATABASE_URL),
+            channelId,
+            now.getTime(),
+            await this.ctx.storage.get<string>("referralReconcileCursor"),
+            await this.ctx.storage.get<string>("interestReconcileCursor"),
+          );
+        } catch (error) {
+          if (!(error instanceof Error)) throw error;
+          console.error(
+            JSON.stringify({
+              event: "community.clock.queue.failed",
+              queue: "membership",
+              errorType: error.name,
+            }),
+          );
+          membership = { ...membership, nextDue: now.getTime() + 60_000 };
+        }
         if (membership.nextCursor === null)
           await this.ctx.storage.delete("referralReconcileCursor");
         else await this.ctx.storage.put("referralReconcileCursor", membership.nextCursor);
         if (membership.interestNextCursor === null)
           await this.ctx.storage.delete("interestReconcileCursor");
         else await this.ctx.storage.put("interestReconcileCursor", membership.interestNextCursor);
-        if (
-          this.env.COMMUNITY_ENABLED === "true" &&
-          this.env.COMMUNITY_ADMIN_ID &&
-          [this.env.COMMUNITY_CHANNEL_ID, this.env.COMMUNITY_PUBLIC_CHANNEL_ID].includes(channelId)
-        ) {
-          try {
-            const result = await runCommunitySchedule(
-              {
-                ...this.env,
-                COMMUNITY_CHANNEL_ID: channelId,
-                COMMUNITY_ADMIN_ID: this.env.COMMUNITY_ADMIN_ID,
-              },
-              new CommunityStore(new NeonStore(this.env.DATABASE_URL)),
-              now,
-            );
-            await this.ctx.storage.put("lastRun", { at: now.getTime(), ...result });
-          } catch (error) {
-            if (!(error instanceof Error)) throw error;
-            console.error(
-              JSON.stringify({
-                event: "community.clock.queue.failed",
-                queue: "reminders",
-                errorType: error.name,
-              }),
-            );
-            const retrySeconds =
-              error instanceof CommunitySlackError ? (error.retryAfterSeconds ?? 60) : 60;
-            scheduleRetry = now.getTime() + Math.min(retrySeconds, 3_600) * 1_000;
-          }
-        }
-        if (scheduleRetry !== null) {
-          const current = await this.ctx.storage.getAlarm();
-          const candidates = [scheduleRetry, garden.nextDue, membership.nextDue].filter(
-            (candidate): candidate is number => candidate !== null,
-          );
-          const due = Math.max(now.getTime() + 1_000, Math.min(...candidates));
-          if (current === null || current <= now.getTime() || due < current)
-            await this.ctx.storage.setAlarm(due);
-          return;
-        }
         await this.refreshSchedule(channelId);
         if (garden.nextDue !== null || garden.processed >= 10 || membership.possiblyMore) {
           const current = await this.ctx.storage.getAlarm();
@@ -235,9 +209,7 @@ export class CommunityClock extends DurableObject<CommunityEnv> {
           at: Date.now(),
           failure: error instanceof Error ? error.name : "UnknownError",
         });
-        const retrySeconds =
-          error instanceof CommunitySlackError ? (error.retryAfterSeconds ?? 60) : 60;
-        await this.ctx.storage.setAlarm(Date.now() + Math.min(retrySeconds, 3_600) * 1_000);
+        await this.ctx.storage.setAlarm(Date.now() + 60_000);
       }
     });
   }

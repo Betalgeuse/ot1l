@@ -1,7 +1,6 @@
 import { mock } from "bun:test";
 import assert from "node:assert/strict";
 import { createHmac } from "node:crypto";
-import { CommunitySlackError } from "../src/community-social";
 
 const bugRuns = [];
 function maintenanceResult({
@@ -338,22 +337,9 @@ try {
   bugRuns.length = 0;
   await clock(normalStorage).alarm();
   assert.equal(bugRuns.length, 0, "normal channel alarm must not duplicate bug maintenance");
+  assert.equal(scheduleRuns.length, 0, "Durable Object must not duplicate Cron schedule delivery");
   assert.equal(normalStorage.values.get("role"), "community_schedule");
   assert.notEqual(normalStorage.alarm, null);
-
-  const limitedStorage = new FakeStorage();
-  limitedStorage.values.set("role", "community_schedule");
-  limitedStorage.values.set("channel", "CPUBLIC");
-  limitedStorage.alarm = now;
-  scheduleRun = async () => {
-    throw new CommunitySlackError("rate_limited", 17);
-  };
-  await clock(limitedStorage, { DATABASE_URL: "postgresql://u:p@x.neon.tech/db" }).alarm();
-  assert.equal(limitedStorage.alarm, now + 17_000);
-  scheduleRun = async (...args) => {
-    scheduleRuns.push(args);
-    return { common: 0, personal: 0 };
-  };
 } finally {
   Date.now = originalNow;
 }
@@ -503,5 +489,5 @@ assert.deepEqual(signedArms, [
 ]);
 
 console.log(
-  "PASS clocks: durable global bug tick re-arms before isolated maintenance; existing channel schedule remains separate.",
+  "PASS clocks: Durable Objects own queue maintenance and never duplicate Cron schedule delivery.",
 );

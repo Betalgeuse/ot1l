@@ -83,6 +83,10 @@ ONE THING 서비스 날짜는 한국 시간 오전 2시에 바뀝니다. 공통 
 
 ## 게시와 예약
 
+정시 ONE THING·후기 게시의 시간 결정권은 Cloudflare Cron 하나에만 있습니다. Durable Object 알람은 잔디·가입·보존처럼 이미 durable하게 만들어진 큐의 처리 시각만 관리하며 공통 스크럼이나 개인 재촉을 생성하지 않습니다. Cron은 DB에 저장된 마지막 확인 회원 목록으로 날짜·종류별 dispatch를 먼저 만들고 Slack 게시를 시도합니다. Slack 회원 목록 동기화는 게시 성공 뒤 별도 best-effort 단계로 실행되어 실패해도 당일 스크럼을 되돌리거나 막지 않습니다.
+
+공통 목표 dispatch는 목표 시각부터 후기 시각 전까지, 공통 후기 dispatch는 후기 시각부터 22시 전까지 같은 멱등 키로 계속 복구할 수 있습니다. 최초 5분 안에 외부 API나 DB가 실패해도 다음 Cron이 아직 없는 dispatch를 만들거나 실패한 dispatch를 claim합니다. 이미 보낸 날짜·종류는 동일한 키와 발송 영수증 때문에 다시 게시되지 않습니다.
+
 공개 잔디에는 결과만 표시하고 개인 조작은 ephemeral로 보냅니다. 처음에는 네 칸, 참여 기간이 늘면 여덟 칸으로 확장합니다. 아홉째 날부터는 새 페이지로 초기화하지 않고 오늘을 포함한 최근 평일과 참여한 주말·대한민국 공휴일을 시간순으로 보여줍니다. 미참여 선택일은 숨기며, 오늘 목표는 즉시 연두색으로 나타납니다.
 
 날짜 변경과 같은 트랜잭션에서 revision별 잔디 delivery를 저장합니다. Durable Object는 lease로 이를 claim하고 실패를 최대 세 번 재시도합니다. Slack 응답을 잃으면 팀·채널·회원·날짜·revision·thread·source·payload digest를 모두 포함한 block marker로 해당 스레드만 대조해 중복 게시를 막습니다. 활성 카드는 회원 전체가 아니라 날짜와 스레드로 정한 projection route마다 하나입니다. 새 메시지 영수증을 DB에 저장한 뒤 같은 route의 옛 이미지만 제거하므로, 오늘 변경이 9월 15일이나 다른 스레드의 잔디를 지우지 않습니다. Migration 025의 bounded reconciliation은 canonical `community_days`를 바꾸지 않고 기록된 상호작용 route를 우선 복원하며, 없을 때만 정확한 일일 prompt timestamp를 fallback provenance와 함께 사용합니다.

@@ -53,7 +53,7 @@ try {
     throw new Error(`unexpected ${url}`);
   };
   assert.deepEqual(await runCommunitySchedule(env, store, new Date("2026-09-17T09:00:00Z")), { common: 0, personal: 2 });
-  assert.equal(reconciled, 1);
+  assert.equal(reconciled, 0, "reminder delivery must use the durable member snapshot");
   assert.equal(posts.length, 1);
   assert.equal((posts[0].text.match(/<@U1>/g) ?? []).length, 1);
   assert.equal((posts[0].text.match(/<@U2>/g) ?? []).length, 1);

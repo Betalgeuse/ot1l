@@ -60,7 +60,6 @@ const suites = [
   "community-bug-due-store",
   "community-bug-backlog",
   "community-admin-collection",
-  "admin-membership-observation",
   "community-current-members",
   "community-reminder-batch",
   "community-batched-reminders",
@@ -75,6 +74,7 @@ const suites = [
   "community-common-delivery",
   "community-schedule-overlap",
   "community-early-review-prompt",
+  "community-schedule-recovery",
   "dormant-shoutout",
 ];
 for (const suite of suites) execFileSync("bun", [`qa/${suite}.mjs`], { stdio: "inherit" });

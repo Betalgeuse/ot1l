@@ -2,11 +2,10 @@ import { COMMUNITY_SCHEDULE_CLOCK_ROLE } from "./community-bug-clock-client";
 import { nextCommunityAlarm } from "./community-clock-client";
 import { nextGardenDue, nextMembershipDue } from "./community-membership-due";
 import type { CommunityEnv } from "./community-runtime";
-import { CommunityStore } from "./community-store";
-import { InputError, object, string } from "./input";
+import { InputError } from "./input";
 import { NeonStore } from "./store";
 
-export async function refreshCommunitySchedule(
+export async function refreshCommunityQueueClock(
   env: CommunityEnv,
   storage: DurableObjectStorage,
   channelId: string,
@@ -31,17 +30,13 @@ export async function refreshCommunitySchedule(
     await storage.deleteAlarm();
     return { next: null };
   }
-  const store = new CommunityStore(new NeonStore(env.DATABASE_URL));
   const scope = {
     teamId: env.SLACK_TEAM_ID,
     channelId,
     userId: env.COMMUNITY_ADMIN_ID,
   };
   const observedNow = Date.now();
-  const [settings, members, deliveryDue, gardenDue, membershipDue] = await Promise.all([
-    store.getRecord({ ...scope, key: "group-schedule" }),
-    store.members(scope.teamId, channelId),
-    store.nextScheduleDue(scope.teamId, channelId, new Date(observedNow).toISOString()),
+  const [gardenDue, membershipDue] = await Promise.all([
     nextGardenDue(
       new NeonStore(env.DATABASE_URL),
       scope.teamId,
@@ -50,28 +45,9 @@ export async function refreshCommunitySchedule(
     ),
     nextMembershipDue(env, new NeonStore(env.DATABASE_URL), channelId),
   ]);
-  const times: string[] = [];
-  if (settings) {
-    const body = object(settings.body);
-    if (body.enabled === true) times.push("10:00", string(body.goalTime), string(body.reviewTime));
-  }
-  for (let start = 0; start < members.length; start += 10) {
-    const preferences = await Promise.all(
-      members.slice(start, start + 10).map((userId) => store.preferences({ ...scope, userId })),
-    );
-    for (const preference of preferences) {
-      if (preference.enabled)
-        times.push(
-          ...[preference.goalTime, preference.reviewTime].filter(
-            (time) => time >= "08:00" && time < "22:00",
-          ),
-        );
-    }
-  }
   const next = nextCommunityAlarm(
-    times,
+    [],
     [
-      deliveryDue,
       gardenDue === null ? null : new Date(gardenDue).toISOString(),
       membershipDue === null ? null : new Date(membershipDue).toISOString(),
     ]
