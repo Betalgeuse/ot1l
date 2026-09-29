@@ -227,8 +227,11 @@ export class CommunityStore extends CommunityScheduleStore {
       undoKey: string(v.undoKey),
       ...(returnTransition ? { returnTransition } : {}),
     };
-    if (!result.changed || result.conflict || delivery === undefined || reviewThreadV2 !== true)
-      return result;
+    if (result.conflict || delivery === undefined || reviewThreadV2 !== true) return result;
+    const routeReplay =
+      !result.changed &&
+      ["goal", "complete", "progress", "partial", "not_done", "reflection"].includes(change.action);
+    if (!result.changed && !routeReplay) return result;
     const season = await this.seasonHistory(input);
     if (!season || result.day.date < season.openedOn) return result;
     if (
