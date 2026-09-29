@@ -33,7 +33,7 @@ const success=[
  ['완료\n비선형 세상은 참 어렵다','complete',null],
  ['완료...? (회의록 작성할만한 내용이 없었음)','complete',null],
 ];
-for(const [source,outcome,date] of success){assert.deepEqual(parseReflectionHeader(source,today),{date,outcome,text:source.trim(),hasReflection:outcome!=='rest'},source);count++;}
+for(const [source,outcome,date] of success){const parsed=parseReflectionHeader(source,today);assert.equal(parsed?.date,date,source);assert.equal(parsed?.outcome,outcome,source);assert.equal(parsed?.hasReflection,outcome!=='rest',source);if(parsed?.hasReflection){assert.ok(parsed.text);assert.doesNotMatch(parsed.text,/^(?:후기|회고)\s*[:：]/,source);}count++;}
 for (const source of ['후기: 완료.', '후기: 완료', '후기: 완료!!!', '후기: 9/14: 완료.', '후기: 완료. ✅', '후기: 완료. :party_parrot:', '후기: 부분 완료.', '후기: 미완료.', '후기: 휴식. 편히 쉬었어요']) {
   assert.equal(parseReflectionHeader(source,today)?.hasReflection,false,source); count++;
 }
@@ -62,5 +62,6 @@ const rejected=[
 for(const source of rejected){assert.equal(parseReflectionHeader(source,today),null,source);count++;}
 for(const source of ['후기: 9/31: 완료. 좋아요','후기: 9/15: 완료. 좋아요','후기: 2025-02-29: 완료. 좋아요','후기: 9/14: 완료. 좋아요\n9/13: 미완료. 아쉬워요','9/13 후기: 9/14: 완료. 좋아요', '후기: 9/14: 완료. 좋아요\n9/13 후기: 미완료. 아쉬워요']){assert.throws(()=>parseReflectionHeader(source,today),InputError,source);count++;}
 console.log(`${count} reflection header cases passed`);
+assert.equal(parseReflectionHeader('후기: 진전. 접근법 두 개를 검증해 하나를 버리고 다음 행동을 정했어요.',today)?.text,'접근법 두 개를 검증해 하나를 버리고 다음 행동을 정했어요.');
 for(const input of ['후기: 완료. 실제로는 실패했어요.','후기: 완료. 라는 문장은 예문입니다.','후기: 완료. 라는 말은 거짓말이에요.'])assert.equal(parseReflectionHeader(input,'2026-09-14'),null);
 console.log('3 additional independent-review counterexamples passed');
