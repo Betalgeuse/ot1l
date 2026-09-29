@@ -81,7 +81,8 @@ export async function prepareRecordEdit(context: CommunityContext, text: string)
   });
   const labels = {
     complete: "완료",
-    partial: "일부 진행",
+    progress: "의미 있는 진전",
+    partial: "부분 완료",
     not_done: "미완료",
     rest: "휴식",
     goal: "목표 내용",
@@ -121,13 +122,20 @@ export function confirmedRecordEdit(base: Omit<DayChange, "action">, body: unkno
     if (
       outcome !== null &&
       outcome !== "complete" &&
+      outcome !== "progress" &&
       outcome !== "partial" &&
       outcome !== "not_done"
     )
       throw new InputError("수행 상태를 확인해 주세요.");
     return { ...base, action, text: string(data.text), ...(outcome ? { outcome } : {}) };
   }
-  if (action === "complete" || action === "partial" || action === "not_done" || action === "rest")
+  if (
+    action === "complete" ||
+    action === "progress" ||
+    action === "partial" ||
+    action === "not_done" ||
+    action === "rest"
+  )
     return { ...base, action };
   throw new InputError("수정 항목을 확인해 주세요.");
 }

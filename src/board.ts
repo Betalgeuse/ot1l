@@ -9,6 +9,7 @@ export type Goal = {
   readonly date: string;
   readonly text: string;
   readonly completed: boolean;
+  readonly outcome?: "pending" | "complete" | "progress" | "partial" | "not_done";
 };
 
 export type Snapshot = {
@@ -85,7 +86,12 @@ export function buildBoard(snapshot: Snapshot, today: string, anchor = today): B
     return {
       day: stamp - origin + 1,
       date: cellDate,
-      status: goal === undefined ? "empty" : goal.completed ? "complete" : "written",
+      status:
+        goal === undefined || goal.outcome === "not_done"
+          ? "empty"
+          : goal.completed || goal.outcome === "progress"
+            ? "complete"
+            : "written",
       future: stamp > current,
       optional: isOptionalDay(cellDate),
       today: stamp === current,

@@ -7,6 +7,7 @@ const suites = [
   "community-emoji",
   "community-followup",
   "past-review-modal",
+  "meaningful-progress",
   "community-quick-entry",
   "community-feedback-surface",
   "community-agent-notifications",

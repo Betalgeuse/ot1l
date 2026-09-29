@@ -6,25 +6,27 @@ const root = resolve(import.meta.dirname, "..");
 const roadmap = readFileSync(resolve(root, "docs/ROADMAP.md"), "utf8");
 const history = readFileSync(resolve(root, "docs/UPDATE_HISTORY.md"), "utf8");
 const required = [
-  ["v0.0.56", "봇 소유 welcome"],
-  ["v0.0.57", "친구 초대하기 버튼"],
-  ["v0.0.58", "본명 자기소개"],
-  ["v0.0.59", "응원 초대 페이지"],
-  ["v0.0.60", "검토 스레드"],
-  ["v0.0.61", "계절 잔디"],
-  ["v0.0.62", "shadow"],
-  ["v0.0.63", "유예"],
-  ["v0.0.64", "시즌 종료"],
-  ["v0.0.65", "ONE THING 복귀"],
-  ["v0.0.66", "초대 한도"],
-  ["v0.0.67", "비공개 참여 문의"],
-  ["v0.0.68", "즉시 Slack 참여"],
-  ["v0.0.69", "가입 출처"],
-  ["v0.0.70", "공개 사이트"],
+  ["v0.0.56", "의미 있는 진전"],
+  ["v0.0.57", "봇 소유 welcome"],
+  ["v0.0.58", "친구 초대하기 버튼"],
+  ["v0.0.59", "본명 자기소개"],
+  ["v0.0.60", "응원 초대 페이지"],
+  ["v0.0.61", "검토 스레드"],
+  ["v0.0.62", "계절 잔디"],
+  ["v0.0.63", "shadow"],
+  ["v0.0.64", "유예"],
+  ["v0.0.65", "시즌 종료"],
+  ["v0.0.66", "ONE THING 복귀"],
+  ["v0.0.67", "초대 한도"],
+  ["v0.0.68", "비공개 참여 문의"],
+  ["v0.0.69", "즉시 Slack 참여"],
+  ["v0.0.70", "가입 출처"],
+  ["v0.0.71", "공개 사이트"],
 ];
 
 function activeRows(document) {
-  return [...document.matchAll(/^\| (v0\.0\.\d+) \| ([^|]+) \|/gm)].map((match) => [
+  const active = document.split("## 2026-09-30 의미 있는 진전 우선 삽입")[0];
+  return [...active.matchAll(/^\| (v0\.0\.\d+) \| ([^|]+) \|/gm)].map((match) => [
     match[1],
     match[2],
   ]);
@@ -37,7 +39,7 @@ function assertRoadmap(document) {
     assert.equal(matches.length, 1, `${version} must have one active roadmap outcome`);
     assert.match(matches[0][1], new RegExp(outcome));
   }
-  assert.match(document, /모든 v0\.0\.56–v0\.0\.70는 미출시 계획/);
+  assert.match(document, /v0\.0\.56 이후는 미출시 계획/);
   assert.match(document, /7개.*관측.*평일/);
   assert.match(document, /7일.*유예/);
   assert.match(document, /사유.*7일.*연장/);
@@ -69,7 +71,7 @@ assertRoadmap(roadmap);
 assertHistory(history);
 
 assert.throws(() =>
-  assertRoadmap(roadmap.replace("| v0.0.70 | 공개 사이트", "| v0.0.56 | 공개 사이트")),
+  assertRoadmap(roadmap.replace("| v0.0.71 | 공개 사이트", "| v0.0.56 | 공개 사이트")),
 );
 assert.throws(() => assertRoadmap(roadmap.replace("7개", "30개")));
 assert.throws(() =>
@@ -77,5 +79,5 @@ assert.throws(() =>
 );
 
 console.log(
-  "PASS version map keeps one planned membership outcome per v0.0.56-v0.0.70 and preserves release lineage",
+  "PASS version map keeps one planned outcome per v0.0.56-v0.0.71 and preserves release lineage",
 );

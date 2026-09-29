@@ -20,5 +20,8 @@ try{
  assert.equal(grants,"t");
  const repositoryContract=(await run(join(pg,"psql"),["-XAtq","-c",`SELECT position('p->>''prUrl''' in pg_get_functiondef('otl.bug_runner_finish_fix(jsonb)'::regprocedure))>0 AND position('Betalgeuse/otl1' in pg_get_functiondef('otl.bug_runner_finish_fix(jsonb)'::regprocedure))=0 AND EXISTS(SELECT 1 FROM otl.schema_migrations WHERE version='061-repository-identity')`])).stdout.trim();
  assert.equal(repositoryContract,"t");
- console.log("PASS migrations 060-061 deploy claim and repository identity remain runner-only and configuration-bound");
+ await run(join(pg,"psql"),["-XAtq","-v","ON_ERROR_STOP=1","-c",`SELECT otl.community_execute('change','{"teamId":"T-PROGRESS","channelId":"C-PROGRESS","userId":"U-PROGRESS","date":"2026-09-30","key":"goal","action":"goal","text":"탐색안 검증"}'::jsonb); UPDATE otl.workspaces SET primary_goal_channel_id='C-PROGRESS' WHERE team_id='T-PROGRESS'; SELECT otl.community_execute('change','{"teamId":"T-PROGRESS","channelId":"C-PROGRESS","userId":"U-PROGRESS","date":"2026-09-30","key":"progress","action":"progress"}'::jsonb);`]);
+ const progressContract=(await run(join(pg,"psql"),["-XAtq","-c",`SELECT (SELECT outcome='progress' FROM otl.community_days WHERE team_id='T-PROGRESS' AND channel_id='C-PROGRESS' AND user_id='U-PROGRESS' AND day='2026-09-30') AND (SELECT completed FROM otl.goals WHERE team_id='T-PROGRESS' AND user_id='U-PROGRESS' AND goal_date='2026-09-30') AND EXISTS(SELECT 1 FROM otl.schema_migrations WHERE version='062-meaningful-progress')`])).stdout.trim();
+ assert.equal(progressContract,"t");
+ console.log("PASS migrations 060-062 repository identity and meaningful progress contracts");
 }finally{if(started)await run(join(pg,"pg_ctl"),["-D",data,"-m","fast","-w","stop"]).catch(()=>{});await rm(temp,{recursive:true,force:true});}

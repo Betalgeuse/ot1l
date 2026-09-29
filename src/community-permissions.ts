@@ -43,6 +43,7 @@ const memberActions = new Set([
   "community_undo",
   "community_confirm",
   "community_complete",
+  "community_progress",
   "community_partial",
   "community_not_done",
   "community_rest",

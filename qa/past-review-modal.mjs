@@ -55,7 +55,7 @@ try {
   assert.equal(modal.blocks[1].element.initial_option.value, "partial");
   assert.deepEqual(
     modal.blocks[1].element.options.map((option) => option.value),
-    ["complete", "partial", "not_done"],
+    ["complete", "progress", "partial", "not_done"],
   );
   const submitted = parsePastReviewSubmission({
     private_metadata: modal.private_metadata,

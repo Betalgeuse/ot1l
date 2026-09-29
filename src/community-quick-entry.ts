@@ -101,9 +101,22 @@ export async function openQuickEntryModal(
   if (kind === "review" && !day.goal.trim())
     throw new InputError("오늘 ONE THING을 먼저 기록해 주세요.");
   const options = [
-    { text: { type: "plain_text", text: "완료했어요" }, value: "complete" },
-    { text: { type: "plain_text", text: "일부 진행했어요" }, value: "partial" },
-    { text: { type: "plain_text", text: "못 했어요" }, value: "not_done" },
+    {
+      text: { type: "plain_text", text: "계획 완료 · 오늘 정한 결과까지 해냈어요" },
+      value: "complete",
+    },
+    {
+      text: { type: "plain_text", text: "의미 있는 진전 · 다음 행동이 분명해졌어요" },
+      value: "progress",
+    },
+    {
+      text: { type: "plain_text", text: "부분 완료 · 만족할 만큼 나아가진 못했어요" },
+      value: "partial",
+    },
+    {
+      text: { type: "plain_text", text: "미완료 · 실질적으로 진행하지 못했어요" },
+      value: "not_done",
+    },
   ];
   const initial = options.find((option) => option.value === day.outcome);
   await openView(context.env.SLACK_BOT_TOKEN, {
@@ -176,10 +189,13 @@ export function parseQuickEntrySubmission(
       : { kind: "goal", date: binding.date, revision: binding.revision, text, reason };
   }
   const selected = string(object(object(object(values.outcome).value).selected_option).value);
-  if (!["complete", "partial", "not_done"].includes(selected))
+  if (!["complete", "progress", "partial", "not_done"].includes(selected))
     errors.outcome = "완료 상태를 골라 주세요.";
   if (Object.keys(errors).length) return { errors };
-  const outcome = selected === "complete" || selected === "partial" ? selected : "not_done";
+  const outcome =
+    selected === "complete" || selected === "progress" || selected === "partial"
+      ? selected
+      : "not_done";
   return {
     kind: "review",
     date: binding.date,
@@ -203,9 +219,11 @@ export async function submitQuickEntry(
     input.kind === "review"
       ? input.outcome === "complete"
         ? "완료"
-        : input.outcome === "partial"
-          ? "일부 진행"
-          : "미완료"
+        : input.outcome === "progress"
+          ? "의미 있는 진전"
+          : input.outcome === "partial"
+            ? "부분 완료"
+            : "미완료"
       : "";
   const messageTs = await post(
     { ...context, date: input.date },

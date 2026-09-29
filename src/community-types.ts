@@ -6,7 +6,7 @@ export type CommunityScope = {
   readonly userId: string;
 };
 export type DayScope = CommunityScope & { readonly date: string };
-export type Outcome = "pending" | "complete" | "partial" | "not_done";
+export type Outcome = "pending" | "complete" | "progress" | "partial" | "not_done";
 export type CommunityDay = DayScope & {
   readonly goal: string;
   readonly outcome: Outcome;
@@ -25,7 +25,15 @@ export type DayChange = DayScope & {
   readonly preserveOutcome?: boolean;
   readonly reviewThreadV2?: boolean;
   readonly key: string;
-  readonly action: "goal" | "complete" | "partial" | "not_done" | "reflection" | "rest" | "undo";
+  readonly action:
+    | "goal"
+    | "complete"
+    | "progress"
+    | "partial"
+    | "not_done"
+    | "reflection"
+    | "rest"
+    | "undo";
   readonly text?: string;
   readonly outcome?: Outcome;
   readonly expectedRevision?: number;

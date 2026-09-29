@@ -18,7 +18,7 @@ function questionMessage(context: CommunityContext, record: CommunityRecord): Js
   const data = object(record.body);
   const targetDate = string(data.date);
   const dateLabel = targetDate === koreaDate(Date.now() / 1000) ? "오늘" : targetDate;
-  const text = `${dateLabel} 결과는 완료·부분 완료·미완료·휴식 중 무엇인가요?`;
+  const text = `${dateLabel} 결과는 무엇에 가장 가까운가요?\n완료: 오늘 정한 결과까지 해냈어요.\n진전: 결과까지 못 갔지만, 확인한 사실이나 다음 행동이 분명해졌어요.\n부분 완료: 일부 진행했지만, 만족할 만큼 나아가진 못했어요.\n미완료: 오늘은 실질적으로 진행하지 못했어요.`;
   const value = (outcome: ResolvedOutcome) =>
     JSON.stringify({
       ownerId: context.scope.userId,
@@ -41,6 +41,12 @@ function questionMessage(context: CommunityContext, record: CommunityRecord): Js
             text: { type: "plain_text", text: "완료" },
             action_id: "community_complete",
             value: value("complete"),
+          },
+          {
+            type: "button",
+            text: { type: "plain_text", text: "진전" },
+            action_id: "community_progress",
+            value: value("progress"),
           },
           {
             type: "button",
@@ -149,6 +155,8 @@ export async function captureReflectionAwaitingOutcome(
 function naturalOutcome(text: string): ResolvedOutcome | null {
   const normalized = text.trim().replace(/[.!。！\s]+$/u, "");
   if (/^(?:완료|완료했어요|다 했어요|끝냈어요)$/u.test(normalized)) return "complete";
+  if (/^(?:진전|진전했어요|불확실성을 줄였어요|다음 행동이 분명해졌어요)$/u.test(normalized))
+    return "progress";
   if (/^(?:부분\s*완료|부분완료|일부\s*완료|절반)$/u.test(normalized)) return "partial";
   if (/^(?:미완료|미완|못 했어요|못했어요|안 했어요|안했어요)$/u.test(normalized))
     return "not_done";

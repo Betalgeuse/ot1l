@@ -46,7 +46,8 @@ export async function statusMessage(
             goals: history.map((item) => ({
               date: item.date,
               text: item.goal,
-              completed: item.outcome === "complete",
+              completed: item.outcome === "complete" || item.outcome === "progress",
+              outcome: item.outcome,
             })),
           },
           boardDate,
@@ -104,9 +105,10 @@ export async function confirmChange(
     action === "goal"
       ? [{ label: "이 목표 등록", actionId: "community_confirm", value }]
       : [
-          { label: "완료했어요", actionId: "community_complete", value },
-          { label: "일부 진행했어요", actionId: "community_partial", value },
-          { label: "못 했어요", actionId: "community_not_done", value },
+          { label: "계획 완료", actionId: "community_complete", value },
+          { label: "의미 있는 진전", actionId: "community_progress", value },
+          { label: "부분 완료", actionId: "community_partial", value },
+          { label: "미완료", actionId: "community_not_done", value },
           {
             label: day.date === koreaDate(Date.now() / 1000) ? "오늘 쉬어요" : "이날 쉬었어요",
             actionId: "community_rest",
@@ -131,8 +133,8 @@ export async function confirmChange(
       action === "goal"
         ? `${dateLabel} ONE THING으로 등록할까요?\n${text}`
         : action === "reflection"
-          ? `${dateLabel} ONE THING을 완료하셨나요?\n선택한 상태와 아래 글을 후기로 저장할게요.\n“${text}”`
-          : `${dateLabel} ONE THING을 완료하셨나요?`,
+          ? `${dateLabel} ONE THING은 어디까지 갔나요?\n완료: 오늘 정한 결과까지 해냈어요.\n진전: 결과까지 못 갔지만, 확인한 사실이나 다음 행동이 분명해졌어요.\n부분 완료: 일부 진행했지만, 만족할 만큼 나아가진 못했어요.\n미완료: 오늘은 실질적으로 진행하지 못했어요.\n선택한 상태와 아래 글을 후기로 저장할게요.\n“${text}”`
+          : `${dateLabel} ONE THING은 어디까지 갔나요?\n완료: 오늘 정한 결과까지 해냈어요.\n진전: 결과까지 못 갔지만, 확인한 사실이나 다음 행동이 분명해졌어요.\n부분 완료: 일부 진행했지만, 만족할 만큼 나아가진 못했어요.\n미완료: 오늘은 실질적으로 진행하지 못했어요.`,
       choices,
     ),
   );

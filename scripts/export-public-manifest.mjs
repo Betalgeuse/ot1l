@@ -81,6 +81,7 @@ export const PUBLIC_RUNTIME_MIGRATION_PATHS = [
   "migrations/059_early_review_recognition.sql",
   "migrations/060_genquant_runner_auto_deploy.sql",
   "migrations/061_repository_identity.sql",
+  "migrations/062_meaningful_progress.sql",
 ];
 
 // `src` and `site` are copied as directories, but these paths keep the membership
@@ -133,6 +134,7 @@ export const PUBLIC_QA_NAMES = [
   "community-emoji.mjs",
   "community-followup.mjs",
   "past-review-modal.mjs",
+  "meaningful-progress.mjs",
   "community-quick-entry.mjs",
   "community-feedback-surface.mjs",
   "community-agent-notifications.mjs",

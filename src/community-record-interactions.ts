@@ -83,6 +83,7 @@ export async function processRecordAction(
   if (pending?.kind === "reflection_outcome") {
     const outcome =
       selected === "complete" ||
+      selected === "progress" ||
       selected === "partial" ||
       selected === "not_done" ||
       selected === "rest"
@@ -106,7 +107,11 @@ export async function processRecordAction(
   if (pending?.kind !== "pending") throw new InputError("확인할 요청이 없어요.");
   const data = object(pending.body);
   const action = string(data.action);
-  if (!["confirm", "complete", "partial", "not_done", "rest", "reflection"].includes(selected))
+  if (
+    !["confirm", "complete", "progress", "partial", "not_done", "rest", "reflection"].includes(
+      selected,
+    )
+  )
     throw new InputError("지원하지 않는 동작입니다.");
   if (!(await context.store.claimRecord({ ...context.scope, key }))) {
     await ephemeral(context, { text: "이미 처리한 선택이에요." });
@@ -129,7 +134,12 @@ export async function processRecordAction(
   else if (selected === "rest") change = { ...base, action: "rest" };
   else if (selected === "reflection")
     change = { ...base, action: "reflection", text: string(data.text) };
-  else if (selected === "complete" || selected === "partial" || selected === "not_done")
+  else if (
+    selected === "complete" ||
+    selected === "progress" ||
+    selected === "partial" ||
+    selected === "not_done"
+  )
     change =
       action === "reflection"
         ? { ...base, action: "reflection", text: string(data.text), outcome: selected }
