@@ -1,5 +1,9 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { runCommunitySchedule } from "../src/community-scheduler.ts";
+
+const wrangler = JSON.parse(readFileSync(new URL("../wrangler.jsonc", import.meta.url), "utf8"));
+assert.deepEqual(wrangler.triggers.crons, ["0 1 * * *", "0 9 * * *", "*/5 * * * *"]);
 
 let dispatch = null;
 let claimed = false;
