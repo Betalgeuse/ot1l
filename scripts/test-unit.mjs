@@ -56,6 +56,7 @@ const suites = [
   "community-introduction-channel",
   "migration-maintenance",
   "core-placement",
+  "production-deploy-guard",
   "weekends",
   "community-bugs",
   "community-bug-dialogue",
