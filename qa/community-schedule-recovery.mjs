@@ -51,7 +51,8 @@ try {
   assert.deepEqual(result, { common: 1, personal: 0 });
   assert.equal(posts.length, 1);
   assert.match(posts[0].text, /2026-09-29 오늘의 \*ONE THING\*/);
-  assert.match(posts[0].text, /<@U1> <@U2>/);
+  assert.match(posts[0].text, /함께할 분: <!channel>/);
+  assert.doesNotMatch(posts[0].text, /<@U1>|<@U2>/);
   assert.equal(membershipCalls, 0);
   assert.deepEqual(await runCommunitySchedule({
     SLACK_TEAM_ID: "TQA", SLACK_BOT_TOKEN: "token", COMMUNITY_CHANNEL_ID: "CPUBLIC",
