@@ -83,6 +83,7 @@ export const PUBLIC_RUNTIME_MIGRATION_PATHS = [
   "migrations/061_repository_identity.sql",
   "migrations/062_meaningful_progress.sql",
   "migrations/063_fix_runner_failure_recovery.sql",
+  "migrations/064_verified_operator_recovery.sql",
 ];
 
 // `src` and `site` are copied as directories, but these paths keep the membership
