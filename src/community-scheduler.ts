@@ -84,7 +84,9 @@ async function commonText(
   const parts = [promptText(date, kind)];
   if (memberIds.length)
     parts.push(
-      `${kind === "review" ? "오늘 후기를 기다리는 분" : "함께할 분"}: ${memberIds.map((id) => `<@${id}>`).join(" ")}`,
+      kind === "review"
+        ? `오늘 후기를 기다리는 분: ${memberIds.map((id) => `<@${id}>`).join(" ")}`
+        : "함께할 분: <!channel>",
     );
   if (kind === "review" && highlights.length) {
     const lines = highlights.map((item) => {

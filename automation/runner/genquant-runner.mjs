@@ -125,7 +125,7 @@ async function dispatchTaskOnce(config, lease, prompt, promptDigest, proposedRun
       existing.promptDigest !== promptDigest
     )
       throw new Error("runner task receipt does not match the leased job");
-    return { task: parseTaskUrl(existing.taskUrl), runId: existing.runId };
+    return { task: parseTaskUrl(existing.taskUrl), runId: existing.runId, receiptPath: path };
   } catch (error) {
     if (error?.code !== "ENOENT") throw error;
   }
@@ -163,7 +163,18 @@ async function dispatchTaskOnce(config, lease, prompt, promptDigest, proposedRun
   } finally {
     await handle?.close();
   }
-  return { task, runId: proposedRunId };
+  return { task, runId: proposedRunId, receiptPath: path };
+}
+
+async function removeTaskReceipt(path) {
+  try {
+    const stat = await lstat(path);
+    if (!stat.isFile() || stat.isSymbolicLink() || stat.size > 64 * 1024)
+      throw new Error("unsafe runner task receipt");
+    await unlink(path);
+  } catch (error) {
+    if (error?.code !== "ENOENT") throw error;
+  }
 }
 
 async function validateTaskArtifact(config, lease, taskId, runId) {
@@ -457,11 +468,13 @@ async function processOne(config) {
   let runId = `run-${randomUUID()}`;
   const startedAt = Date.now();
   let task;
+  let receiptPath;
   let phase = "dispatch";
   try {
     const dispatch = await dispatchTaskOnce(config, lease, prompt, promptDigest, runId);
     task = dispatch.task;
     runId = dispatch.runId;
+    receiptPath = dispatch.receiptPath;
     phase = "record_start";
     await db("bug_runner_start", {
       teamId: config.SLACK_TEAM_ID,
@@ -534,7 +547,25 @@ async function processOne(config) {
     const failureDigest = sha256(
       `${lease.bugId}|${lease.jobId}|${error instanceof Error ? error.message : "unknown"}`,
     );
-    if (task) {
+    if (task && lease.kind === "fix" && phase !== "record_fix") {
+      try {
+        await db("bug_runner_fail_fix", {
+          teamId: config.SLACK_TEAM_ID,
+          jobId: lease.jobId,
+          workerId,
+          leaseToken,
+          runId,
+          exitClass: "fix_artifact_failed",
+          elapsedMs: Date.now() - startedAt,
+          artifactDigest: failureDigest,
+          resultDigest: failureDigest,
+          errorCode: phase,
+        });
+        if (receiptPath) await removeTaskReceipt(receiptPath);
+      } catch {
+        log("bug.runner.finish_failed", { bugId: lease.bugId, jobId: lease.jobId });
+      }
+    } else if (task && lease.kind === "reproduce") {
       try {
         await db("bug_runner_finish", {
           teamId: config.SLACK_TEAM_ID,

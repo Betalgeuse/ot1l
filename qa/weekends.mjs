@@ -94,7 +94,8 @@ try {
   assert.equal(dueCalls, 0);
   await runCommunitySchedule(env, store, new Date("2026-09-14T01:00:00Z"));
   assert.equal(sent.length, 3);
-  assert.match(sent.at(-1).text, /<@UQA>/);
+  assert.match(sent.at(-1).text, /함께할 분: <!channel>/);
+  assert.doesNotMatch(sent.at(-1).text, /<@UQA>/);
   assert.equal(dueCalls, 1);
   await runCommunitySchedule(env, store, new Date("2026-09-24T01:00:00Z"));
   await runCommunitySchedule(env, store, new Date("2026-09-24T09:00:00Z"));
