@@ -3,6 +3,7 @@
 .env*
 !.env.example
 .wrangler/
+.wrangler.production.json
 .output/
 node_modules
 .omx/

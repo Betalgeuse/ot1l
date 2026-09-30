@@ -7,7 +7,7 @@
     "build": "wrangler deploy --dry-run --outdir .output",
     "lint": "biome check src",
     "typecheck": "tsc --noEmit",
-    "deploy": "wrangler deploy",
+    "deploy": "node scripts/deploy-production-worker.mjs",
     "test:unit": "node scripts/test-unit.mjs",
     "check": "node scripts/check.mjs",
     "reconcile:garden": "node scripts/reconcile-garden-projections.mjs"
