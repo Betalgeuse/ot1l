@@ -50,5 +50,14 @@ try{
    AND (SELECT state='fix_failed' FROM otl.bug_reports WHERE bug_id='BUG-FIXFAILED001')
    AND EXISTS(SELECT 1 FROM otl.bug_runner_notifications WHERE bug_id='BUG-FIXFAILED001' AND kind='task_failed')`])).stdout.trim();
  assert.equal(fixFailureContract,"t");
- console.log("PASS migrations 060-063 repository, progress, and fix failure recovery contracts");
+ await run(join(pg,"psql"),["-XAtq","-v","ON_ERROR_STOP=1","-c",`SELECT otl.bug_record_verified_operator_recovery(jsonb_build_object(
+   'teamId','TQA','bugId','BUG-FIXFAILED001','adminId','UADMIN','commitSha','${"1".repeat(40)}',
+   'workerVersion','11111111-1111-4111-8111-111111111111','checkReceipt','${"2".repeat(64)}',
+   'prNumber',56,'summary','운영자 검증 복구를 완료했습니다.'));`]);
+ const operatorRecoveryContract=(await run(join(pg,"psql"),["-XAtq","-c",`SELECT
+   (SELECT state='resolved' AND head_sha='${"1".repeat(40)}' AND deployed_version='11111111-1111-4111-8111-111111111111' FROM otl.bug_reports WHERE bug_id='BUG-FIXFAILED001')
+   AND EXISTS(SELECT 1 FROM otl.bug_runner_notifications WHERE bug_id='BUG-FIXFAILED001' AND kind='change_deployed')
+   AND EXISTS(SELECT 1 FROM otl.bug_events WHERE bug_id='BUG-FIXFAILED001' AND variant='verified_operator_recovery')`])).stdout.trim();
+ assert.equal(operatorRecoveryContract,"t");
+ console.log("PASS migrations 060-064 repository, progress, failure recovery, and operator recovery contracts");
 }finally{if(started)await run(join(pg,"pg_ctl"),["-D",data,"-m","fast","-w","stop"]).catch(()=>{});await rm(temp,{recursive:true,force:true});}
