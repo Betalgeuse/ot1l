@@ -57,6 +57,7 @@ const suites = [
   "migration-maintenance",
   "core-placement",
   "production-deploy-guard",
+  "private-house-reminders",
   "weekends",
   "community-bugs",
   "community-bug-dialogue",
