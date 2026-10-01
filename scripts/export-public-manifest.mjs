@@ -51,6 +51,8 @@ export const PUBLIC_COPY_PATHS = [
   "scripts/bootstrap-lifecycle-admin-db-role.mjs",
   "scripts/bootstrap-referral-admin-db-role.mjs",
   "scripts/bootstrap-bug-runner-db-role.mjs",
+  "scripts/deploy-production-worker.mjs",
+  "scripts/schedule-private-house-reminders.mjs",
 ];
 
 export const PUBLIC_RUNTIME_MIGRATION_PATHS = [
@@ -202,6 +204,8 @@ export const PUBLIC_QA_NAMES = [
   "community-welcome.mjs",
   "migration-maintenance.mjs",
   "core-placement.mjs",
+  "production-deploy-guard.mjs",
+  "private-house-reminders.mjs",
   "normalized-legacy.mjs",
   "llm-cases.json",
   "community-bugs.mjs",
