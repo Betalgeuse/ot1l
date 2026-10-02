@@ -316,7 +316,8 @@ export class CommunityStore extends CommunityScheduleStore {
     readonly location: string;
     readonly options: readonly string[];
   }): Promise<TownhallEvent> {
-    const event = townhallEvent(await this.townhallEventCall("edit", input));
+    await this.townhallEventCall("edit", input);
+    const event = await this.townhallEventSeries("get", input);
     if (!event) throw new InputError("Event missing");
     return event;
   }
@@ -327,7 +328,8 @@ export class CommunityStore extends CommunityScheduleStore {
     readonly eventId: string;
     readonly selected: readonly string[];
   }): Promise<TownhallEvent> {
-    const event = townhallEvent(await this.townhallEventCall("vote", input));
+    await this.townhallEventCall("vote", input);
+    const event = await this.townhallEventSeries("get", input);
     if (!event) throw new InputError("Event missing");
     return event;
   }
@@ -358,12 +360,11 @@ export class CommunityStore extends CommunityScheduleStore {
     readonly eventId: string;
     readonly selected: readonly string[];
   }): Promise<TownhallEvent> {
-    const event = townhallEvent(
-      await this.db.queryJson("SELECT otl.townhall_event_web_execute($1,$2::jsonb)", [
-        "vote",
-        JSON.stringify(input),
-      ]),
-    );
+    await this.db.queryJson("SELECT otl.townhall_event_web_execute($1,$2::jsonb)", [
+      "vote",
+      JSON.stringify(input),
+    ]);
+    const event = await this.townhallEventSeries("get", input);
     if (!event) throw new InputError("Event missing");
     return event;
   }
