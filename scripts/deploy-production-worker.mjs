@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
-import { isAbsolute, join, resolve } from "node:path";
+import { dirname, isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
@@ -36,6 +36,8 @@ export function validateProductionConfig(value) {
 if (process.argv[1] && import.meta.url === new URL(`file://${resolve(process.argv[1])}`).href) {
   const configured = process.env.OTL1_PRODUCTION_WRANGLER_CONFIG ?? ".wrangler.production.json";
   const configPath = isAbsolute(configured) ? configured : resolve(root, configured);
+  if (dirname(configPath) !== root)
+    throw new TypeError("Production config must be stored in the repository root");
   validateProductionConfig(JSON.parse(readFileSync(configPath, "utf8")));
   execFileSync(join(root, "node_modules/.bin/wrangler"), [
     "deploy",
