@@ -9,6 +9,12 @@ import { parseQuickEntrySubmission, submitQuickEntry } from "./community-quick-e
 import { applyChange } from "./community-records";
 import { type CommunityContext, type CommunityEnv, ephemeral, post } from "./community-runtime";
 import type { CommunityStore } from "./community-store";
+import {
+  parseTownhallAvailability,
+  parseTownhallEvent,
+  submitTownhallAvailability,
+  submitTownhallEvent,
+} from "./community-townhall-events";
 import type { CommunityScope } from "./community-types";
 import { InputError, object, string } from "./input";
 
@@ -35,6 +41,22 @@ export async function handleCommunityView(input: ViewInteraction): Promise<Respo
     if (!Number.isSafeInteger(revision) || revision < 0)
       throw new InputError("자기소개 버전을 확인할 수 없어요.");
     input.waitUntil(submitIntroduction(input.context, string(input.view.id), parsed, revision));
+    return Response.json({ response_action: "clear" });
+  }
+  if (input.id === "community_event_submit") {
+    const parsed = parseTownhallEvent(input.view);
+    if ("errors" in parsed)
+      return Response.json({ response_action: "errors", errors: parsed.errors });
+    input.waitUntil(
+      submitTownhallEvent(input.context, string(input.view.id), parsed, input.metadata),
+    );
+    return Response.json({ response_action: "clear" });
+  }
+  if (input.id === "community_event_availability_submit") {
+    const selected = parseTownhallAvailability(input.view);
+    input.waitUntil(
+      submitTownhallAvailability(input.context, string(input.metadata.eventId), selected),
+    );
     return Response.json({ response_action: "clear" });
   }
   if (input.id === "community_past_review_submit") {

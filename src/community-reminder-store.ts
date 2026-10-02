@@ -46,9 +46,12 @@ export function commonDelivery(value: unknown): CommonDelivery | null {
     throw new InputError("Invalid common delivery first attempt");
   if (input.kind !== "goal" && input.kind !== "review")
     throw new InputError("Invalid common delivery kind");
+  if (typeof input.safeToPost !== "boolean")
+    throw new InputError("Invalid common delivery retry policy");
   return {
     leaseToken: string(input.leaseToken),
     attempt: input.attempt,
+    safeToPost: input.safeToPost,
     firstAttemptAt,
     key: string(input.key),
     text: string(input.text),

@@ -273,6 +273,22 @@ export class CommunityScheduleStore {
       )) === true
     );
   }
+  async finishCommonRoot(
+    input: CommunityScope & {
+      readonly leaseToken: string;
+      readonly date: string;
+      readonly kind: "goal" | "review";
+      readonly messageTs: string;
+      readonly bindReview: boolean;
+    },
+  ): Promise<boolean> {
+    date(input.date);
+    return (
+      (await this.db.queryJson("SELECT otl.finish_common_root($1::jsonb)", [
+        JSON.stringify(input),
+      ])) === true
+    );
+  }
   async claimCommonDelivery(
     input: CommunityScope & { readonly now: string; readonly leaseToken: string },
   ): Promise<CommonDelivery | null> {

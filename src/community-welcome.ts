@@ -4,6 +4,7 @@ import { inviteButton } from "./community-member-actions";
 import type { CommunityEnv } from "./community-runtime";
 import { addReactions, callSlack } from "./community-social";
 import { CommunityStore } from "./community-store";
+import { townhallEventButton } from "./community-townhall-events";
 import { object, string } from "./input";
 import { NeonStore } from "./store";
 
@@ -46,7 +47,7 @@ export async function welcomeTownhallMember(
     text: renderedText,
     blocks: [
       { type: "section", text: { type: "mrkdwn", text: renderedText } },
-      { type: "actions", elements: [introductionButton(), inviteButton()] },
+      { type: "actions", elements: [introductionButton(), inviteButton(), townhallEventButton()] },
     ],
     unfurl_links: false,
   });

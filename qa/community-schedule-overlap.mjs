@@ -36,14 +36,14 @@ const store = {
     return {
       leaseToken: input.leaseToken,
       attempt: 1,
+      safeToPost: true,
       firstAttemptAt: input.now,
       key: commonPending.key,
       ...commonPending.body,
     };
   },
-  async finishCommonDelivery() {
-    return true;
-  },
+  async finishCommonDelivery() { return true; },
+  async finishCommonRoot() { return true; },
   async claimReviewReminderBatch() {
     return null;
   },
@@ -73,9 +73,6 @@ const store = {
     return true;
   },
   async finishReviewReminderBatch() {
-    return true;
-  },
-  async finishReviewRoot() {
     return true;
   },
 };

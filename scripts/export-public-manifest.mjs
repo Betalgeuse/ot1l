@@ -53,6 +53,7 @@ export const PUBLIC_COPY_PATHS = [
   "scripts/bootstrap-bug-runner-db-role.mjs",
   "scripts/deploy-production-worker.mjs",
   "scripts/schedule-private-house-reminders.mjs",
+  "scripts/publish-townhall-event-launcher.mjs",
 ];
 
 export const PUBLIC_RUNTIME_MIGRATION_PATHS = [
@@ -86,6 +87,8 @@ export const PUBLIC_RUNTIME_MIGRATION_PATHS = [
   "migrations/062_meaningful_progress.sql",
   "migrations/063_fix_runner_failure_recovery.sql",
   "migrations/064_verified_operator_recovery.sql",
+  "migrations/065_atomic_common_delivery.sql",
+  "migrations/066_townhall_event_poll.sql",
 ];
 
 // `src` and `site` are copied as directories, but these paths keep the membership
@@ -201,6 +204,7 @@ export const PUBLIC_QA_NAMES = [
   "community-share-info-reconcile.mjs",
   "community-storage.mjs",
   "community-townhall.mjs",
+  "community-townhall-events.mjs",
   "community-welcome.mjs",
   "migration-maintenance.mjs",
   "core-placement.mjs",
@@ -249,6 +253,8 @@ export const PUBLIC_QA_NAMES = [
   "docs-links.mjs",
   "version-map.mjs",
   "community-common-delivery.mjs",
+  "atomic-common-delivery-pg.mjs",
+  "townhall-event-poll-pg.mjs",
   "community-schedule-overlap.mjs",
   "community-early-review-prompt.mjs",
   "community-schedule-recovery.mjs",
@@ -283,6 +289,7 @@ export const PUBLIC_DOC_NAMES = [
   "SPEC.md",
   "USER_GUIDE.md",
   "OPERATIONS.md",
+  "EMOJI_OPERATIONS.md",
   "ARCHITECTURE.md",
   "DEVELOPMENT.md",
   "GUIDE_DATABASE_SECURITY.md",

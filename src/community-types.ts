@@ -119,11 +119,30 @@ export type ReminderBatch = {
 export type CommonDelivery = {
   readonly leaseToken: string;
   readonly attempt: number;
+  readonly safeToPost: boolean;
   readonly firstAttemptAt: string;
   readonly key: string;
   readonly text: string;
   readonly date: string;
   readonly kind: "goal" | "review";
+};
+export type TownhallEventOption = {
+  readonly startsAt: string;
+  readonly position: number;
+  readonly votes: number;
+};
+export type TownhallEvent = {
+  readonly eventId: string;
+  readonly teamId: string;
+  readonly channelId: string;
+  readonly hostUserId: string;
+  readonly activity: string;
+  readonly location: string;
+  readonly revision: number;
+  readonly status: "draft" | "active";
+  readonly messageTs: string | null;
+  readonly options: readonly TownhallEventOption[];
+  readonly selected: readonly string[];
 };
 export type ReminderBatchFinish = {
   readonly teamId: string;

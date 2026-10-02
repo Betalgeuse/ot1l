@@ -7,7 +7,7 @@ import { InputError, string } from "./input";
 
 type CommonStore = Pick<
   CommunityStore,
-  "putRecord" | "claimCommonDelivery" | "finishCommonDelivery" | "finishReviewRoot"
+  "putRecord" | "claimCommonDelivery" | "finishCommonDelivery" | "finishCommonRoot"
 >;
 
 async function finishSent(
@@ -22,33 +22,15 @@ async function finishSent(
   messageTs: string,
   reviewThreadV2: boolean,
 ): Promise<void> {
-  await store.putRecord({
-    ...scope,
-    key: `prompt:${messageTs}`,
-    kind: "prompt",
-    body: { date: delivery.date, kind: delivery.kind },
-  });
-  await store.putRecord({
-    ...scope,
-    key: `common-thread:${delivery.date}:${delivery.kind}`,
-    kind: "prompt",
-    body: { date: delivery.date, kind: delivery.kind, ts: messageTs },
-  });
-  if (delivery.kind === "review" && reviewThreadV2) {
-    await store.finishReviewRoot({
-      ...scope,
-      leaseToken: delivery.leaseToken,
-      date: delivery.date,
-      messageTs,
-    });
-    return;
-  }
-  await store.finishCommonDelivery({
+  const finished = await store.finishCommonRoot({
     ...scope,
     leaseToken: delivery.leaseToken,
-    status: "sent",
+    date: delivery.date,
+    kind: delivery.kind,
     messageTs,
+    bindReview: delivery.kind === "review" && reviewThreadV2,
   });
+  if (!finished) throw new InputError("Common delivery lease lost");
 }
 
 export async function enqueueCommonDelivery(
@@ -104,6 +86,7 @@ export async function sendCommonDeliveries(input: {
         sent += 1;
         continue;
       }
+      if (!delivery.safeToPost) throw new CommunitySlackError("history_incomplete");
       const response = await callSlack(input.token, "chat.postMessage", {
         channel: input.scope.channelId,
         text: delivery.text,
