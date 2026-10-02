@@ -134,7 +134,7 @@ const submission = (id, callbackId, privateMetadata, values, userId = "UMEMBER")
 
 try {
   const launcher = townhallEventLauncher();
-  assert.match(launcher.text, /시간 후보는 비워두세요/);
+  assert.match(launcher.text, /웹 시간표/);
   const open = action("community_event_open", "UMEMBER", {
     ownerId: "actor",
     key: "new-townhall-event",
@@ -142,28 +142,23 @@ try {
   assert.equal((await communityInteraction(open, env, () => {})).status, 200);
   const createModal = calls.find((call) => call.method === "views.open").body.view;
   assert.deepEqual(
-    createModal.blocks.map((block) => block.block_id),
-    ["activity", "location", "options"],
+    createModal.blocks.filter((block) => block.type === "input").map((block) => block.block_id),
+    ["activity", "location"],
   );
-  assert.equal(createModal.blocks[2].optional, true);
+  assert.doesNotMatch(JSON.stringify(createModal), /가능한 시간 후보|최대 8개|2026-10-10/);
+  assert.match(JSON.stringify(createModal), /게시한 뒤.*시간 맞추기/);
 
   const invalid = submission("VINVALID", "community_event_submit", createModal.private_metadata, {
     activity: { value: { value: "" } },
     location: { value: { value: "" } },
-    options: { value: { value: "not-a-time" } },
   });
   const invalidResponse = await communityInteraction(invalid, env, () => {});
-  assert.deepEqual(Object.keys((await invalidResponse.json()).errors).sort(), [
-    "activity",
-    "location",
-    "options",
-  ]);
+  assert.deepEqual(Object.keys((await invalidResponse.json()).errors).sort(), ["activity", "location"]);
 
   const pending = [];
   const valid = submission("VEVENT-1", "community_event_submit", createModal.private_metadata, {
     activity: { value: { value: "산책하고 <@UATTACK> 커피 마시기" } },
     location: { value: { value: "성수역 1번 출구" } },
-    options: { value: { value: "2026-10-10 19:00\n2026-10-11 14:00" } },
   });
   const response = await communityInteraction(valid, env, (promise) => pending.push(promise));
   assert.deepEqual(await response.json(), { response_action: "clear" });
@@ -171,7 +166,7 @@ try {
   const post = calls.find((call) => call.method === "chat.postMessage");
   assert.match(post.body.text, /<@UMEMBER>님이 이벤트를 열었어요/);
   assert.match(post.body.text, /장소: 성수역 1번 출구/);
-  assert.match(post.body.text, /가능 0명/);
+  assert.match(post.body.text, /아직 정하지 않았어요/);
   assert.deepEqual(
     post.body.blocks[1].elements.map((item) => item.action_id),
     [
@@ -217,11 +212,10 @@ try {
   );
   const editModal = calls.find((call) => call.method === "views.open").body.view;
   assert.equal(editModal.title.text, "이벤트 수정");
-  assert.match(editModal.blocks[2].element.initial_value, /2026-10-10 19:00/);
+  assert.doesNotMatch(JSON.stringify(editModal), /가능한 시간 후보|최대 8개/);
   const editValues = {
     activity: { value: { value: "저녁 산책" } },
     location: { value: { value: "서울숲" } },
-    options: { value: { value: "2026-10-10 19:00\n2026-10-12 20:00" } },
   };
   const editSubmit = submission(
     "VEDIT",
@@ -236,25 +230,8 @@ try {
     /장소: 서울숲/,
   );
 
-  calls.length = 0;
-  const flexible = submission("VFLEXIBLE", "community_event_submit", createModal.private_metadata, {
-    activity: { value: { value: "일주일 동안 고전 읽기" } },
-    location: { value: { value: "Townhall 스레드" } },
-    options: { value: { value: "" } },
-  });
-  const flexibleResponse = await communityInteraction(flexible, env, (promise) =>
-    pending.push(promise),
-  );
-  assert.deepEqual(await flexibleResponse.json(), { response_action: "clear" });
-  await Promise.all(pending.splice(0));
-  const flexiblePost = calls.find((call) => call.method === "chat.postMessage");
-  assert.match(flexiblePost.body.text, /아직 정하지 않았어요/);
-  assert.deepEqual(
-    flexiblePost.body.blocks[1].elements.map((item) => item.action_id),
-    ["community_event_interest", "community_event_edit", "community_event_open"],
-  );
   console.log(
-    "PASS townhall event: flexible schedule, location, 8-way time poll, multi-vote, host edit, and surviving-option votes",
+    "PASS townhall event: simple Slack start, always-visible web scheduler, and host edit without legacy time fields",
   );
 } finally {
   globalThis.fetch = originalFetch;
