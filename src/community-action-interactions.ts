@@ -14,7 +14,6 @@ import { openQuickEntryModal } from "./community-quick-entry";
 import { processRecordAction } from "./community-record-interactions";
 import { type CommunityContext, ephemeral } from "./community-runtime";
 import {
-  applyTownhallInterest,
   applyTownhallRsvp,
   openTownhallEventModal,
   publishTownhallScheduleLink,
@@ -95,7 +94,6 @@ export async function handleCommunityAction(input: ActionInteraction): Promise<R
   if (
     input.id === "community_event_availability" ||
     input.id === "community_event_edit" ||
-    input.id === "community_event_interest" ||
     input.id === "community_event_rsvp"
   ) {
     const event = await context.store.getTownhallEvent({
@@ -109,8 +107,6 @@ export async function handleCommunityAction(input: ActionInteraction): Promise<R
       await openTownhallEventModal(context, string(input.data.trigger_id), event);
     else if (input.id === "community_event_availability")
       await publishTownhallScheduleLink(context, event);
-    else if (input.id === "community_event_interest")
-      input.waitUntil(applyTownhallInterest(context, event));
     else input.waitUntil(applyTownhallRsvp(context, event));
     return new Response(null, { status: 200 });
   }

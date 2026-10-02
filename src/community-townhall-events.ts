@@ -172,7 +172,7 @@ export function townhallEventMessage(event: TownhallEvent): Json {
   const series = event.series
     ? `\n반복: ${event.series.recurrenceEveryWeeks === 1 ? "매주" : "격주"} · ${event.series.occurrenceCount}회`
     : "";
-  const text = `<@${event.hostUserId}>님이 이벤트를 열었어요! 🎟️\n${phaseLabels[event.phase]}\n${eventActivityText(event.activity)}\n장소: ${escapeSlackText(event.location)}${finalTime}${deadline}${series}\n관심 ${event.interestCount}명 · 참가 확정 ${event.goingCount}/${event.minConfirmed}명${event.capacity ? ` · 정원 ${event.capacity}명` : ""}\n\n${schedule}`;
+  const text = `<@${event.hostUserId}>님이 이벤트를 열었어요! 🎟️\n${phaseLabels[event.phase]}\n${eventActivityText(event.activity)}\n장소: ${escapeSlackText(event.location)}${finalTime}${deadline}${series}\n참가 확정 ${event.goingCount}/${event.minConfirmed}명${event.capacity ? ` · 정원 ${event.capacity}명` : ""}\n\n${schedule}`;
   return {
     text,
     blocks: [
@@ -180,12 +180,6 @@ export function townhallEventMessage(event: TownhallEvent): Json {
       {
         type: "actions",
         elements: [
-          button(
-            event.viewerState === "interested" ? "관심 취소" : "관심 있어요",
-            "community_event_interest",
-            "actor",
-            event.eventId,
-          ),
           button("가능 시간 선택", "community_event_availability", "actor", event.eventId),
           ...(event.finalStartAt
             ? [button("참가 확정", "community_event_rsvp", "actor", event.eventId)]
@@ -314,24 +308,6 @@ export async function syncTownhallEventMessage(
     ts: event.messageTs,
     ...object(townhallEventMessage(event)),
   });
-}
-
-export async function applyTownhallInterest(
-  context: CommunityContext,
-  event: TownhallEvent,
-): Promise<void> {
-  const active = event.viewerState !== "interested";
-  const updated = await context.store.townhallEventLifecycle("interest", {
-    teamId: context.scope.teamId,
-    channelId: context.scope.channelId,
-    actorId: context.scope.userId,
-    eventId: event.eventId,
-    active,
-    source: "button",
-    now: new Date().toISOString(),
-  });
-  await updateEventMessage(context, updated);
-  await notice(context, active ? "관심 이벤트로 표시했어요." : "관심 표시를 취소했어요.");
 }
 
 export async function applyTownhallRsvp(
