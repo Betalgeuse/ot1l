@@ -26,6 +26,7 @@ export type CommunityEnv = {
   readonly INTEREST_ADMIN_CHANNEL_ID?: string;
   readonly INTEREST_ACTION_SECRET?: string;
   readonly SITE_CORE_HMAC_SECRET?: string;
+  readonly EVENT_CORE_HMAC_SECRET?: string;
   readonly INVITE_EMAIL_PEPPER?: string;
   readonly LIFECYCLE_ACTION_SECRET?: string;
   readonly LIFECYCLE_ADMIN_DATABASE_URL?: string;
@@ -34,6 +35,8 @@ export type CommunityEnv = {
   readonly INVITE_PRIVATE_KEK_VERSION?: string;
   readonly REFERRAL_TOKEN_SECRET?: string;
   readonly PUBLIC_APPLICATION_ORIGIN?: string;
+  readonly EVENT_PUBLIC_BASE_URL?: string;
+  readonly EVENT_SIGNING_SECRET?: string;
   readonly INVITE_PRIVATE_OBJECTS?: InviteReconcileBucket;
   readonly COMMUNITY_BOT_USER_ID?: string;
   readonly DATABASE_MAINTENANCE?: string;
@@ -48,6 +51,7 @@ export type CommunityEnv = {
   readonly COMMUNITY_SHAREINFO_CHANNEL_ID?: string;
   readonly COMMUNITY_CHAPTER_CHANNEL_IDS?: string;
   readonly COMMUNITY_RELEASE_CHANNEL_ID?: string;
+  readonly COMMUNITY_MAINTAINERS_CHANNEL_ID?: string;
   readonly COMMUNITY_WELCOME_CHANNEL_ID?: string;
   readonly COMMUNITY_GUIDE_FILE_IDS?: string;
   readonly COMMUNITY_GUIDE_CHAPTER_CHANNEL_IDS?: string;
@@ -111,11 +115,18 @@ export function actionIdentity(data: Record<string, unknown>, env: CommunityEnv,
     "community_event_availability",
     "community_event_availability_submit",
     "community_event_edit",
+    "community_event_interest",
+    "community_event_rsvp",
+  ].includes(actionId);
+  const maintainerAction = [
+    "community_maintainer_activate",
+    "community_maintainer_deactivate",
   ].includes(actionId);
   const communityActionChannels = [
     env.COMMUNITY_CHANNEL_ID,
     env.COMMUNITY_PUBLIC_CHANNEL_ID,
     env.COMMUNITY_RELEASE_CHANNEL_ID,
+    env.COMMUNITY_MAINTAINERS_CHANNEL_ID,
     env.COMMUNITY_INTRO_CHANNEL_ID,
     env.COMMUNITY_FEEDBACK_CHANNEL_ID,
     env.COMMUNITY_WELCOME_CHANNEL_ID,
@@ -143,7 +154,14 @@ export function actionIdentity(data: Record<string, unknown>, env: CommunityEnv,
         env.COMMUNITY_RELEASE_CHANNEL_ID,
         env.COMMUNITY_INTRO_CHANNEL_ID,
       ].includes(channelId)) ||
-    (eventAction && channelId === env.COMMUNITY_RELEASE_CHANNEL_ID);
+    (eventAction && channelId === env.COMMUNITY_RELEASE_CHANNEL_ID) ||
+    (maintainerAction &&
+      [
+        env.COMMUNITY_WELCOME_CHANNEL_ID,
+        env.COMMUNITY_PUBLIC_CHANNEL_ID,
+        env.COMMUNITY_RELEASE_CHANNEL_ID,
+        env.COMMUNITY_MAINTAINERS_CHANNEL_ID,
+      ].includes(channelId));
   const feedbackActionDenied = channelId === env.COMMUNITY_FEEDBACK_CHANNEL_ID && !bugAction;
   if (
     teamId !== env.SLACK_TEAM_ID ||
@@ -162,6 +180,13 @@ export function actionIdentity(data: Record<string, unknown>, env: CommunityEnv,
         env.COMMUNITY_INTRO_CHANNEL_ID,
       ].includes(channelId)) ||
     (eventAction && channelId !== env.COMMUNITY_RELEASE_CHANNEL_ID) ||
+    (maintainerAction &&
+      ![
+        env.COMMUNITY_WELCOME_CHANNEL_ID,
+        env.COMMUNITY_PUBLIC_CHANNEL_ID,
+        env.COMMUNITY_RELEASE_CHANNEL_ID,
+        env.COMMUNITY_MAINTAINERS_CHANNEL_ID,
+      ].includes(channelId)) ||
     (![env.COMMUNITY_CHANNEL_ID, env.COMMUNITY_PUBLIC_CHANNEL_ID].includes(channelId) &&
       !expandedChannelAllowed) ||
     (channelId === env.COMMUNITY_CHANNEL_ID && userId !== env.COMMUNITY_ADMIN_ID) ||

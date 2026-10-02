@@ -1,5 +1,5 @@
-import assert from "node:assert/strict";
 import { mock } from "bun:test";
+import assert from "node:assert/strict";
 
 mock.module("cloudflare:workers", () => ({ DurableObject: class {} }));
 const events = new Map();
@@ -12,6 +12,22 @@ const eventView = (event, actorId) => ({
     votes: [...votes.values()].filter((selected) => selected.includes(option)).length,
   })),
   selected: votes.get(actorId) ?? [],
+  poll: event.poll ?? null,
+  eventKind: "gathering",
+  phase: "recruiting",
+  minConfirmed: 2,
+  capacity: null,
+  recruitmentDeadline: null,
+  graceHours: 24,
+  autoCancel: true,
+  graceUntil: null,
+  finalStartAt: null,
+  cancelledAt: null,
+  cancellationReason: null,
+  interestCount: 0,
+  goingCount: 0,
+  waitlistCount: 0,
+  viewerState: null,
 });
 mock.module("../src/community-store.ts", () => ({
   CommunityStore: class {
@@ -40,7 +56,9 @@ mock.module("../src/community-store.ts", () => ({
       event.messageTs = input.messageTs;
       return true;
     }
-    async abortTownhallEvent(input) { return events.delete(input.eventId); }
+    async abortTownhallEvent(input) {
+      return events.delete(input.eventId);
+    }
     async getTownhallEvent(input) {
       const event = events.get(input.eventId);
       return event ? eventView(event, input.actorId) : null;
@@ -58,7 +76,10 @@ mock.module("../src/community-store.ts", () => ({
       event.options = [...input.options];
       event.revision += 1;
       for (const [actor, selected] of votes)
-        votes.set(actor, selected.filter((option) => event.options.includes(option)));
+        votes.set(
+          actor,
+          selected.filter((option) => event.options.includes(option)),
+        );
       return eventView(event, input.actorId);
     }
   },
@@ -79,6 +100,8 @@ const env = {
   COMMUNITY_ADMIN_ID: "UADMIN",
   COMMUNITY_PUBLIC_CHANNEL_ID: "CPUBLIC",
   COMMUNITY_RELEASE_CHANNEL_ID: "CTOWN",
+  EVENT_PUBLIC_BASE_URL: "https://events.example.com",
+  EVENT_SIGNING_SECRET: "event-secret",
 };
 const calls = [];
 const originalFetch = globalThis.fetch;
@@ -111,18 +134,18 @@ const submission = (id, callbackId, privateMetadata, values, userId = "UMEMBER")
 
 try {
   const launcher = townhallEventLauncher();
-  assert.match(launcher.text, /활동·장소·가능한 시간 후보/);
+  assert.match(launcher.text, /시간 후보는 비워두세요/);
   const open = action("community_event_open", "UMEMBER", {
     ownerId: "actor",
     key: "new-townhall-event",
   });
   assert.equal((await communityInteraction(open, env, () => {})).status, 200);
   const createModal = calls.find((call) => call.method === "views.open").body.view;
-  assert.deepEqual(createModal.blocks.map((block) => block.block_id), [
-    "activity",
-    "location",
-    "options",
-  ]);
+  assert.deepEqual(
+    createModal.blocks.map((block) => block.block_id),
+    ["activity", "location", "options"],
+  );
+  assert.equal(createModal.blocks[2].optional, true);
 
   const invalid = submission("VINVALID", "community_event_submit", createModal.private_metadata, {
     activity: { value: { value: "" } },
@@ -149,11 +172,15 @@ try {
   assert.match(post.body.text, /<@UMEMBER>님이 이벤트를 열었어요/);
   assert.match(post.body.text, /장소: 성수역 1번 출구/);
   assert.match(post.body.text, /가능 0명/);
-  assert.deepEqual(post.body.blocks[1].elements.map((item) => item.action_id), [
-    "community_event_availability",
-    "community_event_edit",
-    "community_event_open",
-  ]);
+  assert.deepEqual(
+    post.body.blocks[1].elements.map((item) => item.action_id),
+    [
+      "community_event_interest",
+      "community_event_availability",
+      "community_event_edit",
+      "community_event_open",
+    ],
+  );
 
   calls.length = 0;
   const availability = action("community_event_availability", "UOTHER", {
@@ -162,20 +189,9 @@ try {
     eventId: "VEVENT-1",
   });
   await communityInteraction(availability, env, (promise) => pending.push(promise));
-  const availabilityModal = calls.find((call) => call.method === "views.open").body.view;
-  assert.equal(availabilityModal.blocks[0].element.type, "multi_static_select");
-  assert.equal(availabilityModal.blocks[0].element.options.length, 2);
-  const availabilitySubmit = submission(
-    "VVOTE",
-    "community_event_availability_submit",
-    availabilityModal.private_metadata,
-    { availability: { value: { selected_options: availabilityModal.blocks[0].element.options } } },
-    "UOTHER",
-  );
-  await communityInteraction(availabilitySubmit, env, (promise) => pending.push(promise));
   await Promise.all(pending.splice(0));
-  assert.equal(votes.get("UOTHER").length, 2);
-  assert.match(calls.find((call) => call.method === "chat.update").body.text, /가능 1명/);
+  const scheduleLink = calls.find((call) => call.method === "chat.postEphemeral");
+  assert.match(scheduleLink.body.blocks[0].accessory.url, /^https:\/\/events[.]example[.]com\/events\/schedule\//);
 
   calls.length = 0;
   await assert.rejects(
@@ -215,10 +231,30 @@ try {
   );
   await communityInteraction(editSubmit, env, (promise) => pending.push(promise));
   await Promise.all(pending.splice(0));
-  assert.deepEqual(votes.get("UOTHER"), ["2026-10-10T10:00:00.000Z"]);
-  assert.match(calls.filter((call) => call.method === "chat.update").at(-1).body.text, /장소: 서울숲/);
+  assert.match(
+    calls.filter((call) => call.method === "chat.update").at(-1).body.text,
+    /장소: 서울숲/,
+  );
+
+  calls.length = 0;
+  const flexible = submission("VFLEXIBLE", "community_event_submit", createModal.private_metadata, {
+    activity: { value: { value: "일주일 동안 고전 읽기" } },
+    location: { value: { value: "Townhall 스레드" } },
+    options: { value: { value: "" } },
+  });
+  const flexibleResponse = await communityInteraction(flexible, env, (promise) =>
+    pending.push(promise),
+  );
+  assert.deepEqual(await flexibleResponse.json(), { response_action: "clear" });
+  await Promise.all(pending.splice(0));
+  const flexiblePost = calls.find((call) => call.method === "chat.postMessage");
+  assert.match(flexiblePost.body.text, /아직 정하지 않았어요/);
+  assert.deepEqual(
+    flexiblePost.body.blocks[1].elements.map((item) => item.action_id),
+    ["community_event_interest", "community_event_edit", "community_event_open"],
+  );
   console.log(
-    "PASS townhall event: location, 8-way time poll, multi-vote, host edit, and surviving-option votes",
+    "PASS townhall event: flexible schedule, location, 8-way time poll, multi-vote, host edit, and surviving-option votes",
   );
 } finally {
   globalThis.fetch = originalFetch;

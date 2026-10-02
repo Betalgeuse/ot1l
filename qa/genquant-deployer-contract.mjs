@@ -7,9 +7,19 @@ assert.equal(classifyRunnerDeploymentPaths([
   "qa/genquant-runner-contract.mjs",
   "docs/DEVELOPMENT.md",
 ]).automatic, true);
-for (const path of ["src/community-scheduler.ts", "migrations/061.sql", "site/src/index.ts", "package.json"])
+assert.deepEqual(classifyRunnerDeploymentPaths([
+  "event-site/src/index.ts",
+  "site/dist/event-schedule.js",
+]), {
+  automatic: true,
+  adapter: "open-events",
+  paths: ["event-site/src/index.ts", "site/dist/event-schedule.js"],
+});
+assert.equal(classifyRunnerDeploymentPaths(["src/community-townhall-events.ts"]).adapter, "core-worker");
+assert.equal(classifyRunnerDeploymentPaths(["package.json"]).adapter, "core-worker");
+for (const path of ["migrations/061.sql", "site/src/index.ts"])
   assert.equal(classifyRunnerDeploymentPaths([path]).automatic, false, path);
-assert.deepEqual(classifyRunnerDeploymentPaths([]), { automatic: true, paths: [] });
+assert.deepEqual(classifyRunnerDeploymentPaths([]), { automatic: false, adapter: "manual", paths: [] });
 assert.throws(() => validateDeployerConfig({}), /missing deployer config/);
 assert.equal(validateDeployerConfig({
   BUG_RUNNER_DATABASE_URL: "postgresql://u:p@example.neon.tech/db",

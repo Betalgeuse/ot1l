@@ -7,6 +7,7 @@ import type { CommunityEnv } from "./community-runtime";
 import { runCommunitySchedule } from "./community-scheduler";
 import { reconcileShareInfoChannels } from "./community-share-info-reconcile";
 import { CommunityStore } from "./community-store";
+import { runTownhallEventDue } from "./community-townhall-events";
 import { NeonStore } from "./store";
 
 export async function communityCron(env: CommunityEnv, scheduledTime: number): Promise<void> {
@@ -24,6 +25,23 @@ export async function communityCron(env: CommunityEnv, scheduledTime: number): P
   }
   if (env.COMMUNITY_ENABLED !== "true" || env.DATABASE_MAINTENANCE === "true") return;
   if (!env.COMMUNITY_ADMIN_ID) return;
+  try {
+    const eventStore = new CommunityStore(new NeonStore(env.DATABASE_URL));
+    const eventTransitions = await runTownhallEventDue(
+      { env, store: eventStore },
+      new Date(scheduledTime).toISOString(),
+    );
+    if (eventTransitions > 0)
+      console.log(JSON.stringify({ event: "community.events.due", processed: eventTransitions }));
+  } catch (error) {
+    console.error(
+      JSON.stringify({
+        event: "community.cron.queue.failed",
+        queue: "events",
+        errorType: error instanceof Error ? error.name : "Unknown",
+      }),
+    );
+  }
   if (env.BUG_RUNNER_ENABLED === "true")
     try {
       const agent = await sendAgentNotifications(env, new Date(scheduledTime));

@@ -2,6 +2,7 @@ import { CommunityScheduleStore, parseCommunityRecord } from "./community-schedu
 import type {
   ChangeResult,
   CommunityDay,
+  CommunityMaintainer,
   CommunityRecord,
   CommunityScope,
   DayChange,
@@ -84,8 +85,36 @@ function townhallEvent(value: Json): TownhallEvent | null {
   const status = string(input.status);
   if (status !== "draft" && status !== "active") throw new InputError("Invalid event status");
   const revision = input.revision;
+  const eventKind = string(input.eventKind);
+  const phase = string(input.phase);
+  const viewerState = input.viewerState === null ? null : string(input.viewerState);
+  const integer = (value: unknown, label: string) => {
+    if (typeof value !== "number" || !Number.isSafeInteger(value))
+      throw new InputError(`Invalid ${label}`);
+    return value;
+  };
   if (typeof revision !== "number" || !Number.isSafeInteger(revision) || revision < 1)
     throw new InputError("Invalid event revision");
+  if (!["gathering", "challenge", "series"].includes(eventKind))
+    throw new InputError("Invalid event kind");
+  if (
+    ![
+      "recruiting",
+      "scheduling",
+      "scheduled",
+      "confirmed",
+      "cancel_pending",
+      "cancelled",
+      "completed",
+      "paused",
+    ].includes(phase)
+  )
+    throw new InputError("Invalid event phase");
+  if (
+    viewerState !== null &&
+    !["interested", "going", "waitlist", "declined"].includes(viewerState)
+  )
+    throw new InputError("Invalid event participant state");
   return {
     eventId: string(input.eventId),
     teamId: string(input.teamId),
@@ -110,10 +139,110 @@ function townhallEvent(value: Json): TownhallEvent | null {
       return { startsAt: string(option.startsAt), position, votes };
     }),
     selected: list(input.selected).map(string),
+    eventKind: eventKind as TownhallEvent["eventKind"],
+    phase: phase as TownhallEvent["phase"],
+    minConfirmed: integer(input.minConfirmed, "minimum"),
+    capacity: input.capacity === null ? null : integer(input.capacity, "capacity"),
+    recruitmentDeadline:
+      input.recruitmentDeadline === null ? null : string(input.recruitmentDeadline),
+    graceHours: integer(input.graceHours, "grace"),
+    autoCancel: input.autoCancel === true,
+    graceUntil: input.graceUntil === null ? null : string(input.graceUntil),
+    finalStartAt: input.finalStartAt === null ? null : string(input.finalStartAt),
+    cancelledAt: input.cancelledAt === null ? null : string(input.cancelledAt),
+    cancellationReason: input.cancellationReason === null ? null : string(input.cancellationReason),
+    interestCount: integer(input.interestCount, "interest count"),
+    goingCount: integer(input.goingCount, "going count"),
+    waitlistCount: integer(input.waitlistCount, "waitlist count"),
+    viewerState: viewerState as TownhallEvent["viewerState"],
+    poll:
+      input.poll === null
+        ? null
+        : (() => {
+            const poll = object(input.poll);
+            const stepMinutes = poll.stepMinutes;
+            if (stepMinutes !== 30 && stepMinutes !== 60) throw new InputError("Invalid poll step");
+            if (poll.timezone !== "Asia/Seoul") throw new InputError("Invalid poll timezone");
+            return {
+              startDate: date(poll.startDate),
+              endDate: date(poll.endDate),
+              dayStart: string(poll.dayStart),
+              dayEnd: string(poll.dayEnd),
+              stepMinutes,
+              timezone: poll.timezone,
+            };
+          })(),
+    series:
+      input.series === undefined || input.series === null
+        ? null
+        : (() => {
+            const series = object(input.series);
+            const recurrenceEveryWeeks = integer(series.recurrenceEveryWeeks, "series cadence");
+            const occurrenceCount = integer(series.occurrenceCount, "series count");
+            if (
+              ![1, 2].includes(recurrenceEveryWeeks) ||
+              occurrenceCount < 2 ||
+              occurrenceCount > 24
+            )
+              throw new InputError("Invalid event series");
+            return {
+              recurrenceEveryWeeks: recurrenceEveryWeeks as 1 | 2,
+              occurrenceCount,
+              occurrences: list(series.occurrences).map((value) => {
+                const occurrence = object(value);
+                const status = string(occurrence.status);
+                if (!["scheduled", "completed", "cancelled"].includes(status))
+                  throw new InputError("Invalid event occurrence");
+                return {
+                  number: integer(occurrence.number, "occurrence number"),
+                  startsAt: string(occurrence.startsAt),
+                  status: status as "scheduled" | "completed" | "cancelled",
+                };
+              }),
+            };
+          })(),
+  };
+}
+
+function communityMaintainer(value: Json): CommunityMaintainer | null {
+  if (value === null) return null;
+  const input = object(value);
+  const state = string(input.state);
+  const revision = input.revision;
+  if (
+    !["active", "inactive", "revoked"].includes(state) ||
+    typeof revision !== "number" ||
+    !Number.isSafeInteger(revision)
+  )
+    throw new InputError("Invalid maintainer");
+  return {
+    teamId: string(input.teamId),
+    userId: string(input.userId),
+    state: state as CommunityMaintainer["state"],
+    revision,
   };
 }
 
 export class CommunityStore extends CommunityScheduleStore {
+  private maintainerCall(operation: string, payload: Json): Promise<Json> {
+    return this.db.queryJson("SELECT otl.community_maintainer_execute($1,$2::jsonb)", [
+      operation,
+      JSON.stringify(payload),
+    ]);
+  }
+  async activateMaintainer(teamId: string, actorId: string): Promise<CommunityMaintainer> {
+    const maintainer = communityMaintainer(
+      await this.maintainerCall("activate", { teamId, actorId }),
+    );
+    if (!maintainer) throw new InputError("Maintainer missing");
+    return maintainer;
+  }
+  async maintainerStatus(teamId: string, actorId: string): Promise<CommunityMaintainer | null> {
+    return communityMaintainer(await this.maintainerCall("status", { teamId, actorId }));
+  }
+  async deactivateMaintainer(teamId: string, actorId: string): Promise<boolean> {
+    return bool(await this.maintainerCall("deactivate", { teamId, actorId }));
+  }
   private townhallEventCall(operation: string, payload: Json): Promise<Json> {
     return this.db.queryJson("SELECT otl.townhall_event_execute($1,$2::jsonb)", [
       operation,
@@ -140,7 +269,21 @@ export class CommunityStore extends CommunityScheduleStore {
     readonly actorId: string;
     readonly eventId: string;
   }): Promise<TownhallEvent | null> {
-    return townhallEvent(await this.townhallEventCall("get", input));
+    return this.townhallEventSeries("get", input);
+  }
+  async getTownhallEventByMessage(
+    teamId: string,
+    channelId: string,
+    actorId: string,
+    messageTs: string,
+  ): Promise<TownhallEvent | null> {
+    return townhallEvent(
+      await this.db.queryJson(
+        `SELECT coalesce((SELECT otl.townhall_event_json(e,$3) FROM otl.townhall_events e
+          WHERE e.team_id=$1 AND e.channel_id=$2 AND e.message_ts=$4),'null'::jsonb)`,
+        [teamId, channelId, actorId, messageTs],
+      ),
+    );
   }
   async bindTownhallEvent(input: {
     readonly teamId: string;
@@ -183,6 +326,83 @@ export class CommunityStore extends CommunityScheduleStore {
     const event = townhallEvent(await this.townhallEventCall("vote", input));
     if (!event) throw new InputError("Event missing");
     return event;
+  }
+  async configureTownhallEventPoll(input: {
+    readonly teamId: string;
+    readonly channelId: string;
+    readonly actorId: string;
+    readonly eventId: string;
+    readonly startDate: string;
+    readonly endDate: string;
+    readonly dayStart: string;
+    readonly dayEnd: string;
+    readonly stepMinutes: 30 | 60;
+  }): Promise<TownhallEvent> {
+    const event = townhallEvent(
+      await this.db.queryJson("SELECT otl.townhall_event_web_execute($1,$2::jsonb)", [
+        "configure",
+        JSON.stringify(input),
+      ]),
+    );
+    if (!event) throw new InputError("Event missing");
+    return event;
+  }
+  async voteTownhallEventWeb(input: {
+    readonly teamId: string;
+    readonly channelId: string;
+    readonly actorId: string;
+    readonly eventId: string;
+    readonly selected: readonly string[];
+  }): Promise<TownhallEvent> {
+    const event = townhallEvent(
+      await this.db.queryJson("SELECT otl.townhall_event_web_execute($1,$2::jsonb)", [
+        "vote",
+        JSON.stringify(input),
+      ]),
+    );
+    if (!event) throw new InputError("Event missing");
+    return event;
+  }
+  async townhallEventLifecycle(
+    operation: "interest" | "rsvp" | "configure" | "finalize",
+    input: Json,
+  ): Promise<TownhallEvent> {
+    const event = townhallEvent(
+      await this.db.queryJson("SELECT otl.townhall_event_lifecycle_execute($1,$2::jsonb)", [
+        operation,
+        JSON.stringify(input),
+      ]),
+    );
+    if (!event) throw new InputError("Event missing");
+    return event;
+  }
+  async townhallEventSeries(
+    operation: "get" | "configure" | "finalize",
+    input: Json,
+  ): Promise<TownhallEvent | null> {
+    return townhallEvent(
+      await this.db.queryJson("SELECT otl.townhall_event_series_execute($1,$2::jsonb)", [
+        operation,
+        JSON.stringify(input),
+      ]),
+    );
+  }
+  async dueTownhallEvents(
+    teamId: string,
+    channelId: string,
+    actorId: string,
+    now: string,
+  ): Promise<readonly TownhallEvent[]> {
+    return list(
+      await this.db.queryJson("SELECT otl.townhall_event_lifecycle_execute($1,$2::jsonb)", [
+        "due",
+        JSON.stringify({ teamId, channelId, actorId, now }),
+      ]),
+    ).map((value) => {
+      const event = townhallEvent(value as Json);
+      if (!event) throw new InputError("Event missing");
+      return event;
+    });
   }
   private introductionCall(operation: string, payload: Json): Promise<Json> {
     return this.db.queryJson("SELECT otl.introduction_execute($1,$2::jsonb)", [

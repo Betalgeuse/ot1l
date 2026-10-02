@@ -108,6 +108,15 @@ globalThis.fetch = async (url, options = {}) => {
       rows: [
         [
           JSON.stringify({
+            ...(body.query.includes("bug_merge_approval_context")
+              ? {
+                  classified: true,
+                  changeClass: "core",
+                  headSha: "a".repeat(40),
+                  classificationDigest: "b".repeat(64),
+                  maintainer: false,
+                }
+              : {}),
             accepted: queueAccepted,
             state: queueAccepted ? "queued" : "needs_info_exhausted",
           }),
@@ -200,6 +209,7 @@ try {
           "postgresql://runtime:secret@ep-example-pooler.c-3.ap-southeast-1.aws.neon.tech/neondb?sslmode=require",
         SLACK_BOT_TOKEN: "fake",
         COMMUNITY_CODEX_REPOSITORY: "Betalgeuse/ot1l",
+        COMMUNITY_ADMIN_ID: "UADMIN",
       },
       scope: { teamId: "TQA", channelId: "CFEEDBACK", userId: "UADMIN" },
       source: "123.100",
@@ -208,7 +218,14 @@ try {
       key: "interaction:merge",
       store: {},
     },
-    { feedbackId: "BUG-ABCDEF123456", packetRevision: 2, prNumber: 9 },
+    {
+      feedbackId: "BUG-ABCDEF123456",
+      packetRevision: 2,
+      prNumber: 9,
+      changeClass: "core",
+      headSha: "a".repeat(40),
+      classificationDigest: "b".repeat(64),
+    },
   );
   assert.equal(
     calls.some(

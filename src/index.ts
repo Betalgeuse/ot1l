@@ -3,6 +3,7 @@ export { CommunityClock } from "./community-clock";
 import { readBoardLink } from "./board-link";
 import { armBugDeliveryClock, BUG_CLOCK_CAPABILITIES } from "./community-bug-clock-client";
 import { armCommunityClock } from "./community-clock-client";
+import { handleEventWebRequest } from "./community-event-web";
 import { handleCommunityEvent } from "./community-events";
 import { communityInteraction } from "./community-interactions";
 import { handleInterestIntakeRequest } from "./community-interest-intake";
@@ -95,6 +96,7 @@ export async function handleRequest(
         ctx.waitUntil(armCommunityClock(env, env.COMMUNITY_PUBLIC_CHANNEL_ID));
       return response;
     }
+    if (url.pathname.startsWith("/internal/events/")) return handleEventWebRequest(request, env);
     if (env.DATABASE_MAINTENANCE === "true" && url.pathname.startsWith("/slack/"))
       return new Response("잠시 데이터 정리 중입니다. 곧 다시 시도해 주세요.", {
         status: 503,

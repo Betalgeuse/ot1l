@@ -1,16 +1,10 @@
 import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import {
-  closeSync,
-  constants,
-  mkdtempSync,
-  openSync,
-  readFileSync,
-  rmSync,
-} from "node:fs";
+import { closeSync, constants, mkdtempSync, openSync, readFileSync, rmSync } from "node:fs";
 import { lstat, mkdir, open, readFile, unlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { isAbsolute, join, resolve } from "node:path";
+import { classifyChangePaths } from "./change-policy.mjs";
 import {
   buildFixBranch,
   buildFixPrompt,
@@ -49,8 +43,16 @@ function boundedCommandOutput(binary, args, options = {}) {
   const directory = mkdtempSync(join(tmpdir(), "otl1-runner-command-"));
   const stdoutPath = join(directory, "stdout");
   const stderrPath = join(directory, "stderr");
-  const stdout = openSync(stdoutPath, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL, 0o600);
-  const stderr = openSync(stderrPath, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL, 0o600);
+  const stdout = openSync(
+    stdoutPath,
+    constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL,
+    0o600,
+  );
+  const stderr = openSync(
+    stderrPath,
+    constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL,
+    0o600,
+  );
   try {
     execFileSync(binary, args, {
       cwd: options.cwd,
@@ -377,21 +379,11 @@ async function processApprovedMerge(db, config, workerId) {
   const prUrl = `https://github.com/${repositorySlug}/pull/${prNumber}`;
   try {
     command("gh", ["pr", "ready", prUrl, "--repo", repositorySlug]);
-    command(
-      "gh",
-      ["pr", "merge", prUrl, "--repo", repositorySlug, "--squash", "--delete-branch"],
-      { timeout: 180_000 },
-    );
+    command("gh", ["pr", "merge", prUrl, "--repo", repositorySlug, "--squash", "--delete-branch"], {
+      timeout: 180_000,
+    });
     const merged = JSON.parse(
-      command("gh", [
-        "pr",
-        "view",
-        prUrl,
-        "--repo",
-        repositorySlug,
-        "--json",
-        "state,mergeCommit",
-      ]),
+      command("gh", ["pr", "view", prUrl, "--repo", repositorySlug, "--json", "state,mergeCommit"]),
     );
     const mergeSha = merged.mergeCommit?.oid;
     if (merged.state !== "MERGED" || typeof mergeSha !== "string")
@@ -520,6 +512,22 @@ async function processOne(config) {
         prNumber: fix.prNumber,
         prUrl: fix.prUrl,
         summary,
+      });
+      const classification = classifyChangePaths(fix.paths);
+      const classificationDigest = sha256(
+        JSON.stringify({
+          version: 1,
+          changeClass: classification.changeClass,
+          paths: classification.paths,
+        }),
+      );
+      await db("bug_runner_classify_change", {
+        teamId: config.SLACK_TEAM_ID,
+        prNumber: fix.prNumber,
+        headSha: fix.headSha,
+        changeClass: classification.changeClass,
+        changedPaths: classification.paths,
+        classificationDigest,
       });
       log("bug.runner.merge_ready", { bugId: lease.bugId, jobId: lease.jobId, runId });
       return true;

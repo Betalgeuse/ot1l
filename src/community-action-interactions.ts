@@ -3,6 +3,7 @@ import { handleBugAction } from "./community-bug-interactions";
 import { openSettings, openShoutout } from "./community-controls";
 import { introductionModal } from "./community-introduction";
 import { showIntroductionDirectory } from "./community-introduction-channel";
+import { activateMaintainer, deactivateMaintainer } from "./community-maintainers";
 import { openCommunityPalette } from "./community-palette";
 import {
   openPastReviewModal,
@@ -12,7 +13,12 @@ import {
 import { openQuickEntryModal } from "./community-quick-entry";
 import { processRecordAction } from "./community-record-interactions";
 import { type CommunityContext, ephemeral } from "./community-runtime";
-import { openTownhallAvailabilityModal, openTownhallEventModal } from "./community-townhall-events";
+import {
+  applyTownhallInterest,
+  applyTownhallRsvp,
+  openTownhallEventModal,
+  publishTownhallScheduleLink,
+} from "./community-townhall-events";
 import type { CommunityScope } from "./community-types";
 import { date, InputError, object, string } from "./input";
 
@@ -78,7 +84,20 @@ export async function handleCommunityAction(input: ActionInteraction): Promise<R
     await openTownhallEventModal(context, string(input.data.trigger_id));
     return new Response(null, { status: 200 });
   }
-  if (input.id === "community_event_availability" || input.id === "community_event_edit") {
+  if (input.id === "community_maintainer_activate") {
+    input.waitUntil(activateMaintainer(context));
+    return new Response(null, { status: 200 });
+  }
+  if (input.id === "community_maintainer_deactivate") {
+    input.waitUntil(deactivateMaintainer(context));
+    return new Response(null, { status: 200 });
+  }
+  if (
+    input.id === "community_event_availability" ||
+    input.id === "community_event_edit" ||
+    input.id === "community_event_interest" ||
+    input.id === "community_event_rsvp"
+  ) {
     const event = await context.store.getTownhallEvent({
       teamId: input.scope.teamId,
       channelId: input.scope.channelId,
@@ -88,7 +107,11 @@ export async function handleCommunityAction(input: ActionInteraction): Promise<R
     if (event?.status !== "active") throw new InputError("이벤트를 찾을 수 없어요.");
     if (input.id === "community_event_edit")
       await openTownhallEventModal(context, string(input.data.trigger_id), event);
-    else await openTownhallAvailabilityModal(context, string(input.data.trigger_id), event);
+    else if (input.id === "community_event_availability")
+      await publishTownhallScheduleLink(context, event);
+    else if (input.id === "community_event_interest")
+      input.waitUntil(applyTownhallInterest(context, event));
+    else input.waitUntil(applyTownhallRsvp(context, event));
     return new Response(null, { status: 200 });
   }
   if (input.id === "community_past_review") {

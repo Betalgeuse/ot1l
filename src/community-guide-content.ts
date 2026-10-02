@@ -1,4 +1,5 @@
 import { feedbackButton } from "./community-feedback-button";
+import { maintainerButton } from "./community-maintainers";
 import { inviteButton } from "./community-member-actions";
 import type { CommunityEnv } from "./community-runtime";
 import { InputError } from "./input";
@@ -17,6 +18,7 @@ type GuideChannelEnv = Pick<
   | "COMMUNITY_PUBLIC_CHANNEL_ID"
   | "COMMUNITY_FEEDBACK_CHANNEL_ID"
   | "COMMUNITY_RELEASE_CHANNEL_ID"
+  | "COMMUNITY_MAINTAINERS_CHANNEL_ID"
   | "COMMUNITY_GUIDE_CHAPTER_CHANNEL_IDS"
 >;
 
@@ -24,6 +26,7 @@ const GUIDE_CHANNEL_LABELS = [
   "daily-scrum",
   "all-freetalk-qna-feedback",
   "townhall",
+  "maintainers",
   "chapter-developers",
   "chapter-english",
   "chapter-investment",
@@ -34,6 +37,7 @@ export function renderGuideChannels(body: string, env: GuideChannelEnv): string 
     env.COMMUNITY_PUBLIC_CHANNEL_ID,
     env.COMMUNITY_FEEDBACK_CHANNEL_ID,
     env.COMMUNITY_RELEASE_CHANNEL_ID,
+    env.COMMUNITY_MAINTAINERS_CHANNEL_ID,
     ...(env.COMMUNITY_GUIDE_CHAPTER_CHANNEL_IDS?.split(",").map((id) => id.trim()) ?? []),
   ];
   if (
@@ -51,7 +55,7 @@ export function renderGuideChannels(body: string, env: GuideChannelEnv): string 
   );
   const seen = new Set<string>();
   const rendered = body.replace(
-    /^([ \t]*(?:▪︎|◦)[ \t]*(?:Slack 사용이 어려우면 )?)#(daily-scrum|all-freetalk-qna-feedback|townhall|chapter-developers|chapter-english|chapter-investment)(?=[:에])/gm,
+    /^([ \t]*(?:▪︎|◦)[ \t]*(?:Slack 사용이 어려우면 )?)#(daily-scrum|all-freetalk-qna-feedback|townhall|maintainers|chapter-developers|chapter-english|chapter-investment)(?=[:에])/gm,
     (_match, prefix: string, label: string) => {
       const id = channels.get(label);
       if (!id) throw new InputError("환영 안내 채널 설정을 확인해 주세요.");
@@ -117,7 +121,7 @@ export function guideBlocks(userId: string, guide: WelcomeGuideContent, rendered
     ...sections,
     {
       type: "actions",
-      elements: [inviteButton(), feedbackButton()],
+      elements: [inviteButton(), maintainerButton(), feedbackButton()],
     },
     {
       type: "image",

@@ -1,5 +1,7 @@
 # 개발 가이드
 
+Townhall 이벤트 사용법, Maintainer의 Open/Core 승인 경계와 배포 점검은 [Townhall 이벤트와 Maintainer 운영](EVENTS_AND_MAINTAINERS.md)을 기준으로 합니다.
+
 ## 시작과 검증
 
 Bun과 Node.js 24를 사용합니다. 개발 도구 버전은 `package.json`과 `bun.lock`이 기준입니다.

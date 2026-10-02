@@ -34,6 +34,9 @@ globalThis.fetch = async (url, options = {}) => {
                         packetRevision: 3,
                         asIs: "기계적인 질문이 반복됩니다.",
                         toBe: "맥락 질문 뒤 관리자가 병합을 승인합니다.",
+                        changeClass: "open",
+                        headSha: "a".repeat(40),
+                        classificationDigest: "b".repeat(64),
                       }
                     : {}),
                 },
@@ -65,8 +68,10 @@ try {
   assert.equal(readyPost.body.thread_ts, "1790252981.933479");
   assert.match(readyPost.body.blocks[0].text.text, /기계적인 질문이 반복됩니다/);
   assert.match(readyPost.body.blocks[0].text.text, /변경 내용 보기/);
-  assert.equal(readyPost.body.blocks[1].elements[0].text.text, "병합 승인");
+  assert.match(readyPost.body.blocks[0].text.text, /Open/);
+  assert.equal(readyPost.body.blocks[1].elements[0].text.text, "병합·배포 승인");
   assert.equal(readyPost.body.blocks[1].elements[0].action_id, "community_feedback_merge_approve");
+  assert.equal(JSON.parse(readyPost.body.blocks[1].elements[0].value).headSha, "a".repeat(40));
   assert.equal(
     calls.some((call) => call.url.includes("reactions.")),
     false,
