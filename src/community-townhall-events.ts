@@ -141,6 +141,11 @@ function slackDate(iso: string): string {
   return `<!date^${epoch}^{date_short_pretty} {time}|${localTime(iso)} KST>`;
 }
 
+function eventActivityText(activity: string): string {
+  const [title = "", ...description] = activity.split("\n");
+  return `*${escapeSlackText(title)}*${description.length ? `\n${escapeSlackText(description.join("\n"))}` : ""}`;
+}
+
 export function townhallEventMessage(event: TownhallEvent): Json {
   const options = event.options
     .map((option) => `• ${slackDate(option.startsAt)} · 가능 ${option.votes}명`)
@@ -167,7 +172,7 @@ export function townhallEventMessage(event: TownhallEvent): Json {
   const series = event.series
     ? `\n반복: ${event.series.recurrenceEveryWeeks === 1 ? "매주" : "격주"} · ${event.series.occurrenceCount}회`
     : "";
-  const text = `<@${event.hostUserId}>님이 이벤트를 열었어요! 🎟️\n${phaseLabels[event.phase]}\n*${escapeSlackText(event.activity)}*\n장소: ${escapeSlackText(event.location)}${finalTime}${deadline}${series}\n관심 ${event.interestCount}명 · 참가 확정 ${event.goingCount}/${event.minConfirmed}명${event.capacity ? ` · 정원 ${event.capacity}명` : ""}\n\n${schedule}\n\n🙋 리액션은 관심 신호예요. 참가 확정과 실제 참석은 별도로 구분합니다. 참여 의견과 다음 활동 수요는 스레드에 남겨주세요.`;
+  const text = `<@${event.hostUserId}>님이 이벤트를 열었어요! 🎟️\n${phaseLabels[event.phase]}\n${eventActivityText(event.activity)}\n장소: ${escapeSlackText(event.location)}${finalTime}${deadline}${series}\n관심 ${event.interestCount}명 · 참가 확정 ${event.goingCount}/${event.minConfirmed}명${event.capacity ? ` · 정원 ${event.capacity}명` : ""}\n\n${schedule}\n\n🙋 리액션은 관심 신호예요. 참가 확정과 실제 참석은 별도로 구분합니다. 참여 의견과 다음 활동 수요는 스레드에 남겨주세요.`;
   return {
     text,
     blocks: [

@@ -157,7 +157,7 @@ try {
 
   const pending = [];
   const valid = submission("VEVENT-1", "community_event_submit", createModal.private_metadata, {
-    activity: { value: { value: "산책하고 <@UATTACK> 커피 마시기" } },
+    activity: { value: { value: "산책 모임\n초보 환영 https://example.com/watch" } },
     location: { value: { value: "성수역 1번 출구" } },
   });
   const response = await communityInteraction(valid, env, (promise) => pending.push(promise));
@@ -165,6 +165,8 @@ try {
   await Promise.all(pending.splice(0));
   const post = calls.find((call) => call.method === "chat.postMessage");
   assert.match(post.body.text, /<@UMEMBER>님이 이벤트를 열었어요/);
+  assert.match(post.body.text, /\*산책 모임\*\n초보 환영 https:\/\/example[.]com\/watch/);
+  assert.doesNotMatch(post.body.text, /example[.]com\/watch\*/);
   assert.match(post.body.text, /장소: 성수역 1번 출구/);
   assert.match(post.body.text, /아직 정하지 않았어요/);
   assert.deepEqual(
