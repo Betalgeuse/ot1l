@@ -90,6 +90,10 @@ export const PUBLIC_RUNTIME_MIGRATION_PATHS = [
   "migrations/065_atomic_common_delivery.sql",
   "migrations/066_townhall_event_poll.sql",
   "migrations/067_flexible_townhall_event.sql",
+  "migrations/068_open_maintainers.sql",
+  "migrations/069_event_availability_grid.sql",
+  "migrations/070_event_lifecycle.sql",
+  "migrations/071_event_series.sql",
 ];
 
 // `src` and `site` are copied as directories, but these paths keep the membership
@@ -138,6 +142,7 @@ export function assertRequiredPublicExportSources(paths, exists) {
 export const PUBLIC_QA_NAMES = [
   "check-intent.mjs",
   "community-admin-access.mjs",
+  "community-maintainers.mjs",
   "community-clock.mjs",
   "community-emoji.mjs",
   "community-followup.mjs",
@@ -148,6 +153,8 @@ export const PUBLIC_QA_NAMES = [
   "community-agent-notifications.mjs",
   "genquant-runner-contract.mjs",
   "genquant-deployer-contract.mjs",
+  "maintainer-deployment-policy.mjs",
+  "open-maintainers-pg.mjs",
   "genquant-deployer-pg.mjs",
   "bug-runner-bootstrap.mjs",
   "community-questions.mjs",
@@ -206,6 +213,7 @@ export const PUBLIC_QA_NAMES = [
   "community-storage.mjs",
   "community-townhall.mjs",
   "community-townhall-events.mjs",
+  "event-schedule-link.mjs",
   "community-welcome.mjs",
   "migration-maintenance.mjs",
   "core-placement.mjs",

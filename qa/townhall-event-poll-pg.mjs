@@ -23,6 +23,21 @@ const call = async (operation, value) =>
     await psql(`SELECT otl.townhall_event_execute('${operation}',
       convert_from(decode('${payload(value)}','base64'),'UTF8')::jsonb)`),
   );
+const callWeb = async (operation, value) =>
+  JSON.parse(
+    await psql(`SELECT otl.townhall_event_web_execute('${operation}',
+      convert_from(decode('${payload(value)}','base64'),'UTF8')::jsonb)`),
+  );
+const callLifecycle = async (operation, value) =>
+  JSON.parse(
+    await psql(`SELECT otl.townhall_event_lifecycle_execute('${operation}',
+      convert_from(decode('${payload(value)}','base64'),'UTF8')::jsonb)`),
+  );
+const callSeries = async (operation, value) =>
+  JSON.parse(
+    await psql(`SELECT otl.townhall_event_series_execute('${operation}',
+      convert_from(decode('${payload(value)}','base64'),'UTF8')::jsonb)`),
+  );
 
 try {
   await run("mkdir", ["-p", socket]);
@@ -40,7 +55,7 @@ try {
   started = true;
   await run(join(pgBin, "createdb"), ["events"]);
   const files = (await readdir(join(root, "migrations")))
-    .filter((name) => /^\d{3}_.*\.sql$/.test(name) && Number(name.slice(0, 3)) <= 67)
+    .filter((name) => /^\d{3}_.*\.sql$/.test(name) && Number(name.slice(0, 3)) <= 71)
     .sort();
   for (const file of files.filter((name) => Number(name.slice(0, 3)) <= 5))
     await run(join(pgBin, "psql"), ["-X", "-v", "ON_ERROR_STOP=1", "-f", `migrations/${file}`]);
@@ -115,8 +130,89 @@ try {
   });
   assert.equal(flexible.created, true);
   assert.deepEqual(flexible.event.options, []);
+  assert.equal(await call("bind", { ...base, eventId: "VFLEXIBLE", messageTs: "2001.000001" }), true);
+  const configured = await callWeb("configure", {
+    ...base,
+    eventId: "VFLEXIBLE",
+    startDate: "2026-10-20",
+    endDate: "2026-10-21",
+    dayStart: "18:00",
+    dayEnd: "20:00",
+    stepMinutes: 60,
+  });
+  assert.equal(configured.options.length, 4);
+  assert.deepEqual(configured.poll, {
+    startDate: "2026-10-20",
+    endDate: "2026-10-21",
+    dayStart: "18:00",
+    dayEnd: "20:00",
+    stepMinutes: 60,
+    timezone: "Asia/Seoul",
+  });
+  const webVote = await callWeb("vote", {
+    ...base,
+    eventId: "VFLEXIBLE",
+    actorId: "UONE",
+    selected: configured.options.slice(0, 2).map((option) => option.startsAt),
+  });
+  assert.deepEqual(webVote.options.map((option) => option.votes), [1, 1, 0, 0]);
+  await assert.rejects(callWeb("configure", {
+    ...base,
+    eventId: "VFLEXIBLE",
+    actorId: "UOTHER",
+    startDate: "2026-10-20",
+    endDate: "2026-10-21",
+    dayStart: "18:00",
+    dayEnd: "20:00",
+    stepMinutes: 60,
+  }));
+  await callLifecycle("configure", {
+    ...base, eventId: "VFLEXIBLE", eventKind: "gathering", minConfirmed: 2,
+    capacity: 4, recruitmentDeadline: "2026-10-19T09:00:00Z", graceHours: 24,
+    autoCancel: true, now: "2026-10-02T00:00:00Z",
+  });
+  const finalized = await callLifecycle("finalize", {
+    ...base, eventId: "VFLEXIBLE", startsAt: configured.options[0].startsAt,
+    now: "2026-10-02T00:01:00Z",
+  });
+  assert.equal(finalized.phase, "scheduled");
+  await callLifecycle("rsvp", { ...base, eventId: "VFLEXIBLE", actorId: "UONE",
+    state: "going", now: "2026-10-02T00:02:00Z" });
+  const confirmed = await callLifecycle("rsvp", { ...base, eventId: "VFLEXIBLE", actorId: "UTWO",
+    state: "going", now: "2026-10-02T00:03:00Z" });
+  assert.equal(confirmed.phase, "confirmed");
+
+  await call("create", { ...base, eventId: "VCANCEL", activity: "번개", location: "미정", options: [] });
+  await call("bind", { ...base, eventId: "VCANCEL", messageTs: "2002.000001" });
+  await callLifecycle("configure", { ...base, eventId: "VCANCEL", eventKind: "gathering",
+    minConfirmed: 3, capacity: null, recruitmentDeadline: "2026-10-02T00:00:00Z",
+    graceHours: 24, autoCancel: true, now: "2026-10-01T00:00:00Z" });
+  const pendingCancel = await callLifecycle("due", { teamId: "TQA", channelId: "CTOWN",
+    actorId: "UADMIN", now: "2026-10-02T00:01:00Z" });
+  assert.equal(pendingCancel.find((event) => event.eventId === "VCANCEL").phase, "cancel_pending");
+  const cancelled = await callLifecycle("due", { teamId: "TQA", channelId: "CTOWN",
+    actorId: "UADMIN", now: "2026-10-03T00:02:00Z" });
+  assert.equal(cancelled.find((event) => event.eventId === "VCANCEL").phase, "cancelled");
+
+  await call("create", { ...base, eventId: "VSERIES", activity: "매주 독서", location: "온라인", options: [] });
+  await call("bind", { ...base, eventId: "VSERIES", messageTs: "2003.000001" });
+  const seriesGrid = await callWeb("configure", { ...base, eventId: "VSERIES",
+    startDate: "2026-10-20", endDate: "2026-10-20", dayStart: "19:00", dayEnd: "20:00", stepMinutes: 60 });
+  await callLifecycle("configure", { ...base, eventId: "VSERIES", eventKind: "series",
+    minConfirmed: 2, capacity: 10, recruitmentDeadline: null, graceHours: 24,
+    autoCancel: false, now: "2026-10-02T00:00:00Z" });
+  const seriesConfigured = await callSeries("configure", { ...base, eventId: "VSERIES",
+    recurrenceEveryWeeks: 1, occurrenceCount: 4 });
+  assert.deepEqual(seriesConfigured.series.occurrences, []);
+  await callLifecycle("finalize", { ...base, eventId: "VSERIES",
+    startsAt: seriesGrid.options[0].startsAt, now: "2026-10-02T00:01:00Z" });
+  const seriesFinal = await callSeries("finalize", { ...base, eventId: "VSERIES" });
+  assert.equal(seriesFinal.series.recurrenceEveryWeeks, 1);
+  assert.equal(seriesFinal.series.occurrenceCount, 4);
+  assert.equal(seriesFinal.series.occurrences.length, 4);
+  assert.equal(Date.parse(seriesFinal.series.occurrences[1].startsAt) - Date.parse(seriesFinal.series.occurrences[0].startsAt), 7 * 24 * 60 * 60 * 1000);
   console.log(
-    "PASS townhall event PostgreSQL: flexible events, multi-vote, host-only edit, and surviving-option vote preservation",
+    "PASS townhall event PostgreSQL: flexible grid, RSVP, grace, cancellation, and real recurring series",
   );
 } finally {
   if (started)

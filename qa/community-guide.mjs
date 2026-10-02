@@ -61,6 +61,7 @@ const env = {
   COMMUNITY_PUBLIC_CHANNEL_ID: "CPUBLIC001",
   COMMUNITY_FEEDBACK_CHANNEL_ID: "CFEEDBACK1",
   COMMUNITY_RELEASE_CHANNEL_ID: "CTOWNHALL1",
+  COMMUNITY_MAINTAINERS_CHANNEL_ID: "CMAINTAIN01",
   COMMUNITY_GUIDE_CHAPTER_CHANNEL_IDS: "CDEVELOP01,CENGLISH01,CINVEST001",
 };
 
@@ -100,13 +101,17 @@ globalThis.fetch = async (url, options) => {
 };
 
 const inspected = await inspectWelcomeGuideSource(env);
-assert.equal(inspected.version, "v0.0.62");
+assert.equal(inspected.version, "v0.0.65");
 assert.equal(inspected.origin, "repo");
 assert.deepEqual(inspected.orderedFileIds, ["FLOGO1", "FDAILY2"]);
 assert.match(inspected.body, /친구 초대하기 버튼/);
 assert.match(inspected.body, /이벤트 열기/);
 assert.match(inspected.body, /가능 시간 선택/);
-assert.match(inspected.body, /최대 8개/);
+assert.match(inspected.body, /최대 14일/);
+assert.match(inspected.body, /매주 또는 격주 정기 모임/);
+assert.match(inspected.body, /자동 취소·보관/);
+assert.match(inspected.body, /Maintainer 되기/);
+assert.match(inspected.body, /Deployment Broker/);
 assert.equal(
   (await executeWelcomeGuideCommand({ kind: "publish", apply: false }, env)).applied,
   false,

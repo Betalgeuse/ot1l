@@ -420,28 +420,51 @@ export async function approveCodexMerge(
     readonly feedbackId: string;
     readonly packetRevision: number;
     readonly prNumber: number;
+    readonly changeClass: string;
+    readonly headSha: string;
+    readonly classificationDigest: string;
   },
 ): Promise<void> {
-  const profile = object(
-    await callSlack(context.env.SLACK_BOT_TOKEN, "users.info", { user: context.scope.userId }),
+  const database = new NeonStore(context.env.DATABASE_URL);
+  const approvalContext = object(
+    await database.queryJson("SELECT otl.bug_merge_approval_context($1::jsonb)", [
+      JSON.stringify({
+        teamId: context.scope.teamId,
+        bugId: input.feedbackId,
+        actorId: context.scope.userId,
+        packetRevision: input.packetRevision,
+        prNumber: input.prNumber,
+      }),
+    ]),
   );
-  const user = object(profile.user);
-  if (user.is_admin !== true && user.is_owner !== true)
-    throw new InputError("Slack 관리자만 병합을 승인할 수 있어요.");
+  if (
+    approvalContext.classified !== true ||
+    approvalContext.changeClass !== input.changeClass ||
+    approvalContext.headSha !== input.headSha ||
+    approvalContext.classificationDigest !== input.classificationDigest
+  )
+    throw new InputError("변경 분류나 승인 SHA가 바뀌었어요. 최신 검증 결과를 다시 확인해 주세요.");
+  if (
+    approvalContext.changeClass === "core" &&
+    context.scope.userId !== context.env.COMMUNITY_ADMIN_ID
+  )
+    throw new InputError("Core 변경은 Founder만 승인할 수 있어요.");
+  if (approvalContext.changeClass === "open" && approvalContext.maintainer !== true)
+    throw new InputError("활성 Maintainer만 Open 변경을 승인할 수 있어요.");
   const approved = object(
-    await new NeonStore(context.env.DATABASE_URL).queryJson(
-      "SELECT otl.bug_admin_approve_merge($1::jsonb)",
-      [
-        JSON.stringify({
-          teamId: context.scope.teamId,
-          bugId: input.feedbackId,
-          adminId: context.scope.userId,
-          packetRevision: input.packetRevision,
-          prNumber: input.prNumber,
-          idempotencyKey: `merge-approval:${input.feedbackId}:${input.prNumber}:${context.scope.userId}`,
-        }),
-      ],
-    ),
+    await database.queryJson("SELECT otl.bug_actor_approve_merge($1::jsonb)", [
+      JSON.stringify({
+        teamId: context.scope.teamId,
+        bugId: input.feedbackId,
+        actorId: context.scope.userId,
+        founderId: context.env.COMMUNITY_ADMIN_ID,
+        packetRevision: input.packetRevision,
+        prNumber: input.prNumber,
+        headSha: input.headSha,
+        classificationDigest: input.classificationDigest,
+        idempotencyKey: `merge-approval:${input.feedbackId}:${input.prNumber}:${context.scope.userId}`,
+      }),
+    ]),
   );
   if (approved.accepted !== true) throw new InputError("이 수정안은 지금 병합할 수 없어요.");
   const repository = context.env.COMMUNITY_CODEX_REPOSITORY;

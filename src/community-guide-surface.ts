@@ -1,5 +1,6 @@
 import { slackCanvasId, slackCanvasUrl } from "./community-canvas";
 import type { WelcomeGuideContent } from "./community-guide-content";
+import { maintainerButton } from "./community-maintainers";
 import { inviteButton } from "./community-member-actions";
 import type { CommunityEnv } from "./community-runtime";
 import { CommunitySlackError, callSlack } from "./community-social";
@@ -57,7 +58,7 @@ export function welcomeGuideLink(userId: string, env: GuideSurfaceEnv) {
         `<@${userId}> 어서 오세요!!!\n*ONE THING* 작성 방법과 채널 안내는 고정 사용설명서에서 확인해 주세요.`,
         canvasUrl,
       ),
-      { type: "actions", elements: [inviteButton()] },
+      { type: "actions", elements: [inviteButton(), maintainerButton()] },
     ],
   };
 }
@@ -100,7 +101,7 @@ export async function syncWelcomeGuideSurface(
         `*ONE THING 1 LINE 사용설명서* · ${guide.version}\nSET / DO / REVIEW 흐름과 작성 예시는 이 문서에서 확인해 주세요.`,
         canvasUrl,
       ),
-      { type: "actions", elements: [inviteButton()] },
+      { type: "actions", elements: [inviteButton(), maintainerButton()] },
     ],
   });
   try {

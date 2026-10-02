@@ -1,3 +1,4 @@
+import { eventScheduleToken } from "./community-event-link";
 import { escapeSlackText } from "./community-messages";
 import { type CommunityContext, ephemeral } from "./community-runtime";
 import { callSlack } from "./community-social";
@@ -189,7 +190,24 @@ export function townhallEventMessage(event: TownhallEvent): Json {
   const schedule = options
     ? `*시간 후보*\n${options}\n\n이번 이벤트에 가능한 시간을 여러 개 골라주세요.`
     : "*시간*\n아직 정하지 않았어요. 가능한 일정은 이 글의 스레드에서 함께 이야기해 주세요.";
-  const text = `<@${event.hostUserId}>님이 이벤트를 열었어요! 🎟️\n*${escapeSlackText(event.activity)}*\n장소: ${escapeSlackText(event.location)}\n\n${schedule}\n\n참여 의견과 다음에 열었으면 하는 활동은 이 글의 스레드에 남겨주세요.`;
+  const phaseLabels: Record<TownhallEvent["phase"], string> = {
+    recruiting: "🟡 모집 중",
+    scheduling: "🗓 일정 조율 중",
+    scheduled: "🗓 일정 확정·참가 확인 중",
+    confirmed: "🟢 성사 확정",
+    cancel_pending: "🟠 최소 인원 미달·취소 유예",
+    cancelled: "⚪ 취소·보관",
+    completed: "✅ 완료",
+    paused: "⏸ 일시 중지",
+  };
+  const finalTime = event.finalStartAt ? `\n최종 일정: ${slackDate(event.finalStartAt)}` : "";
+  const deadline = event.recruitmentDeadline
+    ? `\n모집 마감: ${slackDate(event.recruitmentDeadline)}`
+    : "";
+  const series = event.series
+    ? `\n반복: ${event.series.recurrenceEveryWeeks === 1 ? "매주" : "격주"} · ${event.series.occurrenceCount}회`
+    : "";
+  const text = `<@${event.hostUserId}>님이 이벤트를 열었어요! 🎟️\n${phaseLabels[event.phase]}\n*${escapeSlackText(event.activity)}*\n장소: ${escapeSlackText(event.location)}${finalTime}${deadline}${series}\n관심 ${event.interestCount}명 · 참가 확정 ${event.goingCount}/${event.minConfirmed}명${event.capacity ? ` · 정원 ${event.capacity}명` : ""}\n\n${schedule}\n\n🙋 리액션은 관심 신호예요. 참가 확정과 실제 참석은 별도로 구분합니다. 참여 의견과 다음 활동 수요는 스레드에 남겨주세요.`;
   return {
     text,
     blocks: [
@@ -197,8 +215,17 @@ export function townhallEventMessage(event: TownhallEvent): Json {
       {
         type: "actions",
         elements: [
+          button(
+            event.viewerState === "interested" ? "관심 취소" : "관심 있어요",
+            "community_event_interest",
+            "actor",
+            event.eventId,
+          ),
           ...(event.options.length
             ? [button("가능 시간 선택", "community_event_availability", "actor", event.eventId)]
+            : []),
+          ...(event.finalStartAt
+            ? [button("참가 확정", "community_event_rsvp", "actor", event.eventId)]
             : []),
           button("이벤트 수정", "community_event_edit", event.hostUserId, event.eventId),
           townhallEventButton(),
@@ -255,6 +282,49 @@ export async function openTownhallAvailabilityModal(
   });
 }
 
+export async function publishTownhallScheduleLink(
+  context: CommunityContext,
+  event: TownhallEvent,
+): Promise<void> {
+  const baseUrl = context.env.EVENT_PUBLIC_BASE_URL;
+  const secret = context.env.EVENT_SIGNING_SECRET;
+  if (!baseUrl || !secret) throw new InputError("이벤트 시간표가 아직 준비되지 않았어요.");
+  const origin = new URL(baseUrl);
+  if (origin.protocol !== "https:" || origin.username || origin.password)
+    throw new InputError("이벤트 시간표 주소를 확인할 수 없어요.");
+  const token = await eventScheduleToken(
+    {
+      teamId: context.scope.teamId,
+      channelId: context.scope.channelId,
+      eventId: event.eventId,
+      userId: context.scope.userId,
+    },
+    secret,
+  );
+  const url = new URL(`/events/schedule/${token}`, origin).toString();
+  await ephemeral(context, {
+    text: "웹 시간표에서 가능한 시간을 표시해 주세요.",
+    blocks: [
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text:
+            event.hostUserId === context.scope.userId && !event.poll
+              ? "먼저 날짜 범위와 시간대를 열고, 회원들과 가능한 시간을 맞춰보세요."
+              : "가능한 시간대를 여러 칸 선택해 저장할 수 있어요.",
+        },
+        accessory: {
+          type: "button",
+          text: { type: "plain_text", text: "시간 맞추기" },
+          url,
+          action_id: "community_event_schedule_web_open",
+        },
+      },
+    ],
+  });
+}
+
 export function parseTownhallAvailability(view: Record<string, unknown>): readonly string[] {
   const values = object(object(view.state).values);
   const selected = object(object(values.availability).value).selected_options;
@@ -269,6 +339,88 @@ async function updateEventMessage(context: CommunityContext, event: TownhallEven
     ts: event.messageTs,
     ...object(townhallEventMessage(event)),
   });
+}
+
+export async function syncTownhallEventMessage(
+  env: Pick<CommunityContext["env"], "SLACK_BOT_TOKEN">,
+  event: TownhallEvent,
+): Promise<void> {
+  if (!event.messageTs) throw new InputError("이벤트 게시 위치를 확인할 수 없어요.");
+  await callSlack(env.SLACK_BOT_TOKEN, "chat.update", {
+    channel: event.channelId,
+    ts: event.messageTs,
+    ...object(townhallEventMessage(event)),
+  });
+}
+
+export async function applyTownhallInterest(
+  context: CommunityContext,
+  event: TownhallEvent,
+): Promise<void> {
+  const active = event.viewerState !== "interested";
+  const updated = await context.store.townhallEventLifecycle("interest", {
+    teamId: context.scope.teamId,
+    channelId: context.scope.channelId,
+    actorId: context.scope.userId,
+    eventId: event.eventId,
+    active,
+    source: "button",
+    now: new Date().toISOString(),
+  });
+  await updateEventMessage(context, updated);
+  await notice(context, active ? "관심 이벤트로 표시했어요." : "관심 표시를 취소했어요.");
+}
+
+export async function applyTownhallRsvp(
+  context: CommunityContext,
+  event: TownhallEvent,
+): Promise<void> {
+  const updated = await context.store.townhallEventLifecycle("rsvp", {
+    teamId: context.scope.teamId,
+    channelId: context.scope.channelId,
+    actorId: context.scope.userId,
+    eventId: event.eventId,
+    state: "going",
+    now: new Date().toISOString(),
+  });
+  await updateEventMessage(context, updated);
+  await notice(
+    context,
+    updated.viewerState === "waitlist" ? "정원이 차서 대기자로 등록했어요." : "참가를 확정했어요.",
+  );
+}
+
+export async function runTownhallEventDue(
+  context: Pick<CommunityContext, "env" | "store">,
+  now: string,
+): Promise<number> {
+  const channelId = context.env.COMMUNITY_RELEASE_CHANNEL_ID;
+  const actorId = context.env.COMMUNITY_ADMIN_ID;
+  if (!channelId || !actorId) return 0;
+  const events = await context.store.dueTownhallEvents(
+    context.env.SLACK_TEAM_ID,
+    channelId,
+    actorId,
+    now,
+  );
+  for (const event of events) {
+    if (!event.messageTs) continue;
+    await callSlack(context.env.SLACK_BOT_TOKEN, "chat.update", {
+      channel: channelId,
+      ts: event.messageTs,
+      ...object(townhallEventMessage(event)),
+    });
+    if (event.phase === "cancel_pending" || event.phase === "cancelled")
+      await callSlack(context.env.SLACK_BOT_TOKEN, "chat.postMessage", {
+        channel: channelId,
+        thread_ts: event.messageTs,
+        text:
+          event.phase === "cancel_pending"
+            ? `최소 인원 ${event.minConfirmed}명에 아직 못 미쳐 취소 유예 중이에요. ${event.graceHours}시간 안에 참가를 확정하거나 주최자가 마감을 조정할 수 있어요.`
+            : "최소 인원이 모이지 않아 이번 이벤트는 취소·보관했어요. 나중에 ‘다시 열기’로 이어갈 수 있어요.",
+      });
+  }
+  return events.length;
 }
 
 async function notice(context: CommunityContext, text: string): Promise<void> {

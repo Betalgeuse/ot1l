@@ -143,6 +143,52 @@ export type TownhallEvent = {
   readonly messageTs: string | null;
   readonly options: readonly TownhallEventOption[];
   readonly selected: readonly string[];
+  readonly poll: null | {
+    readonly startDate: string;
+    readonly endDate: string;
+    readonly dayStart: string;
+    readonly dayEnd: string;
+    readonly stepMinutes: 30 | 60;
+    readonly timezone: "Asia/Seoul";
+  };
+  readonly series: null | {
+    readonly recurrenceEveryWeeks: 1 | 2;
+    readonly occurrenceCount: number;
+    readonly occurrences: readonly {
+      readonly number: number;
+      readonly startsAt: string;
+      readonly status: "scheduled" | "completed" | "cancelled";
+    }[];
+  };
+  readonly eventKind: "gathering" | "challenge" | "series";
+  readonly phase:
+    | "recruiting"
+    | "scheduling"
+    | "scheduled"
+    | "confirmed"
+    | "cancel_pending"
+    | "cancelled"
+    | "completed"
+    | "paused";
+  readonly minConfirmed: number;
+  readonly capacity: number | null;
+  readonly recruitmentDeadline: string | null;
+  readonly graceHours: number;
+  readonly autoCancel: boolean;
+  readonly graceUntil: string | null;
+  readonly finalStartAt: string | null;
+  readonly cancelledAt: string | null;
+  readonly cancellationReason: string | null;
+  readonly interestCount: number;
+  readonly goingCount: number;
+  readonly waitlistCount: number;
+  readonly viewerState: "interested" | "going" | "waitlist" | "declined" | null;
+};
+export type CommunityMaintainer = {
+  readonly teamId: string;
+  readonly userId: string;
+  readonly state: "active" | "inactive" | "revoked";
+  readonly revision: number;
 };
 export type ReminderBatchFinish = {
   readonly teamId: string;

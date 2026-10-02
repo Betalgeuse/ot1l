@@ -15,6 +15,7 @@ assert.equal(new Set(scopes).size, scopes.length);
 assert.ok(scopes.includes("users:read"));
 assert.ok(scopes.includes("users:read.email"));
 assert.ok(scopes.includes("im:write"));
+assert.ok(scopes.includes("reactions:read"));
 for (const scope of [
   "canvases:read",
   "canvases:write",
@@ -26,6 +27,8 @@ for (const scope of [
   assert.ok(scopes.includes(scope));
 assert.equal(scopes.includes("message.im"), false);
 assert.ok(manifest.settings.event_subscriptions.bot_events.includes("team_join"));
+assert.ok(manifest.settings.event_subscriptions.bot_events.includes("reaction_added"));
+assert.ok(manifest.settings.event_subscriptions.bot_events.includes("reaction_removed"));
 
 const originalFetch = globalThis.fetch;
 try {

@@ -94,6 +94,9 @@ export async function handleBugAction(
       feedbackId: string(value.feedbackId),
       packetRevision,
       prNumber,
+      changeClass: string(value.changeClass),
+      headSha: string(value.headSha),
+      classificationDigest: string(value.classificationDigest),
     });
     return new Response(null, { status: 200 });
   }

@@ -3,6 +3,7 @@ import { execFileSync } from "node:child_process";
 // Explicit allowlist excludes scripts that load live credentials or require a disposable PostgreSQL migration.
 const suites = [
   "community-admin-access",
+  "community-maintainers",
   "community-clock",
   "community-emoji",
   "community-followup",
@@ -13,6 +14,8 @@ const suites = [
   "community-agent-notifications",
   "genquant-runner-contract",
   "genquant-deployer-contract",
+  "maintainer-deployment-policy",
+  "open-events-worker",
   "bug-runner-bootstrap",
   "community-questions",
   "private-controls",
@@ -51,6 +54,7 @@ const suites = [
   "community-share-info-reconcile",
   "community-townhall",
   "community-townhall-events",
+  "event-schedule-link",
   "community-welcome",
   "community-introduction",
   "version-map",

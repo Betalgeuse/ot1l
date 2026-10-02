@@ -28,6 +28,7 @@
         "pins:write",
         "bookmarks:read",
         "bookmarks:write",
+        "reactions:read",
         "reactions:write",
         "emoji:read"
       ]
@@ -41,6 +42,8 @@
         "message.channels",
         "message.groups",
         "member_joined_channel",
+        "reaction_added",
+        "reaction_removed",
         "team_join"
       ]
     },

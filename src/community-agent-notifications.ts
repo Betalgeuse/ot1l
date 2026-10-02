@@ -27,6 +27,9 @@ type Notification = {
   readonly packetRevision: number | null;
   readonly asIs: string | null;
   readonly toBe: string | null;
+  readonly changeClass: "open" | "core" | null;
+  readonly headSha: string | null;
+  readonly classificationDigest: string | null;
 };
 
 function parseNotification(value: unknown, repository: string): Notification {
@@ -76,6 +79,17 @@ function parseNotification(value: unknown, repository: string): Notification {
       : null,
     asIs: typeof payload.asIs === "string" ? payload.asIs.slice(0, 1000) : null,
     toBe: typeof payload.toBe === "string" ? payload.toBe.slice(0, 1000) : null,
+    changeClass:
+      payload.changeClass === "open" || payload.changeClass === "core" ? payload.changeClass : null,
+    headSha:
+      typeof payload.headSha === "string" && /^[0-9a-f]{40,64}$/.test(payload.headSha)
+        ? payload.headSha
+        : null,
+    classificationDigest:
+      typeof payload.classificationDigest === "string" &&
+      /^[0-9a-f]{64}$/.test(payload.classificationDigest)
+        ? payload.classificationDigest
+        : null,
   };
 }
 
@@ -102,7 +116,10 @@ function mergeReadyMessage(input: Notification) {
     !input.prUrl ||
     !input.packetRevision ||
     !input.asIs ||
-    !input.toBe
+    !input.toBe ||
+    !input.changeClass ||
+    !input.headSha ||
+    !input.classificationDigest
   )
     throw new TypeError("invalid merge ready notification");
   return {
@@ -112,7 +129,7 @@ function mergeReadyMessage(input: Notification) {
         type: "section",
         text: {
           type: "mrkdwn",
-          text: `*As-Is*\n${escapeSlackText(input.asIs)}\n\n*To-Be*\n${escapeSlackText(input.toBe)}\n\n*수정 결과*\n${escapeSlackText(input.summary ?? "전체 검사를 통과했습니다.")}\n\n<${input.prUrl}|변경 내용 보기>`,
+          text: `*변경 등급*\n${input.changeClass === "open" ? "Open · 활성 Maintainer가 승인하면 병합과 배포가 연속 실행됩니다." : "Core · Founder 승인 뒤 병합과 배포가 연속 실행됩니다."}\n\n*As-Is*\n${escapeSlackText(input.asIs)}\n\n*To-Be*\n${escapeSlackText(input.toBe)}\n\n*수정 결과*\n${escapeSlackText(input.summary ?? "전체 검사를 통과했습니다.")}\n\n<${input.prUrl}|변경 내용 보기>`,
         },
       },
       {
@@ -120,7 +137,7 @@ function mergeReadyMessage(input: Notification) {
         elements: [
           {
             type: "button",
-            text: { type: "plain_text", text: "병합 승인" },
+            text: { type: "plain_text", text: "병합·배포 승인" },
             style: "primary",
             action_id: "community_feedback_merge_approve",
             value: JSON.stringify({
@@ -129,6 +146,9 @@ function mergeReadyMessage(input: Notification) {
               feedbackId: input.bugId,
               packetRevision: input.packetRevision,
               prNumber: input.prNumber,
+              changeClass: input.changeClass,
+              headSha: input.headSha,
+              classificationDigest: input.classificationDigest,
             }),
           },
         ],

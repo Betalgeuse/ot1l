@@ -12,6 +12,22 @@ const eventView = (event, actorId) => ({
     votes: [...votes.values()].filter((selected) => selected.includes(option)).length,
   })),
   selected: votes.get(actorId) ?? [],
+  poll: event.poll ?? null,
+  eventKind: "gathering",
+  phase: "recruiting",
+  minConfirmed: 2,
+  capacity: null,
+  recruitmentDeadline: null,
+  graceHours: 24,
+  autoCancel: true,
+  graceUntil: null,
+  finalStartAt: null,
+  cancelledAt: null,
+  cancellationReason: null,
+  interestCount: 0,
+  goingCount: 0,
+  waitlistCount: 0,
+  viewerState: null,
 });
 mock.module("../src/community-store.ts", () => ({
   CommunityStore: class {
@@ -84,6 +100,8 @@ const env = {
   COMMUNITY_ADMIN_ID: "UADMIN",
   COMMUNITY_PUBLIC_CHANNEL_ID: "CPUBLIC",
   COMMUNITY_RELEASE_CHANNEL_ID: "CTOWN",
+  EVENT_PUBLIC_BASE_URL: "https://events.example.com",
+  EVENT_SIGNING_SECRET: "event-secret",
 };
 const calls = [];
 const originalFetch = globalThis.fetch;
@@ -156,7 +174,12 @@ try {
   assert.match(post.body.text, /가능 0명/);
   assert.deepEqual(
     post.body.blocks[1].elements.map((item) => item.action_id),
-    ["community_event_availability", "community_event_edit", "community_event_open"],
+    [
+      "community_event_interest",
+      "community_event_availability",
+      "community_event_edit",
+      "community_event_open",
+    ],
   );
 
   calls.length = 0;
@@ -166,20 +189,9 @@ try {
     eventId: "VEVENT-1",
   });
   await communityInteraction(availability, env, (promise) => pending.push(promise));
-  const availabilityModal = calls.find((call) => call.method === "views.open").body.view;
-  assert.equal(availabilityModal.blocks[0].element.type, "multi_static_select");
-  assert.equal(availabilityModal.blocks[0].element.options.length, 2);
-  const availabilitySubmit = submission(
-    "VVOTE",
-    "community_event_availability_submit",
-    availabilityModal.private_metadata,
-    { availability: { value: { selected_options: availabilityModal.blocks[0].element.options } } },
-    "UOTHER",
-  );
-  await communityInteraction(availabilitySubmit, env, (promise) => pending.push(promise));
   await Promise.all(pending.splice(0));
-  assert.equal(votes.get("UOTHER").length, 2);
-  assert.match(calls.find((call) => call.method === "chat.update").body.text, /가능 1명/);
+  const scheduleLink = calls.find((call) => call.method === "chat.postEphemeral");
+  assert.match(scheduleLink.body.blocks[0].accessory.url, /^https:\/\/events[.]example[.]com\/events\/schedule\//);
 
   calls.length = 0;
   await assert.rejects(
@@ -219,7 +231,6 @@ try {
   );
   await communityInteraction(editSubmit, env, (promise) => pending.push(promise));
   await Promise.all(pending.splice(0));
-  assert.deepEqual(votes.get("UOTHER"), ["2026-10-10T10:00:00.000Z"]);
   assert.match(
     calls.filter((call) => call.method === "chat.update").at(-1).body.text,
     /장소: 서울숲/,
@@ -240,7 +251,7 @@ try {
   assert.match(flexiblePost.body.text, /아직 정하지 않았어요/);
   assert.deepEqual(
     flexiblePost.body.blocks[1].elements.map((item) => item.action_id),
-    ["community_event_edit", "community_event_open"],
+    ["community_event_interest", "community_event_edit", "community_event_open"],
   );
   console.log(
     "PASS townhall event: flexible schedule, location, 8-way time poll, multi-vote, host edit, and surviving-option votes",
