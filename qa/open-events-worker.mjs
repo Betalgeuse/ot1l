@@ -27,7 +27,7 @@ assert.deepEqual(await health.json(), { status: "ok", service: "open-events", co
 const page = await worker.fetch(new Request(`https://events.example/events/schedule/${token}`), env);
 assert.equal(page.status, 200);
 assert.match(await page.text(), new RegExp(token.replaceAll(".", "[.]")));
-const state = await worker.fetch(new Request("https://events.example/api/events/schedule/state", {
+const state = await worker.fetch(new Request("https://events.example/api/event-time/state", {
   method: "POST",
   headers: { "content-type": "application/json" },
   body: JSON.stringify({ token }),
@@ -36,6 +36,19 @@ assert.equal(state.status, 200);
 assert.equal(calls[0].path, "/internal/events/state");
 assert.equal(calls[0].body.token, token);
 assert.match(calls[0].headers.get("x-otl-signature"), /^[0-9a-f]{64}$/);
+assert.equal(
+  await worker
+    .fetch(
+      new Request("https://events.example/api/events/schedule/state", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ token }),
+      }),
+      env,
+    )
+    .then((response) => response.status),
+  404,
+);
 
 const config = {
   name: "otl1-open-events",

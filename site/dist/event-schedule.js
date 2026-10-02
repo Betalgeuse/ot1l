@@ -2,7 +2,7 @@ const token = document.body.dataset.eventToken;
 const state = { event: null, selected: new Set(), painting: null };
 const $ = (selector) => document.querySelector(selector);
 const api = async (operation, payload = {}) => {
-  const response = await fetch(`/api/events/schedule/${operation}`, {
+  const response = await fetch(`/api/event-time/${operation}`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ token, ...payload }),
