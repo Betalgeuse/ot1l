@@ -47,7 +47,7 @@ const store = {
     const found = [...records.values()].find((record) => record.kind === "dispatch" && record.status === "pending");
     if (!found) return null;
     found.status = "claimed";
-    return { leaseToken: input.leaseToken, attempt: 1, firstAttemptAt: input.now, key: found.key, ...found.body };
+    return { leaseToken: input.leaseToken, attempt: 1, safeToPost: true, firstAttemptAt: input.now, key: found.key, ...found.body };
   },
   async finishCommonDelivery(input) {
     const found = [...records.values()].find((record) => record.kind === "dispatch" && record.status === "claimed");
@@ -64,7 +64,7 @@ const store = {
   async pruneReminderBatch() { return null; },
   async finishReminderBatch() { return false; },
   async finishReviewReminderBatch() { return false; },
-  async finishReviewRoot() { return true; },
+  async finishCommonRoot() { return true; },
 };
 const original = globalThis.fetch;
 globalThis.fetch = async (url, options) => {

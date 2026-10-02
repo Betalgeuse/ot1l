@@ -30,10 +30,10 @@ const store = {
   async claimCommonDelivery(input) {
     if (!dispatch || claimed) return null;
     claimed = true;
-    return { leaseToken: input.leaseToken, attempt: 1, firstAttemptAt: input.now, key: dispatch.key, ...dispatch.body };
+    return { leaseToken: input.leaseToken, attempt: 1, safeToPost: true, firstAttemptAt: input.now, key: dispatch.key, ...dispatch.body };
   },
-  async finishCommonDelivery() { dispatch.status = "sent"; return true; },
-  async finishReviewRoot() { return true; },
+  async finishCommonDelivery() { return true; },
+  async finishCommonRoot() { dispatch.status = "sent"; return true; },
   async claimReviewReminderBatch() { return null; },
   async claimGoalReminderBatch() { return null; },
   async finishReminderBatch() { return true; },

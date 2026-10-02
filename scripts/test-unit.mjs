@@ -50,6 +50,7 @@ const suites = [
   "community-share-info",
   "community-share-info-reconcile",
   "community-townhall",
+  "community-townhall-events",
   "community-welcome",
   "community-introduction",
   "version-map",

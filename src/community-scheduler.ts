@@ -39,6 +39,7 @@ type ScheduleStore = Pick<
   | "pruneReminderBatch"
   | "claimCommonDelivery"
   | "finishCommonDelivery"
+  | "finishCommonRoot"
   | "finishReviewRoot"
   | "introductions"
 >;

@@ -14,6 +14,7 @@ try {
       return {
         leaseToken: "rate",
         attempt: 1,
+        safeToPost: true,
         firstAttemptAt: "2026-09-18T01:00:00Z",
         key: "common:2026-09-18:goal",
         text,
@@ -62,6 +63,7 @@ try {
       return {
         leaseToken: "retry",
         attempt: 2,
+        safeToPost: false,
         firstAttemptAt: "2026-09-18T01:00:00Z",
         key: "common:2026-09-18:goal",
         text,
@@ -69,10 +71,7 @@ try {
         kind: "goal",
       };
     },
-    async putRecord(value) {
-      records.push(value);
-      return value;
-    },
+    async finishCommonRoot(value) { records.push(value); return true; },
     async finishCommonDelivery(value) {
       finishes.push(value);
       return true;
@@ -104,13 +103,11 @@ try {
   );
   assert.equal(historyPages, 2);
   assert.equal(posts, 0);
-  assert.deepEqual(
-    records.map((value) => value.key),
-    ["prompt:200.2", "common-thread:2026-09-18:goal"],
-  );
-  assert.deepEqual(finishes, [
-    { ...scope, leaseToken: "retry", status: "sent", messageTs: "200.2" },
-  ]);
+  assert.deepEqual(records, [{
+    ...scope, leaseToken: "retry", date: "2026-09-18", kind: "goal",
+    messageTs: "200.2", bindReview: false,
+  }]);
+  assert.deepEqual(finishes, []);
 
   const interruptedFinishes = [];
   let interruptedClaimed = false;
@@ -121,6 +118,7 @@ try {
       return {
         leaseToken: "interrupted",
         attempt: 1,
+        safeToPost: true,
         firstAttemptAt: "2026-09-28T01:00:00Z",
         key: "common:2026-09-28:goal",
         text,
@@ -128,7 +126,7 @@ try {
         kind: "goal",
       };
     },
-    async putRecord() {
+    async finishCommonRoot() {
       throw new TypeError("simulated post-receipt interruption");
     },
     async finishCommonDelivery(value) {
@@ -149,6 +147,34 @@ try {
   assert.deepEqual(interruptedFinishes, [
     { ...scope, leaseToken: "interrupted", status: "failed", errorCode: "transport_error" },
   ]);
+
+  let uncertainClaims = 0;
+  let uncertainPosts = 0;
+  const uncertainFinishes = [];
+  const uncertainStore = {
+    async claimCommonDelivery() {
+      if (uncertainClaims++) return null;
+      return {
+        leaseToken: "uncertain", attempt: 2, safeToPost: false,
+        firstAttemptAt: "2026-10-02T01:00:35Z", key: "common:2026-10-02:goal",
+        text, date: "2026-10-02", kind: "goal",
+      };
+    },
+    async finishCommonDelivery(value) { uncertainFinishes.push(value); return true; },
+    async finishCommonRoot() { throw new Error("must not finalize an absent receipt"); },
+  };
+  globalThis.fetch = async (url) => {
+    const method = new URL(url).pathname.split("/").at(-1);
+    if (method === "conversations.history")
+      return Response.json({ ok: true, messages: [], response_metadata: { next_cursor: "" } });
+    uncertainPosts += 1;
+    return Response.json({ ok: true, ts: "must-not-post" });
+  };
+  assert.equal(await sendCommonDeliveries({
+    token: "token", now: "2026-10-02T01:05:35Z", scope, store: uncertainStore,
+  }), 0);
+  assert.equal(uncertainPosts, 0, "an uncertain retry must not create a duplicate Slack post");
+  assert.equal(uncertainFinishes[0].errorCode, "history_incomplete");
   console.log(
     "PASS common delivery: bounded retry, interrupted receipt recovery, and history reconciliation prevent lost posts",
   );

@@ -12,6 +12,7 @@ import {
 import { openQuickEntryModal } from "./community-quick-entry";
 import { processRecordAction } from "./community-record-interactions";
 import { type CommunityContext, ephemeral } from "./community-runtime";
+import { openTownhallAvailabilityModal, openTownhallEventModal } from "./community-townhall-events";
 import type { CommunityScope } from "./community-types";
 import { date, InputError, object, string } from "./input";
 
@@ -71,6 +72,23 @@ export async function handleCommunityAction(input: ActionInteraction): Promise<R
   }
   if (input.id === "community_introduction") {
     await introductionModal(context, string(input.data.trigger_id));
+    return new Response(null, { status: 200 });
+  }
+  if (input.id === "community_event_open") {
+    await openTownhallEventModal(context, string(input.data.trigger_id));
+    return new Response(null, { status: 200 });
+  }
+  if (input.id === "community_event_availability" || input.id === "community_event_edit") {
+    const event = await context.store.getTownhallEvent({
+      teamId: input.scope.teamId,
+      channelId: input.scope.channelId,
+      actorId: input.scope.userId,
+      eventId: key,
+    });
+    if (event?.status !== "active") throw new InputError("이벤트를 찾을 수 없어요.");
+    if (input.id === "community_event_edit")
+      await openTownhallEventModal(context, string(input.data.trigger_id), event);
+    else await openTownhallAvailabilityModal(context, string(input.data.trigger_id), event);
     return new Response(null, { status: 200 });
   }
   if (input.id === "community_past_review") {

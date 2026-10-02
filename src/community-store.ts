@@ -9,6 +9,7 @@ import type {
   GardenSeason,
   MemberIntroduction,
   Outcome,
+  TownhallEvent,
 } from "./community-types";
 import { date, InputError, type Json, list, object, string } from "./input";
 
@@ -77,7 +78,112 @@ function gardenSeason(value: Json): GardenSeason | null {
   };
 }
 
+function townhallEvent(value: Json): TownhallEvent | null {
+  if (value === null) return null;
+  const input = object(value);
+  const status = string(input.status);
+  if (status !== "draft" && status !== "active") throw new InputError("Invalid event status");
+  const revision = input.revision;
+  if (typeof revision !== "number" || !Number.isSafeInteger(revision) || revision < 1)
+    throw new InputError("Invalid event revision");
+  return {
+    eventId: string(input.eventId),
+    teamId: string(input.teamId),
+    channelId: string(input.channelId),
+    hostUserId: string(input.hostUserId),
+    activity: string(input.activity),
+    location: string(input.location),
+    revision,
+    status,
+    messageTs: input.messageTs === null ? null : string(input.messageTs),
+    options: list(input.options).map((value) => {
+      const option = object(value);
+      const position = option.position;
+      const votes = option.votes;
+      if (
+        typeof position !== "number" ||
+        !Number.isSafeInteger(position) ||
+        typeof votes !== "number" ||
+        !Number.isSafeInteger(votes)
+      )
+        throw new InputError("Invalid event option");
+      return { startsAt: string(option.startsAt), position, votes };
+    }),
+    selected: list(input.selected).map(string),
+  };
+}
+
 export class CommunityStore extends CommunityScheduleStore {
+  private townhallEventCall(operation: string, payload: Json): Promise<Json> {
+    return this.db.queryJson("SELECT otl.townhall_event_execute($1,$2::jsonb)", [
+      operation,
+      JSON.stringify(payload),
+    ]);
+  }
+  async createTownhallEvent(input: {
+    readonly teamId: string;
+    readonly channelId: string;
+    readonly actorId: string;
+    readonly eventId: string;
+    readonly activity: string;
+    readonly location: string;
+    readonly options: readonly string[];
+  }): Promise<{ readonly created: boolean; readonly event: TownhallEvent }> {
+    const value = object(await this.townhallEventCall("create", input));
+    const event = townhallEvent(value.event as Json);
+    if (!event || typeof value.created !== "boolean") throw new InputError("Event missing");
+    return { created: value.created, event };
+  }
+  async getTownhallEvent(input: {
+    readonly teamId: string;
+    readonly channelId: string;
+    readonly actorId: string;
+    readonly eventId: string;
+  }): Promise<TownhallEvent | null> {
+    return townhallEvent(await this.townhallEventCall("get", input));
+  }
+  async bindTownhallEvent(input: {
+    readonly teamId: string;
+    readonly channelId: string;
+    readonly actorId: string;
+    readonly eventId: string;
+    readonly messageTs: string;
+  }): Promise<boolean> {
+    return bool(await this.townhallEventCall("bind", input));
+  }
+  async abortTownhallEvent(input: {
+    readonly teamId: string;
+    readonly channelId: string;
+    readonly actorId: string;
+    readonly eventId: string;
+  }): Promise<boolean> {
+    return bool(await this.townhallEventCall("abort", input));
+  }
+  async editTownhallEvent(input: {
+    readonly teamId: string;
+    readonly channelId: string;
+    readonly actorId: string;
+    readonly eventId: string;
+    readonly expectedRevision: number;
+    readonly activity: string;
+    readonly location: string;
+    readonly options: readonly string[];
+  }): Promise<TownhallEvent> {
+    const event = townhallEvent(await this.townhallEventCall("edit", input));
+    if (!event) throw new InputError("Event missing");
+    return event;
+  }
+  async voteTownhallEvent(input: {
+    readonly teamId: string;
+    readonly channelId: string;
+    readonly actorId: string;
+    readonly eventId: string;
+    readonly selected: readonly string[];
+  }): Promise<TownhallEvent> {
+    const event = townhallEvent(await this.townhallEventCall("vote", input));
+    if (!event) throw new InputError("Event missing");
+    return event;
+  }
   private introductionCall(operation: string, payload: Json): Promise<Json> {
     return this.db.queryJson("SELECT otl.introduction_execute($1,$2::jsonb)", [
       operation,
