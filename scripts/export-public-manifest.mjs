@@ -94,6 +94,7 @@ export const PUBLIC_RUNTIME_MIGRATION_PATHS = [
   "migrations/069_event_availability_grid.sql",
   "migrations/070_event_lifecycle.sql",
   "migrations/071_event_series.sql",
+  "migrations/072_event_host_and_duration.sql",
 ];
 
 // `src` and `site` are copied as directories, but these paths keep the membership

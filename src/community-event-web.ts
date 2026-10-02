@@ -24,6 +24,12 @@ const configure = base
     autoCancel: z.boolean(),
     recurrenceEveryWeeks: z.union([z.literal(1), z.literal(2)]),
     occurrenceCount: z.number().int().min(2).max(24),
+    durationMinutes: z
+      .number()
+      .int()
+      .min(30)
+      .max(720)
+      .refine((value) => value % 30 === 0),
   })
   .strict();
 const vote = base.extend({ selected: z.array(z.string().datetime()).max(336) }).strict();
@@ -117,6 +123,7 @@ export async function handleEventWebRequest(
         actorId: identity.userId,
         recurrenceEveryWeeks: value.recurrenceEveryWeeks,
         occurrenceCount: value.occurrenceCount,
+        durationMinutes: value.durationMinutes,
       });
       if (!event) throw new InputError("이벤트를 찾을 수 없습니다.");
       await syncTownhallEventMessage(env, event);

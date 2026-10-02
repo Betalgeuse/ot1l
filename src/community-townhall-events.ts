@@ -158,7 +158,9 @@ export function townhallEventMessage(event: TownhallEvent): Json {
     completed: "✅ 완료",
     paused: "⏸ 일시 중지",
   };
-  const finalTime = event.finalStartAt ? `\n최종 일정: ${slackDate(event.finalStartAt)}` : "";
+  const finalTime = event.finalStartAt
+    ? `\n최종 일정: ${slackDate(event.finalStartAt)}${event.finalEndAt ? ` – ${slackDate(event.finalEndAt)}` : ""}`
+    : "";
   const deadline = event.recruitmentDeadline
     ? `\n모집 마감: ${slackDate(event.recruitmentDeadline)}`
     : "";
