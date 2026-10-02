@@ -55,7 +55,7 @@ try {
   started = true;
   await run(join(pgBin, "createdb"), ["events"]);
   const files = (await readdir(join(root, "migrations")))
-    .filter((name) => /^\d{3}_.*\.sql$/.test(name) && Number(name.slice(0, 3)) <= 72)
+    .filter((name) => /^\d{3}_.*\.sql$/.test(name) && Number(name.slice(0, 3)) <= 73)
     .sort();
   for (const file of files.filter((name) => Number(name.slice(0, 3)) <= 5))
     await run(join(pgBin, "psql"), ["-X", "-v", "ON_ERROR_STOP=1", "-f", `migrations/${file}`]);
@@ -92,6 +92,11 @@ try {
   assert.equal(created.event.goingCount, 1);
   assert.equal(created.event.viewerState, "going");
   assert.equal(await call("bind", { ...base, messageTs: "2000.000001" }), true);
+  const hostInterestAttempt = await callLifecycle("interest", {
+    ...base, active: true, source: "button", now: "2026-10-02T00:00:00Z",
+  });
+  assert.equal(hostInterestAttempt.viewerState, "going");
+  assert.equal(hostInterestAttempt.goingCount, 1);
   await call("vote", { ...base, actorId: "UONE", selected: [first, second] });
   const voted = await call("vote", { ...base, actorId: "UTWO", selected: [first] });
   assert.deepEqual(
