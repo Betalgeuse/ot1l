@@ -38,4 +38,5 @@ assert.match(calls[0].headers.get("x-otl-signature"), /^[0-9a-f]{64}$/);
 assert.match(readFileSync("site/dist/event-schedule.html", "utf8"), /data-duration/);
 assert.match(readFileSync("site/dist/event-schedule.js", "utf8"), /durationMinutes/);
 assert.doesNotMatch(readFileSync("site/dist/event-schedule.js", "utf8"), /api\/events\/schedule/);
+assert.match(readFileSync("site/dist/event-schedule.js", "utf8"), /activity[.]split\("\\n"\)\[0\]/);
 console.log("PASS event schedule site serves signed page and proxies only signed Core requests");
