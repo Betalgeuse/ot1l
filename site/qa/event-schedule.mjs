@@ -28,7 +28,7 @@ const env = {
 const page = await worker.fetch(new Request(`https://ot1l.hyuk.me/events/schedule/${token}`), env);
 assert.equal(page.status, 200);
 assert.match(await page.text(), new RegExp(token.replaceAll(".", "[.]")));
-const state = await worker.fetch(new Request("https://ot1l.hyuk.me/api/events/schedule/state", {
+const state = await worker.fetch(new Request("https://ot1l.hyuk.me/api/event-time/state", {
   method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ token }),
 }), env);
 assert.equal(state.status, 200);
@@ -37,4 +37,5 @@ assert.equal(calls[0].body.token, token);
 assert.match(calls[0].headers.get("x-otl-signature"), /^[0-9a-f]{64}$/);
 assert.match(readFileSync("site/dist/event-schedule.html", "utf8"), /data-duration/);
 assert.match(readFileSync("site/dist/event-schedule.js", "utf8"), /durationMinutes/);
+assert.doesNotMatch(readFileSync("site/dist/event-schedule.js", "utf8"), /api\/events\/schedule/);
 console.log("PASS event schedule site serves signed page and proxies only signed Core requests");
