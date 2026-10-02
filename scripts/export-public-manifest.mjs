@@ -89,6 +89,7 @@ export const PUBLIC_RUNTIME_MIGRATION_PATHS = [
   "migrations/064_verified_operator_recovery.sql",
   "migrations/065_atomic_common_delivery.sql",
   "migrations/066_townhall_event_poll.sql",
+  "migrations/067_flexible_townhall_event.sql",
 ];
 
 // `src` and `site` are copied as directories, but these paths keep the membership

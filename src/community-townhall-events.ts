@@ -33,7 +33,7 @@ export function townhallEventButton(): Json {
 
 export function townhallEventLauncher(): Json {
   const text =
-    "누구나 작은 활동을 열 수 있어요. 활동·장소·가능한 시간 후보를 적어주세요. 참여자는 가능한 시간을 여러 개 고르고, 다음 이벤트 수요는 각 이벤트 글의 스레드에 남길 수 있어요.";
+    "누구나 작은 활동을 열 수 있어요. 활동·장소를 적고, 정해진 시간이 없다면 시간 후보는 비워두세요. 후보가 있으면 참여자는 가능한 시간을 여러 개 고를 수 있어요.";
   return {
     text,
     blocks: [
@@ -58,7 +58,7 @@ function parseOptions(value: string): readonly string[] | null {
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter(Boolean);
-  if (lines.length < 1 || lines.length > 8 || new Set(lines).size !== lines.length) return null;
+  if (lines.length > 8 || new Set(lines).size !== lines.length) return null;
   const parsed: string[] = [];
   for (const line of lines) {
     const match = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})$/.exec(line);
@@ -89,7 +89,7 @@ export function parseTownhallEvent(
     errors.location = "장소나 접속 방법을 줄바꿈 없이 1~120자로 적어 주세요.";
   if (!options)
     errors.options =
-      "한국시간 YYYY-MM-DD HH:MM 형식으로 미래 시간 후보를 한 줄에 하나씩, 최대 8개 적어 주세요.";
+      "시간 후보를 비우거나, 한국시간 YYYY-MM-DD HH:MM 형식으로 미래 시간을 한 줄에 하나씩 최대 8개 적어 주세요.";
   return Object.keys(errors).length ? { errors } : { activity, location, options: options ?? [] };
 }
 
@@ -151,10 +151,11 @@ export async function openTownhallEventModal(
         {
           type: "input",
           block_id: "options",
+          optional: true,
           label: { type: "plain_text", text: "가능한 시간 후보" },
           hint: {
             type: "plain_text",
-            text: "한국시간 YYYY-MM-DD HH:MM 형식으로 한 줄에 하나씩, 최대 8개 적어 주세요.",
+            text: "아직 시간을 정하지 않았다면 비워두세요. 입력할 때는 한국시간 기준으로 한 줄에 하나씩 최대 8개까지 적어 주세요.",
           },
           element: {
             type: "plain_text_input",
@@ -185,7 +186,10 @@ export function townhallEventMessage(event: TownhallEvent): Json {
   const options = event.options
     .map((option) => `• ${slackDate(option.startsAt)} · 가능 ${option.votes}명`)
     .join("\n");
-  const text = `<@${event.hostUserId}>님이 이벤트를 열었어요! 🎟️\n*${escapeSlackText(event.activity)}*\n장소: ${escapeSlackText(event.location)}\n\n*시간 후보*\n${options}\n\n이번 이벤트에 가능한 시간을 여러 개 골라주세요. 참여 의견과 다음에 열었으면 하는 활동은 이 글의 스레드에 남겨주세요.`;
+  const schedule = options
+    ? `*시간 후보*\n${options}\n\n이번 이벤트에 가능한 시간을 여러 개 골라주세요.`
+    : "*시간*\n아직 정하지 않았어요. 가능한 일정은 이 글의 스레드에서 함께 이야기해 주세요.";
+  const text = `<@${event.hostUserId}>님이 이벤트를 열었어요! 🎟️\n*${escapeSlackText(event.activity)}*\n장소: ${escapeSlackText(event.location)}\n\n${schedule}\n\n참여 의견과 다음에 열었으면 하는 활동은 이 글의 스레드에 남겨주세요.`;
   return {
     text,
     blocks: [
@@ -193,7 +197,9 @@ export function townhallEventMessage(event: TownhallEvent): Json {
       {
         type: "actions",
         elements: [
-          button("가능 시간 선택", "community_event_availability", "actor", event.eventId),
+          ...(event.options.length
+            ? [button("가능 시간 선택", "community_event_availability", "actor", event.eventId)]
+            : []),
           button("이벤트 수정", "community_event_edit", event.hostUserId, event.eventId),
           townhallEventButton(),
         ],
