@@ -6,7 +6,7 @@ interface EventSiteEnv {
 }
 
 const EVENT_SCHEDULE = /^\/events\/schedule\/([A-Za-z0-9_-]{20,1900}\.[0-9a-f]{64})$/;
-const EVENT_API = /^\/api\/event-time\/(state|configure|vote|finalize)$/;
+const EVENT_API = /^\/bridge\/(state|configure|vote|finalize)$/;
 const securityHeaders = {
   "Content-Security-Policy": "default-src 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; upgrade-insecure-requests",
   "Cross-Origin-Opener-Policy": "same-origin",

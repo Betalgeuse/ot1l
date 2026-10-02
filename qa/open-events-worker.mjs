@@ -27,7 +27,7 @@ assert.deepEqual(await health.json(), { status: "ok", service: "open-events", co
 const page = await worker.fetch(new Request(`https://events.example/events/schedule/${token}`), env);
 assert.equal(page.status, 200);
 assert.match(await page.text(), new RegExp(token.replaceAll(".", "[.]")));
-const state = await worker.fetch(new Request("https://events.example/api/event-time/state", {
+const state = await worker.fetch(new Request("https://events.example/bridge/state", {
   method: "POST",
   headers: { "content-type": "application/json" },
   body: JSON.stringify({ token }),
@@ -51,7 +51,7 @@ assert.equal(
 );
 
 const config = {
-  name: "otl1-open-events",
+  name: "otl1-time",
   main: "event-site/src/index.ts",
   assets: { directory: "site/dist" },
   services: [{ binding: "CORE", service: "otl1-onething-garden" }],

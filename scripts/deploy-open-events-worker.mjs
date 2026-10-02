@@ -8,7 +8,7 @@ const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
 export function validateOpenEventsConfig(value) {
   if (typeof value !== "object" || value === null || Array.isArray(value))
     throw new TypeError("Open events Wrangler config must be an object");
-  if (value.name !== "otl1-open-events") throw new TypeError("Open events Worker name mismatch");
+  if (value.name !== "otl1-time") throw new TypeError("Open events Worker name mismatch");
   const serialized = JSON.stringify(value);
   if (/REPLACE|replace-with|your-site[.]workers[.]dev/.test(serialized))
     throw new TypeError("Open events config contains placeholders");
