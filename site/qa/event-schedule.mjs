@@ -28,7 +28,7 @@ const env = {
 const page = await worker.fetch(new Request(`https://ot1l.hyuk.me/events/schedule/${token}`), env);
 assert.equal(page.status, 200);
 assert.match(await page.text(), new RegExp(token.replaceAll(".", "[.]")));
-const state = await worker.fetch(new Request("https://ot1l.hyuk.me/api/event-time/state", {
+const state = await worker.fetch(new Request("https://ot1l.hyuk.me/bridge/state", {
   method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ token }),
 }), env);
 assert.equal(state.status, 200);

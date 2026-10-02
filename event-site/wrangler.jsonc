@@ -1,6 +1,6 @@
 {
   "$schema": "https://raw.githubusercontent.com/cloudflare/workers-sdk/main/packages/wrangler/config-schema.json",
-  "name": "otl1-open-events",
+  "name": "otl1-time",
   "main": "src/index.ts",
   "compatibility_date": "2026-01-31",
   "workers_dev": true,
