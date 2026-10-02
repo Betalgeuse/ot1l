@@ -1,8 +1,8 @@
 /** Reviewed, repo-owned welcome copy. Bump the version for every content change. */
 export const WELCOME_GUIDE_RELEASE = {
-  version: "v0.0.61",
+  version: "v0.0.62",
   body: `@channel
-OT1L v0.0.61 · welcome 가이드 업데이트
+OT1L v0.0.62 · welcome 가이드 업데이트
 
 OT1L (*ONE THING* 1 Line)에 오신 것을 환영합니다! Slack 채널 구조는 Toss를 차용했습니다.
 
@@ -25,7 +25,11 @@ OT1L (*ONE THING* 1 Line)에 오신 것을 환영합니다! Slack 채널 구조�
 • Sub channel
   ◦ All: 전사 누구나 자유롭게 공유하고 대화할 수 있습니다.
     ▪︎ #all-freetalk-qna-feedback: 자유롭게 대화하고 Q&A를 나눌 수 있습니다.
-    ▪︎ #townhall: 모두에게 알릴 소식과 서로를 격려하는 이야기를 나눌 수 있습니다.
+    ▪︎ #townhall: 모두에게 알릴 소식과 서로를 격려하는 이야기를 나눌 수 있습니다. 고정된 *이벤트 열기* 버튼에서 누구나 활동·장소·가능한 시간 후보를 올릴 수 있습니다.
+      - 시간 후보는 한국시간으로 한 줄에 하나씩 최대 8개까지 등록합니다.
+      - 참여자는 *가능 시간 선택*에서 가능한 후보를 여러 개 고를 수 있습니다.
+      - 주최자는 *이벤트 수정*에서 활동·장소·시간 후보를 바꿀 수 있으며, 그대로 남은 후보의 응답은 유지됩니다.
+      - 이벤트 글의 스레드에는 참여 의견과 다음에 열었으면 하는 활동을 남겨주세요.
   ◦ Chapter: 직군·전공별로 자유롭게 소통할 수 있습니다.
     ▪︎ #chapter-developers: 개발자들을 위한 채널입니다.
     ▪︎ #chapter-english: 영어 공부를 함께합니다.
