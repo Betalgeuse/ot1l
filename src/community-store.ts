@@ -149,6 +149,10 @@ function townhallEvent(value: Json): TownhallEvent | null {
     autoCancel: input.autoCancel === true,
     graceUntil: input.graceUntil === null ? null : string(input.graceUntil),
     finalStartAt: input.finalStartAt === null ? null : string(input.finalStartAt),
+    finalEndAt:
+      input.finalEndAt === undefined || input.finalEndAt === null ? null : string(input.finalEndAt),
+    durationMinutes:
+      input.durationMinutes === undefined ? 60 : integer(input.durationMinutes, "event duration"),
     cancelledAt: input.cancelledAt === null ? null : string(input.cancelledAt),
     cancellationReason: input.cancellationReason === null ? null : string(input.cancellationReason),
     interestCount: integer(input.interestCount, "interest count"),
@@ -367,12 +371,11 @@ export class CommunityStore extends CommunityScheduleStore {
     operation: "interest" | "rsvp" | "configure" | "finalize",
     input: Json,
   ): Promise<TownhallEvent> {
-    const event = townhallEvent(
-      await this.db.queryJson("SELECT otl.townhall_event_lifecycle_execute($1,$2::jsonb)", [
-        operation,
-        JSON.stringify(input),
-      ]),
-    );
+    await this.db.queryJson("SELECT otl.townhall_event_lifecycle_execute($1,$2::jsonb)", [
+      operation,
+      JSON.stringify(input),
+    ]);
+    const event = await this.townhallEventSeries("get", input);
     if (!event) throw new InputError("Event missing");
     return event;
   }
@@ -393,7 +396,7 @@ export class CommunityStore extends CommunityScheduleStore {
     actorId: string,
     now: string,
   ): Promise<readonly TownhallEvent[]> {
-    return list(
+    const changed = list(
       await this.db.queryJson("SELECT otl.townhall_event_lifecycle_execute($1,$2::jsonb)", [
         "due",
         JSON.stringify({ teamId, channelId, actorId, now }),
@@ -403,6 +406,17 @@ export class CommunityStore extends CommunityScheduleStore {
       if (!event) throw new InputError("Event missing");
       return event;
     });
+    return Promise.all(
+      changed.map(
+        async (event) =>
+          (await this.townhallEventSeries("get", {
+            teamId,
+            channelId,
+            actorId,
+            eventId: event.eventId,
+          })) ?? event,
+      ),
+    );
   }
   private introductionCall(operation: string, payload: Json): Promise<Json> {
     return this.db.queryJson("SELECT otl.introduction_execute($1,$2::jsonb)", [

@@ -129,6 +129,7 @@ $("[data-configure]").addEventListener("click", async () => {
         eventKind: $("[data-kind]").value,
         recurrenceEveryWeeks: Number($("[data-recurrence]").value),
         occurrenceCount: Number($("[data-occurrences]").value),
+        durationMinutes: Number($("[data-duration]").value),
         minConfirmed: Number($("[data-min]").value),
         capacity: $("[data-capacity]").value ? Number($("[data-capacity]").value) : null,
         recruitmentDeadline: deadline ? new Date(deadline).toISOString() : null,

@@ -55,7 +55,7 @@ try {
   started = true;
   await run(join(pgBin, "createdb"), ["events"]);
   const files = (await readdir(join(root, "migrations")))
-    .filter((name) => /^\d{3}_.*\.sql$/.test(name) && Number(name.slice(0, 3)) <= 71)
+    .filter((name) => /^\d{3}_.*\.sql$/.test(name) && Number(name.slice(0, 3)) <= 72)
     .sort();
   for (const file of files.filter((name) => Number(name.slice(0, 3)) <= 5))
     await run(join(pgBin, "psql"), ["-X", "-v", "ON_ERROR_STOP=1", "-f", `migrations/${file}`]);
@@ -89,6 +89,8 @@ try {
   });
   assert.equal(created.created, true);
   assert.equal(created.event.options.length, 2);
+  assert.equal(created.event.goingCount, 1);
+  assert.equal(created.event.viewerState, "going");
   assert.equal(await call("bind", { ...base, messageTs: "2000.000001" }), true);
   await call("vote", { ...base, actorId: "UONE", selected: [first, second] });
   const voted = await call("vote", { ...base, actorId: "UTWO", selected: [first] });
@@ -171,16 +173,20 @@ try {
     capacity: 4, recruitmentDeadline: "2026-10-19T09:00:00Z", graceHours: 24,
     autoCancel: true, now: "2026-10-02T00:00:00Z",
   });
+  const durationConfigured = await callSeries("configure", {
+    ...base, eventId: "VFLEXIBLE", recurrenceEveryWeeks: 1,
+    occurrenceCount: 4, durationMinutes: 120,
+  });
+  assert.equal(durationConfigured.durationMinutes, 120);
   const finalized = await callLifecycle("finalize", {
     ...base, eventId: "VFLEXIBLE", startsAt: configured.options[0].startsAt,
     now: "2026-10-02T00:01:00Z",
   });
   assert.equal(finalized.phase, "scheduled");
-  await callLifecycle("rsvp", { ...base, eventId: "VFLEXIBLE", actorId: "UONE",
+  const confirmed = await callLifecycle("rsvp", { ...base, eventId: "VFLEXIBLE", actorId: "UONE",
     state: "going", now: "2026-10-02T00:02:00Z" });
-  const confirmed = await callLifecycle("rsvp", { ...base, eventId: "VFLEXIBLE", actorId: "UTWO",
-    state: "going", now: "2026-10-02T00:03:00Z" });
   assert.equal(confirmed.phase, "confirmed");
+  assert.equal(confirmed.goingCount, 2);
 
   await call("create", { ...base, eventId: "VCANCEL", activity: "번개", location: "미정", options: [] });
   await call("bind", { ...base, eventId: "VCANCEL", messageTs: "2002.000001" });
@@ -202,7 +208,7 @@ try {
     minConfirmed: 2, capacity: 10, recruitmentDeadline: null, graceHours: 24,
     autoCancel: false, now: "2026-10-02T00:00:00Z" });
   const seriesConfigured = await callSeries("configure", { ...base, eventId: "VSERIES",
-    recurrenceEveryWeeks: 1, occurrenceCount: 4 });
+    recurrenceEveryWeeks: 1, occurrenceCount: 4, durationMinutes: 120 });
   assert.deepEqual(seriesConfigured.series.occurrences, []);
   await callLifecycle("finalize", { ...base, eventId: "VSERIES",
     startsAt: seriesGrid.options[0].startsAt, now: "2026-10-02T00:01:00Z" });
@@ -210,9 +216,11 @@ try {
   assert.equal(seriesFinal.series.recurrenceEveryWeeks, 1);
   assert.equal(seriesFinal.series.occurrenceCount, 4);
   assert.equal(seriesFinal.series.occurrences.length, 4);
+  assert.equal(seriesFinal.durationMinutes, 120);
+  assert.equal(Date.parse(seriesFinal.finalEndAt) - Date.parse(seriesFinal.finalStartAt), 120 * 60 * 1000);
   assert.equal(Date.parse(seriesFinal.series.occurrences[1].startsAt) - Date.parse(seriesFinal.series.occurrences[0].startsAt), 7 * 24 * 60 * 60 * 1000);
   console.log(
-    "PASS townhall event PostgreSQL: flexible grid, RSVP, grace, cancellation, and real recurring series",
+    "PASS townhall event PostgreSQL: host inclusion, duration, flexible grid, RSVP, grace, cancellation, and recurring series",
   );
 } finally {
   if (started)

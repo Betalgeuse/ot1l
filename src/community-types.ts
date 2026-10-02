@@ -177,6 +177,8 @@ export type TownhallEvent = {
   readonly autoCancel: boolean;
   readonly graceUntil: string | null;
   readonly finalStartAt: string | null;
+  readonly finalEndAt: string | null;
+  readonly durationMinutes: number;
   readonly cancelledAt: string | null;
   readonly cancellationReason: string | null;
   readonly interestCount: number;

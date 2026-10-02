@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import worker from "../src/index.ts";
 
 const token = `${"a".repeat(40)}.${"b".repeat(64)}`;
@@ -34,4 +35,6 @@ assert.equal(state.status, 200);
 assert.equal(calls[0].path, "/internal/events/state");
 assert.equal(calls[0].body.token, token);
 assert.match(calls[0].headers.get("x-otl-signature"), /^[0-9a-f]{64}$/);
+assert.match(readFileSync("site/dist/event-schedule.html", "utf8"), /data-duration/);
+assert.match(readFileSync("site/dist/event-schedule.js", "utf8"), /durationMinutes/);
 console.log("PASS event schedule site serves signed page and proxies only signed Core requests");
