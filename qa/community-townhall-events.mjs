@@ -167,6 +167,7 @@ try {
   assert.match(post.body.text, /<@UMEMBER>님이 이벤트를 열었어요/);
   assert.match(post.body.text, /\*산책 모임\*\n초보 환영 https:\/\/example[.]com\/watch/);
   assert.doesNotMatch(post.body.text, /example[.]com\/watch\*/);
+  assert.doesNotMatch(post.body.text, /리액션은 관심 신호|다음 활동 수요/);
   assert.match(post.body.text, /장소: 성수역 1번 출구/);
   assert.match(post.body.text, /아직 정하지 않았어요/);
   assert.deepEqual(
