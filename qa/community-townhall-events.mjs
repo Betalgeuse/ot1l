@@ -173,12 +173,12 @@ try {
   assert.deepEqual(
     post.body.blocks[1].elements.map((item) => item.action_id),
     [
-      "community_event_interest",
       "community_event_availability",
       "community_event_edit",
       "community_event_open",
     ],
   );
+  assert.doesNotMatch(post.body.text, /관심 \d+명/);
 
   calls.length = 0;
   const availability = action("community_event_availability", "UOTHER", {

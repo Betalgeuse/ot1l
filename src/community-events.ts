@@ -23,7 +23,6 @@ import { type CommunityEnv, textReply } from "./community-runtime";
 import { handleShareInfoMessage } from "./community-share-info";
 import { callSlack } from "./community-social";
 import { CommunityStore } from "./community-store";
-import { syncTownhallEventMessage } from "./community-townhall-events";
 import { welcomeTownhallMember } from "./community-welcome";
 import { InputError, koreaDate, object, string } from "./input";
 import { communityEditRelevant, messageEvent } from "./slack-message-event";
@@ -55,37 +54,6 @@ export async function handleCommunityEvent(
         referralSlackPort(env),
       );
     }
-    return true;
-  }
-  if (rawEvent.type === "reaction_added" || rawEvent.type === "reaction_removed") {
-    const item = object(rawEvent.item);
-    if (
-      rawEvent.reaction !== "raising_hand" ||
-      item.type !== "message" ||
-      item.channel !== env.COMMUNITY_RELEASE_CHANNEL_ID ||
-      rawEvent.user === env.COMMUNITY_BOT_USER_ID
-    )
-      return true;
-    const userId = string(rawEvent.user);
-    const channelId = string(item.channel);
-    const store = new CommunityStore(new NeonStore(env.DATABASE_URL));
-    const event = await store.getTownhallEventByMessage(
-      env.SLACK_TEAM_ID,
-      channelId,
-      userId,
-      string(item.ts),
-    );
-    if (!event) return true;
-    const updated = await store.townhallEventLifecycle("interest", {
-      teamId: env.SLACK_TEAM_ID,
-      channelId,
-      actorId: userId,
-      eventId: event.eventId,
-      active: rawEvent.type === "reaction_added",
-      source: "reaction",
-      now: new Date(Number(string(rawEvent.event_ts)) * 1000).toISOString(),
-    });
-    await syncTownhallEventMessage(env, updated);
     return true;
   }
   if (rawEvent.type !== "message" && rawEvent.type !== "app_mention") return false;

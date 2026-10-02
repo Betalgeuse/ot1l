@@ -39,4 +39,5 @@ assert.match(readFileSync("site/dist/event-schedule.html", "utf8"), /data-durati
 assert.match(readFileSync("site/dist/event-schedule.js", "utf8"), /durationMinutes/);
 assert.doesNotMatch(readFileSync("site/dist/event-schedule.js", "utf8"), /api\/events\/schedule/);
 assert.match(readFileSync("site/dist/event-schedule.js", "utf8"), /activity[.]split\("\\n"\)\[0\]/);
+assert.match(readFileSync("site/dist/event-schedule.html", "utf8"), /event-schedule[.]js[?]v=20261003-2/);
 console.log("PASS event schedule site serves signed page and proxies only signed Core requests");
