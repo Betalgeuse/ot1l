@@ -37,7 +37,7 @@ const viewer = () => {
 function render(event) {
   state.event = event;
   state.selected = new Set(event.selected);
-  $("[data-event-title]").textContent = event.activity;
+  $("[data-event-title]").textContent = event.activity.split("\n")[0];
   $("[data-event-location]").textContent = `장소: ${event.location}`;
   const host = event.hostUserId === viewer();
   $("[data-host-config]").hidden = !(host && !event.poll);
