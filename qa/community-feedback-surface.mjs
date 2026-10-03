@@ -159,6 +159,13 @@ try {
     calls.find((call) => call.method === "chat.postMessage")?.body.text ?? "",
     /아래 버튼으로 편하게 남겨주세요\. 필요한 내용은 최대 세 번만 더 여쭙고, 확인된 의견은 적극 반영할게요!$/,
   );
+  const dailyPrompt = calls.find(
+    (call) => call.method === "chat.postMessage" && call.body.channel === "CFEEDBACK",
+  );
+  assert.deepEqual(
+    dailyPrompt.body.blocks.at(-1).elements.map((element) => element.action_id),
+    ["community_bug_open", "community_maintainer_activate"],
+  );
   await startCodexFeedback(
     {
       env: {
