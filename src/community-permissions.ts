@@ -61,6 +61,8 @@ const memberActions = new Set([
   "community_guide_open",
   "community_referral_link",
   "community_event_open",
+  "community_event_open_fixed",
+  "community_event_open_poll",
   "community_event_availability",
   "community_event_availability_submit",
   "community_event_edit",

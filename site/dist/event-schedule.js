@@ -37,13 +37,24 @@ const viewer = () => {
 function render(event) {
   state.event = event;
   state.selected = new Set(event.selected);
-  $("[data-event-title]").textContent = event.activity.split("\n")[0];
+  const [title, ...description] = event.activity.split("\n");
+  $("[data-event-title]").textContent = title;
+  $("[data-event-description]").textContent = description.join("\n");
   $("[data-event-location]").textContent = `장소: ${event.location}`;
   const host = event.hostUserId === viewer();
   $("[data-host-config]").hidden = !(host && !event.poll);
   $("[data-empty]").hidden = Boolean(event.poll) || host;
   $("[data-grid-section]").hidden = !event.poll;
   $("[data-finalize]").hidden = !(host && event.poll);
+  if (host && !event.poll) {
+    const today = new Date();
+    const start = new Date(today.getTime() - today.getTimezoneOffset() * 60_000)
+      .toISOString().slice(0, 10);
+    const endDate = new Date(today.getTime() + 6 * 86_400_000 - today.getTimezoneOffset() * 60_000)
+      .toISOString().slice(0, 10);
+    $("[data-start-date]").value ||= start;
+    $("[data-end-date]").value ||= endDate;
+  }
   if (!event.poll) return;
   const grid = $("[data-grid]");
   grid.replaceChildren();
@@ -55,7 +66,8 @@ function render(event) {
   for (const day of days) {
     const cell = document.createElement("div");
     cell.className = "event-grid-day";
-    cell.textContent = day;
+    const date = new Date(`${day}T00:00:00+09:00`);
+    cell.innerHTML = `<span>${new Intl.DateTimeFormat("ko-KR", { weekday: "short", timeZone: "Asia/Seoul" }).format(date)}</span><strong>${Number(day.slice(5, 7))}/${Number(day.slice(8, 10))}</strong>`;
     grid.append(cell);
   }
   const grouped = new Map();
@@ -79,6 +91,7 @@ function render(event) {
         button.dataset.value = option.startsAt;
         button.dataset.votes = String(option.votes);
         button.setAttribute("aria-label", `${local(option.startsAt)}, 가능 ${option.votes}명`);
+        button.classList.add(`heat-${Math.min(option.votes, 4)}`);
       }
       grid.append(button);
     }

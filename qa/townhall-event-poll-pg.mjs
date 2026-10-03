@@ -55,7 +55,7 @@ try {
   started = true;
   await run(join(pgBin, "createdb"), ["events"]);
   const files = (await readdir(join(root, "migrations")))
-    .filter((name) => /^\d{3}_.*\.sql$/.test(name) && Number(name.slice(0, 3)) <= 73)
+    .filter((name) => /^\d{3}_.*\.sql$/.test(name) && Number(name.slice(0, 3)) <= 74)
     .sort();
   for (const file of files.filter((name) => Number(name.slice(0, 3)) <= 5))
     await run(join(pgBin, "psql"), ["-X", "-v", "ON_ERROR_STOP=1", "-f", `migrations/${file}`]);
@@ -187,11 +187,8 @@ try {
     ...base, eventId: "VFLEXIBLE", startsAt: configured.options[0].startsAt,
     now: "2026-10-02T00:01:00Z",
   });
-  assert.equal(finalized.phase, "scheduled");
-  const confirmed = await callLifecycle("rsvp", { ...base, eventId: "VFLEXIBLE", actorId: "UONE",
-    state: "going", now: "2026-10-02T00:02:00Z" });
-  assert.equal(confirmed.phase, "confirmed");
-  assert.equal(confirmed.goingCount, 2);
+  assert.equal(finalized.phase, "confirmed");
+  assert.equal(finalized.goingCount, 2);
 
   await call("create", { ...base, eventId: "VCANCEL", activity: "번개", location: "미정", options: [] });
   await call("bind", { ...base, eventId: "VCANCEL", messageTs: "2002.000001" });

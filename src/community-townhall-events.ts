@@ -9,6 +9,10 @@ import { openView } from "./slack-api";
 export type TownhallEventInput = {
   readonly activity: string;
   readonly location: string;
+  readonly scheduleMode: "fixed" | "poll" | "edit";
+  readonly startsAt: string | null;
+  readonly durationMinutes: number;
+  readonly minConfirmed: number;
 };
 
 function button(label: string, actionId: string, ownerId: string, eventId: string): Json {
@@ -23,17 +27,27 @@ function button(label: string, actionId: string, ownerId: string, eventId: strin
 export function townhallEventButton(): Json {
   return {
     type: "button",
-    text: { type: "plain_text", text: "이벤트 열기" },
+    text: { type: "plain_text", text: "일정 정해서 열기" },
     style: "primary",
-    action_id: "community_event_open",
+    action_id: "community_event_open_fixed",
     value: JSON.stringify({ ownerId: "actor", key: "new-townhall-event" }),
     accessibility_label: "Townhall에 새 활동 열기",
   };
 }
 
+export function townhallPollButton(): Json {
+  return {
+    type: "button",
+    text: { type: "plain_text", text: "시간 같이 정하기" },
+    action_id: "community_event_open_poll",
+    value: JSON.stringify({ ownerId: "actor", key: "new-townhall-event-poll" }),
+    accessibility_label: "Townhall에서 가능한 시간 함께 정하기",
+  };
+}
+
 export function townhallEventLauncher(): Json {
   const text =
-    "누구나 작은 활동을 열 수 있어요. 활동·장소만 적어 먼저 올리고, 게시된 이벤트의 웹 시간표에서 가능한 날짜와 시간을 함께 맞춰보세요.";
+    "날짜가 정해졌다면 Slack에서 바로 열고 참가를 받아요. 아직 모른다면 시간 같이 정하기로 가능한 일정을 모아보세요.";
   return {
     text,
     blocks: [
@@ -41,7 +55,7 @@ export function townhallEventLauncher(): Json {
         type: "section",
         text: { type: "mrkdwn", text: `*같이할 이벤트가 있나요?*\n${text}` },
       },
-      { type: "actions", elements: [townhallEventButton()] },
+      { type: "actions", elements: [townhallEventButton(), townhallPollButton()] },
     ],
   };
 }
@@ -55,6 +69,7 @@ function localTime(iso: string): string {
 
 export function parseTownhallEvent(
   view: Record<string, unknown>,
+  scheduleMode: "fixed" | "poll" | "edit",
 ): TownhallEventInput | { readonly errors: Record<string, string> } {
   const values = object(object(view.state).values);
   const activity = string(object(object(values.activity).value).value).trim();
@@ -64,16 +79,47 @@ export function parseTownhallEvent(
     errors.activity = "함께할 활동을 1~500자로 적어 주세요.";
   if (!location || [...location].length > 120 || /[\r\n]/.test(location))
     errors.location = "장소나 접속 방법을 줄바꿈 없이 1~120자로 적어 주세요.";
-  return Object.keys(errors).length ? { errors } : { activity, location };
+  let startsAt: string | null = null;
+  let durationMinutes = 60;
+  let minConfirmed = 2;
+  if (scheduleMode !== "edit") {
+    const minimum = Number(string(object(object(values.minimum).value).value));
+    if (!Number.isSafeInteger(minimum) || minimum < 1 || minimum > 100)
+      errors.minimum = "최소 인원을 1~100명으로 적어 주세요.";
+    else minConfirmed = minimum;
+  }
+  if (scheduleMode === "fixed") {
+    const selectedDate = string(object(object(values.event_date).value).selected_date);
+    const selectedTime = string(object(object(values.event_time).value).selected_time);
+    const duration = Number(
+      string(object(object(object(values.duration).value).selected_option).value),
+    );
+    const timestamp = Date.parse(`${selectedDate}T${selectedTime}:00+09:00`);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(selectedDate) || !/^\d{2}:\d{2}$/.test(selectedTime))
+      errors.event_date = "날짜와 시작 시각을 확인해 주세요.";
+    else if (!Number.isFinite(timestamp) || timestamp <= Date.now())
+      errors.event_date = "미래 일정을 선택해 주세요.";
+    else startsAt = new Date(timestamp).toISOString();
+    if (![60, 90, 120, 180, 240].includes(duration)) errors.duration = "진행 시간을 선택해 주세요.";
+    else durationMinutes = duration;
+  }
+  return Object.keys(errors).length
+    ? { errors }
+    : { activity, location, scheduleMode, startsAt, durationMinutes, minConfirmed };
 }
 
-function eventMetadata(context: CommunityContext, event?: TownhallEvent) {
+function eventMetadata(
+  context: CommunityContext,
+  event?: TownhallEvent,
+  scheduleMode: "fixed" | "poll" | "edit" = event ? "edit" : "fixed",
+) {
   return JSON.stringify({
     userId: context.scope.userId,
     channelId: context.scope.channelId,
     thread: context.thread,
     source: context.source,
     date: context.date,
+    scheduleMode,
     ...(event ? { eventId: event.eventId, expectedRevision: event.revision } : {}),
   });
 }
@@ -82,6 +128,7 @@ export async function openTownhallEventModal(
   context: CommunityContext,
   triggerId: string,
   event?: TownhallEvent,
+  scheduleMode: "fixed" | "poll" = "fixed",
 ): Promise<void> {
   if (context.scope.channelId !== context.env.COMMUNITY_RELEASE_CHANNEL_ID)
     throw new InputError("Townhall에서 열어 주세요.");
@@ -95,7 +142,7 @@ export async function openTownhallEventModal(
       title: { type: "plain_text", text: event ? "이벤트 수정" : "이벤트 열기" },
       submit: { type: "plain_text", text: event ? "수정하기" : "Townhall에 올리기" },
       close: { type: "plain_text", text: "닫기" },
-      private_metadata: eventMetadata(context, event),
+      private_metadata: eventMetadata(context, event, event ? "edit" : scheduleMode),
       blocks: [
         {
           type: "input",
@@ -122,13 +169,61 @@ export async function openTownhallEventModal(
             placeholder: { type: "plain_text", text: "성수역 또는 온라인 링크" },
           },
         },
+        ...(!event && scheduleMode === "fixed"
+          ? [
+              {
+                type: "input",
+                block_id: "event_date",
+                label: { type: "plain_text", text: "날짜" },
+                element: { type: "datepicker", action_id: "value" },
+              },
+              {
+                type: "input",
+                block_id: "event_time",
+                label: { type: "plain_text", text: "시작 시각" },
+                element: { type: "timepicker", action_id: "value", initial_time: "19:00" },
+              },
+              {
+                type: "input",
+                block_id: "duration",
+                label: { type: "plain_text", text: "진행 시간" },
+                element: {
+                  type: "static_select",
+                  action_id: "value",
+                  initial_option: { text: { type: "plain_text", text: "2시간" }, value: "120" },
+                  options: [60, 90, 120, 180, 240].map((minutes) => ({
+                    text: {
+                      type: "plain_text",
+                      text:
+                        minutes % 60
+                          ? `${Math.floor(minutes / 60)}시간 30분`
+                          : `${minutes / 60}시간`,
+                    },
+                    value: String(minutes),
+                  })),
+                },
+              },
+            ]
+          : []),
+        ...(!event
+          ? [
+              {
+                type: "input",
+                block_id: "minimum",
+                label: { type: "plain_text", text: "최소 인원" },
+                element: { type: "plain_text_input", action_id: "value", initial_value: "2" },
+              },
+            ]
+          : []),
         {
           type: "section",
           text: {
             type: "mrkdwn",
             text: event
               ? "날짜 범위·가능 시간·최소 인원·정기 회차는 이벤트 글의 *가능 시간 선택*에서 다시 조정할 수 있어요."
-              : "이벤트를 게시한 뒤 *가능 시간 선택 → 시간 맞추기*에서 날짜 범위·복수 시간·최소 인원·정기 회차를 설정할 수 있어요.",
+              : scheduleMode === "poll"
+                ? "게시한 뒤 웹 달력에서 *이 시간으로 확정되면 참가할 수 있는 시간*을 받아요. 선택된 시간으로 확정되면 자동 참가 처리됩니다."
+                : "게시 즉시 참가를 받을 수 있어요. 주최자는 참가 확정 1명으로 포함됩니다.",
           },
         },
       ],
@@ -151,8 +246,8 @@ export function townhallEventMessage(event: TownhallEvent): Json {
     .map((option) => `• ${slackDate(option.startsAt)} · 가능 ${option.votes}명`)
     .join("\n");
   const schedule = options
-    ? `*시간 후보*\n${options}\n\n이번 이벤트에 가능한 시간을 여러 개 골라주세요.`
-    : "*시간*\n아직 정하지 않았어요. 가능한 일정은 이 글의 스레드에서 함께 이야기해 주세요.";
+    ? `*시간 후보*\n${options}\n\n선택한 시간으로 확정되면 자동으로 참가됩니다.`
+    : "*시간*\n아직 정하지 않았어요.";
   const phaseLabels: Record<TownhallEvent["phase"], string> = {
     recruiting: "🟡 모집 중",
     scheduling: "🗓 일정 조율 중",
@@ -172,7 +267,7 @@ export function townhallEventMessage(event: TownhallEvent): Json {
   const series = event.series
     ? `\n반복: ${event.series.recurrenceEveryWeeks === 1 ? "매주" : "격주"} · ${event.series.occurrenceCount}회`
     : "";
-  const text = `<@${event.hostUserId}>님이 이벤트를 열었어요! 🎟️\n${phaseLabels[event.phase]}\n${eventActivityText(event.activity)}\n장소: ${escapeSlackText(event.location)}${finalTime}${deadline}${series}\n참가 확정 ${event.goingCount}/${event.minConfirmed}명${event.capacity ? ` · 정원 ${event.capacity}명` : ""}\n\n${schedule}`;
+  const text = `<@${event.hostUserId}>님이 이벤트를 열었어요! 🎟️\n${phaseLabels[event.phase]}\n${eventActivityText(event.activity)}\n장소: ${escapeSlackText(event.location)}${finalTime}${deadline}${series}\n참가 확정 ${event.goingCount}/${event.minConfirmed}명${event.capacity ? ` · 정원 ${event.capacity}명` : ""}${event.finalStartAt ? "" : `\n\n${schedule}`}`;
   return {
     text,
     blocks: [
@@ -180,12 +275,17 @@ export function townhallEventMessage(event: TownhallEvent): Json {
       {
         type: "actions",
         elements: [
-          button("가능 시간 선택", "community_event_availability", "actor", event.eventId),
           ...(event.finalStartAt
-            ? [button("참가 확정", "community_event_rsvp", "actor", event.eventId)]
-            : []),
+            ? [button("참가할게요", "community_event_rsvp", "actor", event.eventId)]
+            : [
+                button(
+                  "가능한 시간 고르기",
+                  "community_event_availability",
+                  "actor",
+                  event.eventId,
+                ),
+              ]),
           button("이벤트 수정", "community_event_edit", event.hostUserId, event.eventId),
-          townhallEventButton(),
         ],
       },
     ],
@@ -325,7 +425,11 @@ export async function applyTownhallRsvp(
   await updateEventMessage(context, updated);
   await notice(
     context,
-    updated.viewerState === "waitlist" ? "정원이 차서 대기자로 등록했어요." : "참가를 확정했어요.",
+    updated.viewerState === "waitlist"
+      ? "정원이 차서 대기자로 등록했어요."
+      : updated.viewerState === "going"
+        ? "참가를 확정했어요."
+        : "참가 상태를 확인해 주세요.",
   );
 }
 
@@ -417,7 +521,7 @@ export async function submitTownhallEvent(
     actorId: context.scope.userId,
     eventId: viewId,
     ...input,
-    options: [],
+    options: input.startsAt ? [input.startsAt] : [],
   });
   if (!prepared.created) {
     if (prepared.event.status === "active") await updateEventMessage(context, prepared.event);
@@ -440,6 +544,49 @@ export async function submitTownhallEvent(
       }))
     )
       throw new InputError("이벤트 저장 결과를 확인할 수 없어요.");
+    await context.store.townhallEventLifecycle("configure", {
+      teamId: context.scope.teamId,
+      channelId,
+      actorId: context.scope.userId,
+      eventId: viewId,
+      eventKind: "gathering",
+      minConfirmed: input.minConfirmed,
+      capacity: null,
+      recruitmentDeadline:
+        input.startsAt === null
+          ? null
+          : new Date(Date.parse(input.startsAt) - 12 * 60 * 60 * 1000).toISOString(),
+      graceHours: 12,
+      autoCancel: input.startsAt !== null,
+      now: new Date().toISOString(),
+    });
+    let event = await context.store.townhallEventSeries("configure", {
+      teamId: context.scope.teamId,
+      channelId,
+      actorId: context.scope.userId,
+      eventId: viewId,
+      recurrenceEveryWeeks: 1,
+      occurrenceCount: 4,
+      durationMinutes: input.durationMinutes,
+    });
+    if (input.startsAt) {
+      await context.store.townhallEventLifecycle("finalize", {
+        teamId: context.scope.teamId,
+        channelId,
+        actorId: context.scope.userId,
+        eventId: viewId,
+        startsAt: input.startsAt,
+        now: new Date().toISOString(),
+      });
+      event = await context.store.townhallEventSeries("finalize", {
+        teamId: context.scope.teamId,
+        channelId,
+        actorId: context.scope.userId,
+        eventId: viewId,
+      });
+    }
+    if (!event) throw new InputError("이벤트 상태를 확인할 수 없어요.");
+    await updateEventMessage(context, event);
     createdMessageTs = null;
     await notice(context, "Townhall에 이벤트를 올렸어요.");
   } catch (error) {

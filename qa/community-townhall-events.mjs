@@ -15,13 +15,17 @@ const eventView = (event, actorId) => ({
   poll: event.poll ?? null,
   eventKind: "gathering",
   phase: "recruiting",
-  minConfirmed: 2,
+  minConfirmed: event.minConfirmed ?? 2,
   capacity: null,
   recruitmentDeadline: null,
   graceHours: 24,
   autoCancel: true,
   graceUntil: null,
-  finalStartAt: null,
+  finalStartAt: event.finalStartAt ?? null,
+  finalEndAt: event.finalStartAt
+    ? new Date(Date.parse(event.finalStartAt) + (event.durationMinutes ?? 60) * 60_000).toISOString()
+    : null,
+  durationMinutes: event.durationMinutes ?? 60,
   cancelledAt: null,
   cancellationReason: null,
   interestCount: 0,
@@ -82,6 +86,17 @@ mock.module("../src/community-store.ts", () => ({
         );
       return eventView(event, input.actorId);
     }
+    async townhallEventLifecycle(operation, input) {
+      const event = events.get(input.eventId);
+      if (operation === "configure") event.minConfirmed = input.minConfirmed;
+      if (operation === "finalize") event.finalStartAt = input.startsAt;
+      return eventView(event, input.actorId);
+    }
+    async townhallEventSeries(operation, input) {
+      const event = events.get(input.eventId);
+      if (operation === "configure") event.durationMinutes = input.durationMinutes;
+      return eventView(event, input.actorId);
+    }
   },
 }));
 mock.module("../src/store.ts", () => ({
@@ -134,8 +149,12 @@ const submission = (id, callbackId, privateMetadata, values, userId = "UMEMBER")
 
 try {
   const launcher = townhallEventLauncher();
-  assert.match(launcher.text, /웹 시간표/);
-  const open = action("community_event_open", "UMEMBER", {
+  assert.match(launcher.text, /날짜가 정해졌다면/);
+  assert.deepEqual(launcher.blocks[1].elements.map((item) => item.action_id), [
+    "community_event_open_fixed",
+    "community_event_open_poll",
+  ]);
+  const open = action("community_event_open_poll", "UMEMBER", {
     ownerId: "actor",
     key: "new-townhall-event",
   });
@@ -143,22 +162,24 @@ try {
   const createModal = calls.find((call) => call.method === "views.open").body.view;
   assert.deepEqual(
     createModal.blocks.filter((block) => block.type === "input").map((block) => block.block_id),
-    ["activity", "location"],
+    ["activity", "location", "minimum"],
   );
   assert.doesNotMatch(JSON.stringify(createModal), /가능한 시간 후보|최대 8개|2026-10-10/);
-  assert.match(JSON.stringify(createModal), /게시한 뒤.*시간 맞추기/);
+  assert.match(JSON.stringify(createModal), /자동 참가/);
 
   const invalid = submission("VINVALID", "community_event_submit", createModal.private_metadata, {
     activity: { value: { value: "" } },
     location: { value: { value: "" } },
+    minimum: { value: { value: "0" } },
   });
   const invalidResponse = await communityInteraction(invalid, env, () => {});
-  assert.deepEqual(Object.keys((await invalidResponse.json()).errors).sort(), ["activity", "location"]);
+  assert.deepEqual(Object.keys((await invalidResponse.json()).errors).sort(), ["activity", "location", "minimum"]);
 
   const pending = [];
   const valid = submission("VEVENT-1", "community_event_submit", createModal.private_metadata, {
     activity: { value: { value: "산책 모임\n초보 환영 https://example.com/watch" } },
     location: { value: { value: "성수역 1번 출구" } },
+    minimum: { value: { value: "3" } },
   });
   const response = await communityInteraction(valid, env, (promise) => pending.push(promise));
   assert.deepEqual(await response.json(), { response_action: "clear" });
@@ -172,11 +193,7 @@ try {
   assert.match(post.body.text, /아직 정하지 않았어요/);
   assert.deepEqual(
     post.body.blocks[1].elements.map((item) => item.action_id),
-    [
-      "community_event_availability",
-      "community_event_edit",
-      "community_event_open",
-    ],
+    ["community_event_availability", "community_event_edit"],
   );
   assert.doesNotMatch(post.body.text, /관심 \d+명/);
 
@@ -233,8 +250,41 @@ try {
     /장소: 서울숲/,
   );
 
+  calls.length = 0;
+  await communityInteraction(
+    action("community_event_open_fixed", "UMEMBER", {
+      ownerId: "actor",
+      key: "new-townhall-event",
+    }),
+    env,
+    () => {},
+  );
+  const fixedModal = calls.find((call) => call.method === "views.open").body.view;
+  assert.deepEqual(
+    fixedModal.blocks.filter((block) => block.type === "input").map((block) => block.block_id),
+    ["activity", "location", "event_date", "event_time", "duration", "minimum"],
+  );
+  const fixedPending = [];
+  const fixedSubmit = submission("VFIXED", "community_event_submit", fixedModal.private_metadata, {
+    activity: { value: { value: "정해진 저녁 모임" } },
+    location: { value: { value: "서울숲" } },
+    event_date: { value: { selected_date: "2026-10-10" } },
+    event_time: { value: { selected_time: "19:00" } },
+    duration: { value: { selected_option: { value: "120" } } },
+    minimum: { value: { value: "3" } },
+  });
+  await communityInteraction(fixedSubmit, env, (promise) => fixedPending.push(promise));
+  await Promise.all(fixedPending);
+  const fixedUpdate = calls.filter((call) => call.method === "chat.update").at(-1).body;
+  assert.match(fixedUpdate.text, /최종 일정:/);
+  assert.match(fixedUpdate.text, /참가 확정 0\/3명/);
+  assert.deepEqual(
+    fixedUpdate.blocks[1].elements.map((item) => item.action_id),
+    ["community_event_rsvp", "community_event_edit"],
+  );
+
   console.log(
-    "PASS townhall event: simple Slack start, always-visible web scheduler, and host edit without legacy time fields",
+    "PASS townhall event: fixed events stay in Slack, polls use one web commitment, and edits preserve state",
   );
 } finally {
   globalThis.fetch = originalFetch;
