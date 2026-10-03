@@ -7,6 +7,7 @@ const context = {
   env: {
     SLACK_BOT_TOKEN: "token",
     COMMUNITY_MAINTAINERS_CHANNEL_ID: "CMAINTAIN",
+    COMMUNITY_MAINTAINER_WORKSTREAM_CHANNEL_IDS: "CMAINEVENT,CMAINWEB,CMAINWELCOME",
   },
   scope: { teamId: "TQA", channelId: "CWELCOME", userId: "UMEMBER" },
   store: {
@@ -31,14 +32,17 @@ try {
   assert.equal(JSON.parse(button.value).ownerId, "actor");
   await activateMaintainer(context);
   assert.deepEqual(transitions[0], ["activate", "TQA", "UMEMBER"]);
-  assert.equal(calls[0].method, "chat.postEphemeral");
-  assert.equal(calls[0].body.user, "UMEMBER");
-  assert.match(calls[0].body.text, /Open 변경.*승인·병합·배포/);
-  assert.equal(calls[1].method, "chat.postMessage");
-  assert.equal(calls[1].body.channel, "CMAINTAIN");
+  assert.deepEqual(calls.slice(0, 4).map((call) => call.method), Array(4).fill("conversations.invite"));
+  assert.ok(calls.slice(0, 4).every((call) => call.body.users === "UMEMBER"));
+  assert.equal(calls[4].method, "chat.postEphemeral");
+  assert.equal(calls[4].body.user, "UMEMBER");
+  assert.match(calls[4].body.text, /Open 변경.*승인·병합·배포/);
+  assert.equal(calls[5].method, "chat.postMessage");
+  assert.equal(calls[5].body.channel, "CMAINTAIN");
   await deactivateMaintainer(context);
   assert.deepEqual(transitions[1], ["deactivate", "TQA", "UMEMBER"]);
-  assert.equal(calls[2].method, "chat.postEphemeral");
+  assert.deepEqual(calls.slice(6, 10).map((call) => call.method), Array(4).fill("conversations.kick"));
+  assert.equal(calls[10].method, "chat.postEphemeral");
   console.log("PASS maintainer self-activation, public channel notice, and self-deactivation");
 } finally {
   globalThis.fetch = originalFetch;

@@ -19,6 +19,7 @@ type GuideChannelEnv = Pick<
   | "COMMUNITY_FEEDBACK_CHANNEL_ID"
   | "COMMUNITY_RELEASE_CHANNEL_ID"
   | "COMMUNITY_MAINTAINERS_CHANNEL_ID"
+  | "COMMUNITY_MAINTAINER_WORKSTREAM_CHANNEL_IDS"
   | "COMMUNITY_GUIDE_CHAPTER_CHANNEL_IDS"
 >;
 
@@ -27,6 +28,9 @@ const GUIDE_CHANNEL_LABELS = [
   "all-freetalk-qna-feedback",
   "townhall",
   "maintainers",
+  "maintainers-events",
+  "maintainers-website",
+  "maintainers-welcome",
   "chapter-developers",
   "chapter-english",
   "chapter-investment",
@@ -38,6 +42,7 @@ export function renderGuideChannels(body: string, env: GuideChannelEnv): string 
     env.COMMUNITY_FEEDBACK_CHANNEL_ID,
     env.COMMUNITY_RELEASE_CHANNEL_ID,
     env.COMMUNITY_MAINTAINERS_CHANNEL_ID,
+    ...(env.COMMUNITY_MAINTAINER_WORKSTREAM_CHANNEL_IDS?.split(",").map((id) => id.trim()) ?? []),
     ...(env.COMMUNITY_GUIDE_CHAPTER_CHANNEL_IDS?.split(",").map((id) => id.trim()) ?? []),
   ];
   if (
@@ -55,7 +60,7 @@ export function renderGuideChannels(body: string, env: GuideChannelEnv): string 
   );
   const seen = new Set<string>();
   const rendered = body.replace(
-    /^([ \t]*(?:▪︎|◦)[ \t]*(?:Slack 사용이 어려우면 )?)#(daily-scrum|all-freetalk-qna-feedback|townhall|maintainers|chapter-developers|chapter-english|chapter-investment)(?=[:에])/gm,
+    /^([ \t]*(?:▪︎|◦)[ \t]*(?:Slack 사용이 어려우면 )?)#(daily-scrum|all-freetalk-qna-feedback|townhall|maintainers|maintainers-events|maintainers-website|maintainers-welcome|chapter-developers|chapter-english|chapter-investment)(?=[:에])/gm,
     (_match, prefix: string, label: string) => {
       const id = channels.get(label);
       if (!id) throw new InputError("환영 안내 채널 설정을 확인해 주세요.");
