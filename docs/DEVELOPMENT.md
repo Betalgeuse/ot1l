@@ -2,6 +2,8 @@
 
 Townhall 이벤트 사용법, Maintainer의 Open/Core 승인 경계와 배포 점검은 [Townhall 이벤트와 Maintainer 운영](EVENTS_AND_MAINTAINERS.md)을 기준으로 합니다.
 
+처음 기여하는 사람이나 AI 개발 도구는 루트의 [기여 시작하기](../CONTRIBUTING.md)와 [`AGENTS.md`](../AGENTS.md)부터 읽습니다. 공개 저장소이므로 GitHub 초대 없이 fork와 PR로 작업하며, upstream push와 운영 배포 권한은 별도로 두지 않습니다.
+
 ## 시작과 검증
 
 Bun과 Node.js 24를 사용합니다. 개발 도구 버전은 `package.json`과 `bun.lock`이 기준입니다.
@@ -149,4 +151,11 @@ cd /tmp/otl1-public-review && bun run check
 
 ### GenQuant 조건부 자동 배포
 
-관리자가 병합을 승인하면 `otl1-bug-deployer.timer`가 병합된 정확한 SHA를 DB lease로 가져옵니다. 현재 배포 SHA부터 승인 SHA까지의 모든 변경 경로가 `automation/runner/`, runner 계약 QA, `ops/genquant/`, 문서와 공개 manifest에만 속할 때만 fast-forward합니다. runner 계약 테스트, systemd 재시작, exact HEAD, 서비스 `active`, 실제 `feedback/ot1-<job>-...` 브랜치 probe를 모두 통과해야 `bug_runner_finish_deployment`가 운영 영수증을 기록합니다. `src/`, `site/`, migration, package 또는 그 밖의 경로가 하나라도 포함되면 `manual_required`로 남기며 자동 배포하지 않습니다. 진행 중인 leased job이 있으면 deployment claim 자체를 보류합니다.
+승인자가 정확한 SHA를 승인하면 `otl1-bug-deployer.timer`가 병합된 SHA를 DB lease로 가져옵니다. `automation/runner/change-policy.mjs`가 변경 경로 전체를 다시 분류하고, 현재 checkout이 승인 SHA의 정확한 조상일 때만 fast-forward합니다.
+
+- `event-site/**`와 이벤트 시간표 allowlist는 `open-events` adapter로 `otl1-time`을 배포합니다.
+- `src/**`, 루트 Worker 설정·검사 경로는 `core-worker` adapter로 분류하며 Founder 승인 뒤 `otl1-onething-garden`을 배포합니다.
+- runner·운영 파일만 바뀐 경우 runner 계약 검사와 systemd 서비스 재시작을 수행합니다.
+- migration, 일반 site, 서로 다른 경계가 섞인 변경은 `manual_required`로 남기고 자동 배포하지 않습니다.
+
+각 adapter는 전체 `bun run check`, exact HEAD, Worker version과 `/health`를 확인한 뒤에만 `bug_runner_finish_deployment` 영수증을 기록합니다. 진행 중인 leased job이 있으면 deployment claim 자체를 보류합니다. 공개 fork에서 직접 연 PR은 자동 큐에 들어오지 않으며, 현재는 `#maintainers`에서 Founder가 피드백 항목과 head SHA에 연결해야 합니다.

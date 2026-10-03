@@ -22,22 +22,16 @@ function maintainerChannels(context: CommunityContext): readonly string[] {
 
 async function changeMaintainerChannels(
   context: CommunityContext,
-  method: "conversations.invite" | "conversations.kick",
+  method: "conversations.invite",
 ): Promise<void> {
   for (const channel of maintainerChannels(context))
     try {
       await callSlack(context.env.SLACK_BOT_TOKEN, method, {
         channel,
-        ...(method === "conversations.invite"
-          ? { users: context.scope.userId }
-          : { user: context.scope.userId }),
+        users: context.scope.userId,
       });
     } catch (error) {
-      if (
-        error instanceof CommunitySlackError &&
-        ["already_in_channel", "not_in_channel"].includes(error.code)
-      )
-        continue;
+      if (error instanceof CommunitySlackError && error.code === "already_in_channel") continue;
       throw error;
     }
 }
@@ -49,7 +43,7 @@ export async function activateMaintainer(context: CommunityContext): Promise<voi
   );
   await changeMaintainerChannels(context, "conversations.invite");
   await ephemeral(context, {
-    text: `Maintainer가 활성화됐어요. Open 변경은 검증 뒤 직접 승인·병합·배포할 수 있어요.${context.env.COMMUNITY_MAINTAINERS_CHANNEL_ID ? ` <#${context.env.COMMUNITY_MAINTAINERS_CHANNEL_ID}>에서 운영 논의를 이어가 주세요.` : ""}`,
+    text: `Maintainer가 활성화됐어요. 공개 GitHub 저장소를 fork해 본인 환경에서 개발하고 PR을 올려 주세요. Open 변경은 Slack에서 정확한 SHA를 승인하면 Deployment Broker가 병합·배포하고, Core 변경은 Founder 승인이 필요해요. <https://github.com/Betalgeuse/ot1l/blob/main/CONTRIBUTING.md|개발 시작 안내>${context.env.COMMUNITY_MAINTAINERS_CHANNEL_ID ? ` · <#${context.env.COMMUNITY_MAINTAINERS_CHANNEL_ID}>` : ""}`,
   });
   if (context.env.COMMUNITY_MAINTAINERS_CHANNEL_ID)
     await callSlack(context.env.SLACK_BOT_TOKEN, "chat.postMessage", {
@@ -60,8 +54,7 @@ export async function activateMaintainer(context: CommunityContext): Promise<voi
 
 export async function deactivateMaintainer(context: CommunityContext): Promise<void> {
   await context.store.deactivateMaintainer(context.scope.teamId, context.scope.userId);
-  await changeMaintainerChannels(context, "conversations.kick");
   await ephemeral(context, {
-    text: "Maintainer 역할을 내려놓았어요. 언제든 다시 활성화할 수 있어요.",
+    text: "Maintainer 승인 권한을 내려놓았어요. 공개 채널은 그대로 볼 수 있고, 언제든 다시 활성화할 수 있어요.",
   });
 }

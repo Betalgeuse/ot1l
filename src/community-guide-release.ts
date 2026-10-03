@@ -1,8 +1,8 @@
 /** Reviewed, repo-owned welcome copy. Bump the version for every content change. */
 export const WELCOME_GUIDE_RELEASE = {
-  version: "v0.0.67",
+  version: "v0.0.72",
   body: `@channel
-OT1L v0.0.67 · welcome 가이드 업데이트
+OT1L v0.0.72 · welcome 가이드 업데이트
 
 OT1L (*ONE THING* 1 Line)에 오신 것을 환영합니다! Slack 채널 구조는 Toss를 차용했습니다.
 
@@ -46,12 +46,13 @@ OT1L (*ONE THING* 1 Line)에 오신 것을 환영합니다! Slack 채널 구조�
 • 함께 만드는 Maintainer
   ◦ 모든 회원은 *Maintainer 되기* 버튼으로 공동 운영자 역할을 스스로 활성화할 수 있습니다.
   ◦ Maintainer는 이벤트 기능, 홈페이지 디자인, welcome 안내를 포함한 운영 개선을 누구나 제안·구현·검증할 수 있습니다.
-  ◦ 이벤트 공개 화면처럼 비밀에 접근하지 않는 Open 변경은 활성 Maintainer가 검증 결과를 확인한 뒤 직접 병합·배포할 수 있습니다.
+  ◦ 공개 GitHub 저장소를 fork해 본인 개발환경이나 원하는 AI 개발 도구에서 수정하고 PR을 올릴 수 있습니다. 별도 GitHub 초대는 필요하지 않습니다.
+  ◦ 이벤트 공개 화면처럼 비밀에 접근하지 않는 Open 변경은 활성 Maintainer가 정확한 SHA를 승인하면 Deployment Broker가 병합·배포합니다.
   ◦ #maintainers에서 기능 제안, 검증 결과, 승인, 병합·배포 영수증을 공개적으로 확인합니다.
   ◦ #maintainers-events: 이벤트 기능과 실제 모임 운영을 함께 개선합니다.
   ◦ #maintainers-website: 홈페이지 디자인·콘텐츠·접근성을 함께 개선합니다.
   ◦ #maintainers-welcome: welcome-start-here와 신규 회원 첫 경험을 함께 관리합니다.
-  ◦ 가입·개인정보·보안·Core Worker 변경은 Founder 승인 한 번 뒤 병합과 운영 배포가 연속 실행됩니다.
+  ◦ 가입·개인정보·보안·Core Worker 변경은 Founder 승인 한 번 뒤 병합과 운영 배포가 연속 실행됩니다. 개인 컴퓨터에서 운영 Worker를 직접 배포하지 않습니다.
   ◦ SSH·Slack token·DB 소유자 자격증명은 Maintainer에게 공개하지 않고 제한된 Deployment Broker가 정확한 승인 SHA만 실행합니다.
 
 • Slack이 처음이에요

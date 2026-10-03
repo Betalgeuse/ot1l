@@ -206,7 +206,16 @@ try {
   assert.match(post.body.text, /아직 정하지 않았어요/);
   assert.deepEqual(
     post.body.blocks[1].elements.map((item) => item.action_id),
-    ["community_event_availability", "community_event_edit", "community_event_open_fixed"],
+    [
+      "community_event_availability",
+      "community_event_edit",
+      "community_event_open_fixed",
+      "community_event_open_poll",
+    ],
+  );
+  assert.deepEqual(
+    post.body.blocks[1].elements.slice(-2).map((item) => item.text.text),
+    ["나도 일정 정해서 열기", "나도 시간 같이 정하기"],
   );
   assert.doesNotMatch(post.body.text, /관심 \d+명/);
 
@@ -293,7 +302,12 @@ try {
   assert.match(fixedUpdate.text, /참가 확정 1\/3명/);
   assert.deepEqual(
     fixedUpdate.blocks[1].elements.map((item) => item.action_id),
-    ["community_event_rsvp", "community_event_edit", "community_event_open_fixed"],
+    [
+      "community_event_rsvp",
+      "community_event_edit",
+      "community_event_open_fixed",
+      "community_event_open_poll",
+    ],
   );
   const fixedThread = calls.find(
     (call) => call.method === "chat.postMessage" && call.body.thread_ts === "200.000001",

@@ -36,14 +36,21 @@ export function townhallEventButton(label = "일정 정해서 열기"): Json {
   };
 }
 
-export function townhallPollButton(): Json {
+export function townhallPollButton(label = "시간 같이 정하기"): Json {
   return {
     type: "button",
-    text: { type: "plain_text", text: "시간 같이 정하기" },
+    text: { type: "plain_text", text: label },
     action_id: "community_event_open_poll",
     value: JSON.stringify({ ownerId: "actor", key: "new-townhall-event-poll" }),
     accessibility_label: "Townhall에서 가능한 시간 함께 정하기",
   };
+}
+
+function townhallEventCardLaunchButtons(): readonly Json[] {
+  return [
+    townhallEventButton("나도 일정 정해서 열기"),
+    townhallPollButton("나도 시간 같이 정하기"),
+  ];
 }
 
 export function townhallEventLauncher(): Json {
@@ -311,7 +318,7 @@ export function townhallEventMessage(event: TownhallEvent): Json {
                 ),
               ]),
           button("이벤트 수정", "community_event_edit", event.hostUserId, event.eventId),
-          townhallEventButton("나도 이벤트 열기"),
+          ...townhallEventCardLaunchButtons(),
         ],
       },
     ],

@@ -9,6 +9,8 @@ ONE THING 문서는 **실행 명세**, **제품 원칙**, **시스템 구조**, 
 | 채널 역할, 알림, 환영, 관리자 작업 | [운영 가이드](OPERATIONS.md) |
 | 봇 처리 흐름과 DB 원본 | [시스템 구조](ARCHITECTURE.md) |
 | 설치·테스트·배포·공개 코드 관리 | [개발 가이드](DEVELOPMENT.md) |
+| 공개 fork에서 처음 기여하는 절차와 권한 | [기여 시작하기](../CONTRIBUTING.md) |
+| 이벤트와 Maintainer 역할·승인 경계 | [Townhall 이벤트와 Maintainer 운영](EVENTS_AND_MAINTAINERS.md) |
 | 우리가 지키는 기준 | [제품 원칙](PRODUCT_PRINCIPLES.md) |
 | 사람 연결, 사교, Table과 공개 이벤트 계획 | [프라이빗 하우스 운영 설계](research/PRIVATE_HOUSE.md) |
 | 이론을 바탕으로 고민한 과정과 판단 변화 | [설계 일지](research/DESIGN_JOURNAL.md) |
@@ -19,7 +21,7 @@ ONE THING 문서는 **실행 명세**, **제품 원칙**, **시스템 구조**, 
 
 회원은 출시 뒤 `버그 제보`로 양식을 열거나 `버그: 관찰한 문제`처럼 시작할 수 있습니다. 빠진 정보는 한 번에 하나씩만 묻고, 관찰하지 않은 내용은 채우지 않습니다. 완성된 패킷도 제보자 확인 전에는 확정하지 않습니다. 보안·개인정보 징후는 공개 흐름에서 분리해 비공개 운영자 인계로 보냅니다.
 
-이 흐름은 `bug_packet.v1` 확인 패킷, revision 이력, 질문·요약·접수 영수증·비공개 관리자 인계를 위한 delivery outbox를 정의합니다. Slack 발송은 delivery record를 먼저 남긴 뒤 lease로 시도하며, 실패는 재시도하고 세 번째 실패 뒤에는 dead-letter 상태로 남깁니다. 현 시점에는 외부 제공자 실행이나 GitHub Check Run 게시까지 연결되지 않았습니다. 구현 경계와 저장 모델은 [시스템 구조](ARCHITECTURE.md), 출시 뒤 회원 입력 방법은 [사용 가이드](USER_GUIDE.md), 남은 순서는 [로드맵](ROADMAP.md)에서 확인합니다.
+이 흐름은 `bug_packet.v1` 확인 패킷, revision 이력, 질문·요약·접수 영수증·비공개 관리자 인계를 위한 delivery outbox를 정의합니다. Slack 발송은 delivery record를 먼저 남긴 뒤 lease로 시도하며, 실패는 재시도하고 세 번째 실패 뒤에는 dead-letter 상태로 남깁니다. 확정된 피드백은 GenQuant 실행기가 Draft PR을 만들고, Slack의 역할별 승인 뒤 Deployment Broker가 병합·배포합니다. GitHub Actions와 GitHub Check Run은 사용하지 않습니다. 구현 경계와 저장 모델은 [시스템 구조](ARCHITECTURE.md), 출시 뒤 회원 입력 방법은 [사용 가이드](USER_GUIDE.md), 남은 순서는 [로드맵](ROADMAP.md)에서 확인합니다.
 
 ## 문서 관리 규칙
 
