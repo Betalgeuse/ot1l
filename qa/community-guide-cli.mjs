@@ -36,7 +36,7 @@ const dryRun = await run("bun", ["--preload", preload, "scripts/publish-welcome-
 });
 assert.deepEqual(JSON.parse(dryRun.stdout), {
   mode: "publish",
-  version: "v0.0.67",
+  version: "v0.0.72",
   contentHash,
   publicationCount: 0,
 });
@@ -50,7 +50,7 @@ const repairDryRun = await run(
 const targetDigest = createHash("sha256").update("guide-target:UNEW").digest("hex");
 assert.deepEqual(JSON.parse(repairDryRun.stdout), {
   mode: "targeted-repair",
-  version: "v0.0.67",
+  version: "v0.0.72",
   contentHash,
   targetDigest,
   deliveryCount: 0,
@@ -70,7 +70,7 @@ const repairApplied = await run(
 );
 assert.deepEqual(JSON.parse(repairApplied.stdout), {
   mode: "targeted-repair",
-  version: "v0.0.67",
+  version: "v0.0.72",
   contentHash,
   targetDigest,
   messageDigest: createHash("sha256").update("guide-message:456.789").digest("hex"),

@@ -36,13 +36,15 @@ try {
   assert.ok(calls.slice(0, 4).every((call) => call.body.users === "UMEMBER"));
   assert.equal(calls[4].method, "chat.postEphemeral");
   assert.equal(calls[4].body.user, "UMEMBER");
-  assert.match(calls[4].body.text, /Open 변경.*승인·병합·배포/);
+  assert.match(calls[4].body.text, /공개 GitHub 저장소.*fork/);
+  assert.match(calls[4].body.text, /정확한 SHA.*Deployment Broker/);
+  assert.match(calls[4].body.text, /CONTRIBUTING[.]md/);
   assert.equal(calls[5].method, "chat.postMessage");
   assert.equal(calls[5].body.channel, "CMAINTAIN");
   await deactivateMaintainer(context);
   assert.deepEqual(transitions[1], ["deactivate", "TQA", "UMEMBER"]);
-  assert.deepEqual(calls.slice(6, 10).map((call) => call.method), Array(4).fill("conversations.kick"));
-  assert.equal(calls[10].method, "chat.postEphemeral");
+  assert.equal(calls[6].method, "chat.postEphemeral");
+  assert.match(calls[6].body.text, /승인 권한/);
   console.log("PASS maintainer self-activation, public channel notice, and self-deactivation");
 } finally {
   globalThis.fetch = originalFetch;

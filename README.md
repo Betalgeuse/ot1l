@@ -22,7 +22,7 @@ Slack 봇은 매일의 ONE THING 등록, 완료 상태와 후기, 누적 잔디,
 
 **[문서 시작하기 →](docs/README.md)**
 
-[사용법](docs/USER_GUIDE.md) · [운영](docs/OPERATIONS.md) · [개발](docs/DEVELOPMENT.md) · [로드맵](docs/ROADMAP.md)
+[기여 시작하기](CONTRIBUTING.md) · [사용법](docs/USER_GUIDE.md) · [운영](docs/OPERATIONS.md) · [개발](docs/DEVELOPMENT.md) · [로드맵](docs/ROADMAP.md)
 
 ```sh
 bun install --frozen-lockfile
