@@ -45,6 +45,13 @@ const {
   publishWelcomeGuide,
   replaceWelcomeGuideForUser,
 } = await import("../src/community-guide.ts");
+const { sanitizeGuideBody } = await import("../src/community-guide-content.ts");
+
+assert.equal(
+  sanitizeGuideBody("안내의 *ONE THING 기록하기*와 *후기 남기기* 버튼"),
+  "안내의 *ONE THING 기록하기*와 *후기 남기기* 버튼",
+);
+assert.equal(sanitizeGuideBody("오늘의 ONE THING"), "오늘의 *ONE THING*");
 
 const env = {
   SLACK_TEAM_ID: "TQA",
@@ -102,7 +109,7 @@ globalThis.fetch = async (url, options) => {
 };
 
 const inspected = await inspectWelcomeGuideSource(env);
-assert.equal(inspected.version, "v0.0.72");
+assert.equal(inspected.version, "v0.0.73");
 assert.equal(inspected.origin, "repo");
 assert.deepEqual(inspected.orderedFileIds, ["FLOGO1", "FDAILY2"]);
 assert.match(inspected.body, /친구 초대하기 버튼/);

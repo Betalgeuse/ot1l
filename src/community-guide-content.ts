@@ -86,8 +86,14 @@ export function parseGuideFileIds(value: string | undefined): readonly [string, 
 export function sanitizeGuideBody(body: string): string {
   return body
     .replace(/<!(channel|here|everyone)>/g, "@$1")
-    .replace(/<[^>]*>|https?:\/\/\S+|\*?(?:원씽|\b(?:one\s*thing|onthing)\b)\*?/gi, (part) =>
-      part.startsWith("<") || /^https?:/i.test(part) ? part : "*ONE THING*",
+    .replace(
+      /<[^>]*>|https?:\/\/\S+|원씽|\b(?:one\s*thing|onthing)\b/gi,
+      (part, offset: number, source: string) => {
+        if (part.startsWith("<") || /^https?:/i.test(part)) return part;
+        const alreadyInsideSlackEmphasis =
+          source[offset - 1] === "*" || source[offset + part.length] === "*";
+        return alreadyInsideSlackEmphasis ? "ONE THING" : "*ONE THING*";
+      },
     );
 }
 

@@ -37,11 +37,17 @@ async function changeMaintainerChannels(
 }
 
 export async function activateMaintainer(context: CommunityContext): Promise<void> {
+  await changeMaintainerChannels(context, "conversations.invite");
   const maintainer = await context.store.activateMaintainer(
     context.scope.teamId,
     context.scope.userId,
   );
-  await changeMaintainerChannels(context, "conversations.invite");
+  if (!maintainer.changed) {
+    await ephemeral(context, {
+      text: `이미 Maintainer예요. 공개 채널 가입 상태를 다시 확인했습니다.${context.env.COMMUNITY_MAINTAINERS_CHANNEL_ID ? ` <#${context.env.COMMUNITY_MAINTAINERS_CHANNEL_ID}>에서 이어가 주세요.` : ""}`,
+    });
+    return;
+  }
   await ephemeral(context, {
     text: `Maintainer가 활성화됐어요. 공개 GitHub 저장소를 fork해 본인 환경에서 개발하고 PR을 올려 주세요. Open 변경은 Slack에서 정확한 SHA를 승인하면 Deployment Broker가 병합·배포하고, Core 변경은 Founder 승인이 필요해요. <https://github.com/Betalgeuse/ot1l/blob/main/CONTRIBUTING.md|개발 시작 안내>${context.env.COMMUNITY_MAINTAINERS_CHANNEL_ID ? ` · <#${context.env.COMMUNITY_MAINTAINERS_CHANNEL_ID}>` : ""}`,
   });

@@ -30,7 +30,7 @@ Open 경로의 기준은 `automation/runner/change-policy.mjs`이며 fail-closed
 
 ## 운영 점검
 
-- DB: `067`–`071` migration이 순서대로 적용되어야 합니다.
+- DB: 이벤트용 `067`–`076`과 Maintainer 재클릭 안전성용 `078` migration이 순서대로 적용되어야 합니다.
 - Core secrets: `EVENT_SIGNING_SECRET`, `EVENT_CORE_HMAC_SECRET`.
 - Open events secret: 같은 `EVENT_CORE_HMAC_SECRET`만 둡니다.
 - Slack app: `reactions:read` scope와 `reaction_added`, `reaction_removed` event subscription을 적용한 뒤 앱을 다시 설치합니다.

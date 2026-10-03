@@ -195,6 +195,7 @@ export type CommunityMaintainer = {
   readonly userId: string;
   readonly state: "active" | "inactive" | "revoked";
   readonly revision: number;
+  readonly changed: boolean;
 };
 export type ReminderBatchFinish = {
   readonly teamId: string;

@@ -3,6 +3,7 @@ import { activateMaintainer, deactivateMaintainer, maintainerButton } from "../s
 
 const calls = [];
 const transitions = [];
+let activationChanged = true;
 const context = {
   env: {
     SLACK_BOT_TOKEN: "token",
@@ -13,7 +14,9 @@ const context = {
   store: {
     async activateMaintainer(teamId, actorId) {
       transitions.push(["activate", teamId, actorId]);
-      return { teamId, userId: actorId, state: "active", revision: 1 };
+      const changed = activationChanged;
+      activationChanged = false;
+      return { teamId, userId: actorId, state: "active", revision: 1, changed };
     },
     async deactivateMaintainer(teamId, actorId) {
       transitions.push(["deactivate", teamId, actorId]);
@@ -41,10 +44,30 @@ try {
   assert.match(calls[4].body.text, /CONTRIBUTING[.]md/);
   assert.equal(calls[5].method, "chat.postMessage");
   assert.equal(calls[5].body.channel, "CMAINTAIN");
+  await activateMaintainer(context);
+  assert.deepEqual(calls.slice(6, 10).map((call) => call.method), Array(4).fill("conversations.invite"));
+  assert.equal(calls[10].method, "chat.postEphemeral");
+  assert.match(calls[10].body.text, /이미 Maintainer/);
+  assert.equal(calls.filter((call) => call.method === "chat.postMessage").length, 1);
   await deactivateMaintainer(context);
-  assert.deepEqual(transitions[1], ["deactivate", "TQA", "UMEMBER"]);
-  assert.equal(calls[6].method, "chat.postEphemeral");
-  assert.match(calls[6].body.text, /승인 권한/);
+  assert.deepEqual(transitions[2], ["deactivate", "TQA", "UMEMBER"]);
+  assert.equal(calls[11].method, "chat.postEphemeral");
+  assert.match(calls[11].body.text, /승인 권한/);
+
+  const failedTransitions = [];
+  const failedContext = {
+    ...context,
+    store: {
+      ...context.store,
+      async activateMaintainer() {
+        failedTransitions.push("activate");
+        return { teamId: "TQA", userId: "UMEMBER", state: "active", revision: 1, changed: true };
+      },
+    },
+  };
+  globalThis.fetch = async () => Response.json({ ok: false, error: "missing_scope" });
+  await assert.rejects(activateMaintainer(failedContext), /missing_scope/);
+  assert.deepEqual(failedTransitions, [], "Slack enrollment failure must not grant approval authority");
   console.log("PASS maintainer self-activation, public channel notice, and self-deactivation");
 } finally {
   globalThis.fetch = originalFetch;
