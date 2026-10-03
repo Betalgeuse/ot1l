@@ -74,6 +74,15 @@ export async function statusMessage(
     ...(url ? { boardUrl: url } : {}),
     statusValue: scopedValue(context.scope, day.date),
     settingsValue: scopedValue(context.scope, day.date),
+    recentGoals: history
+      .slice(-5)
+      .reverse()
+      .map((item) => ({
+        date: item.date,
+        goal: item.goal,
+        outcome: item.outcome === "pending" ? "unknown" : item.outcome,
+        rest: item.resting,
+      })),
   });
 }
 
