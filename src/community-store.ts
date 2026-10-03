@@ -401,6 +401,12 @@ export class CommunityStore extends CommunityScheduleStore {
       ]),
     );
   }
+  async townhallEventFollowup(operation: "get" | "put", input: Json): Promise<Json> {
+    return this.db.queryJson("SELECT otl.townhall_event_followup_execute($1,$2::jsonb)", [
+      operation,
+      JSON.stringify(input),
+    ]);
+  }
   async dueTownhallEvents(
     teamId: string,
     channelId: string,

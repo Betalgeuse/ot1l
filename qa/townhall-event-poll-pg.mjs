@@ -38,6 +38,11 @@ const callSeries = async (operation, value) =>
     await psql(`SELECT otl.townhall_event_series_execute('${operation}',
       convert_from(decode('${payload(value)}','base64'),'UTF8')::jsonb)`),
   );
+const callFollowup = async (operation, value) =>
+  JSON.parse(
+    await psql(`SELECT otl.townhall_event_followup_execute('${operation}',
+      convert_from(decode('${payload(value)}','base64'),'UTF8')::jsonb)`),
+  );
 
 try {
   await run("mkdir", ["-p", socket]);
@@ -55,7 +60,7 @@ try {
   started = true;
   await run(join(pgBin, "createdb"), ["events"]);
   const files = (await readdir(join(root, "migrations")))
-    .filter((name) => /^\d{3}_.*\.sql$/.test(name) && Number(name.slice(0, 3)) <= 75)
+    .filter((name) => /^\d{3}_.*\.sql$/.test(name) && Number(name.slice(0, 3)) <= 76)
     .sort();
   for (const file of files.filter((name) => Number(name.slice(0, 3)) <= 5))
     await run(join(pgBin, "psql"), ["-X", "-v", "ON_ERROR_STOP=1", "-f", `migrations/${file}`]);
@@ -224,6 +229,10 @@ try {
   assert.equal(seriesFinal.durationMinutes, 120);
   assert.equal(Date.parse(seriesFinal.finalEndAt) - Date.parse(seriesFinal.finalStartAt), 120 * 60 * 1000);
   assert.equal(Date.parse(seriesFinal.series.occurrences[1].startsAt) - Date.parse(seriesFinal.series.occurrences[0].startsAt), 7 * 24 * 60 * 60 * 1000);
+  assert.equal(await callFollowup("get", { ...base, eventId: "VSERIES" }), null);
+  assert.equal(await callFollowup("put", { ...base, eventId: "VSERIES",
+    scheduledMessageId: "Q123", postAt: "2026-10-20T12:15:00Z" }), true);
+  assert.equal((await callFollowup("get", { ...base, eventId: "VSERIES" })).scheduledMessageId, "Q123");
   console.log(
     "PASS townhall event PostgreSQL: host inclusion, duration, flexible grid, RSVP, grace, cancellation, and recurring series",
   );

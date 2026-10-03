@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 mock.module("cloudflare:workers", () => ({ DurableObject: class {} }));
 const events = new Map();
 const votes = new Map();
+const followups = new Map();
 const eventView = (event, actorId) => ({
   ...event,
   options: event.options.map((option, position) => ({
@@ -98,6 +99,14 @@ mock.module("../src/community-store.ts", () => ({
       if (operation === "configure") event.durationMinutes = input.durationMinutes;
       return eventView(event, input.actorId);
     }
+    async townhallEventFollowup(operation, input) {
+      if (operation === "get") return followups.get(input.eventId) ?? null;
+      followups.set(input.eventId, {
+        scheduledMessageId: input.scheduledMessageId,
+        postAt: input.postAt,
+      });
+      return true;
+    }
   },
 }));
 mock.module("../src/store.ts", () => ({
@@ -129,6 +138,9 @@ globalThis.fetch = async (url, options = {}) => {
   if (method === "chat.postMessage") return Response.json({ ok: true, ts: "200.000001" });
   if (method === "chat.update") return Response.json({ ok: true, ts: body.ts });
   if (method === "chat.postEphemeral") return Response.json({ ok: true, message_ts: "201.000001" });
+  if (method === "chat.scheduleMessage")
+    return Response.json({ ok: true, scheduled_message_id: "Q123" });
+  if (method === "chat.deleteScheduledMessage") return Response.json({ ok: true });
   throw new Error(`unexpected ${method}`);
 };
 
@@ -287,7 +299,11 @@ try {
     (call) => call.method === "chat.postMessage" && call.body.thread_ts === "200.000001",
   );
   assert.match(fixedThread.body.text, /현재 참가자 1명.*<@UMEMBER>/s);
-  assert.match(fixedThread.body.text, /인증 사진이나 짧은 후기/);
+  assert.doesNotMatch(fixedThread.body.text, /인증|후기/);
+  const scheduledReview = calls.find((call) => call.method === "chat.scheduleMessage");
+  assert.equal(scheduledReview.body.thread_ts, "200.000001");
+  assert.match(scheduledReview.body.text, /<@UMEMBER>님.*짧은 후기/);
+  assert.doesNotMatch(scheduledReview.body.text, /인증/);
 
   console.log(
     "PASS townhall event: fixed events stay in Slack, polls use one web commitment, and edits preserve state",
