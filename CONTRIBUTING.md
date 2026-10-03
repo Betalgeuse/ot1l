@@ -25,7 +25,7 @@ PR의 base는 `Betalgeuse/ot1l:main`으로 지정하고, 무엇을 바꿨는지�
 | Founder | Core 변경 승인, 예외 운영 판단 | 검증되지 않은 SHA의 자동 우회 |
 | Deployment Broker | 승인된 SHA 병합·배포, 전체 검사와 health 영수증 기록 | 승인 범위 밖 경로 배포, 비밀 공개 |
 
-GitHub collaborator 초대는 Maintainer 활성화의 일부가 아닙니다. GitHub 권한과 Slack 역할을 억지로 묶지 않고 공개 fork/PR을 사용합니다. 현재 자동 병합·배포 큐는 OT1L 피드백 흐름이 만든 PR에만 연결되며, 직접 만든 PR을 큐에 넣는 셀프서비스 버튼은 아직 없습니다. 직접 만든 PR은 `#maintainers`에 링크해 Founder가 피드백 항목과 승인 SHA에 연결한 뒤 같은 Broker 경로로 반영합니다. 개인 컴퓨터에서 운영 Worker를 직접 배포하지 않습니다.
+GitHub collaborator 초대는 Maintainer 활성화의 일부가 아닙니다. GitHub 권한과 Slack 역할을 억지로 묶지 않고 공개 fork/PR을 사용합니다. 현재 자동 병합·배포 큐는 OT1L 피드백 흐름이 만든 PR에 연결됩니다. 확정된 피드백은 `#maintainers` 작업 카드로 전달되고, 수정안이 준비되면 Open 변경은 활성 Maintainer 또는 Founder가 승인하며 Core 변경은 Founder에게만 개인 승인 버튼을 보냅니다. 직접 만든 PR을 큐에 넣는 셀프서비스 버튼은 아직 없습니다. 직접 만든 PR은 `#maintainers`에 링크해 Founder가 피드백 항목과 승인 SHA에 연결한 뒤 같은 Broker 경로로 반영합니다. 개인 컴퓨터에서 운영 Worker를 직접 배포하지 않습니다.
 
 ## 어느 Worker를 고쳐야 하나요?
 

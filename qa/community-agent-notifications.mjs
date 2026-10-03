@@ -3,6 +3,7 @@ import { sendAgentNotifications } from "../src/community-agent-notifications.ts"
 
 const calls = [];
 let notificationKind = "merge_ready";
+let changeClass = "open";
 const originalFetch = globalThis.fetch;
 globalThis.fetch = async (url, options = {}) => {
   const parsed = new URL(url);
@@ -34,7 +35,7 @@ globalThis.fetch = async (url, options = {}) => {
                         packetRevision: 3,
                         asIs: "기계적인 질문이 반복됩니다.",
                         toBe: "맥락 질문 뒤 관리자가 병합을 승인합니다.",
-                        changeClass: "open",
+                        changeClass,
                         headSha: "a".repeat(40),
                         classificationDigest: "b".repeat(64),
                       }
@@ -48,6 +49,13 @@ globalThis.fetch = async (url, options = {}) => {
     if (body.query.includes("bug_runner_finish_notification"))
       return Response.json({ rows: [[JSON.stringify({ status: "sent" })]] });
   }
+  if (parsed.pathname.endsWith("/conversations.history"))
+    return Response.json({
+      ok: true,
+      messages: [{ ts: "1790252999.000001", text: "Maintainer 작업\n버그 키: BUG-ABCDEF123456" }],
+    });
+  if (parsed.pathname.endsWith("/conversations.open"))
+    return Response.json({ ok: true, channel: { id: "DFOUNDER" } });
   if (parsed.pathname.endsWith("/chat.postMessage"))
     return Response.json({ ok: true, ts: "1790253000.000001" });
   if (parsed.pathname.endsWith("/reactions.remove") || parsed.pathname.endsWith("/reactions.add"))
@@ -59,17 +67,21 @@ try {
     SLACK_TEAM_ID: "TQA",
     SLACK_BOT_TOKEN: "xoxb-test",
     COMMUNITY_CODEX_REPOSITORY: "Betalgeuse/ot1l",
+    COMMUNITY_MAINTAINERS_CHANNEL_ID: "CMAINTAIN",
+    COMMUNITY_ADMIN_ID: "UADMIN",
     DATABASE_URL:
       "postgresql://runtime:secret@ep-example-pooler.c-3.ap-southeast-1.aws.neon.tech/neondb?sslmode=require",
   };
   const ready = await sendAgentNotifications(env, new Date("2026-09-24T12:59:00Z"));
   assert.deepEqual(ready, { claimed: 1, sent: 1, failed: 0 });
-  const readyPost = calls.find((call) => call.url.includes("chat.postMessage"));
-  assert.equal(readyPost.body.thread_ts, "1790252981.933479");
+  const readyPost = calls.find(
+    (call) => call.url.includes("chat.postMessage") && call.body.channel === "CMAINTAIN",
+  );
   assert.match(readyPost.body.blocks[0].text.text, /기계적인 질문이 반복됩니다/);
   assert.match(readyPost.body.blocks[0].text.text, /변경 내용 보기/);
   assert.match(readyPost.body.blocks[0].text.text, /Open/);
-  assert.equal(readyPost.body.blocks[1].elements[0].text.text, "병합·배포 승인");
+  assert.equal(readyPost.body.thread_ts, "1790252999.000001");
+  assert.equal(readyPost.body.blocks[1].elements[0].text.text, "Maintainer 병합·배포 승인");
   assert.equal(readyPost.body.blocks[1].elements[0].action_id, "community_feedback_merge_approve");
   assert.equal(JSON.parse(readyPost.body.blocks[1].elements[0].value).headSha, "a".repeat(40));
   assert.equal(
@@ -78,6 +90,31 @@ try {
   );
 
   calls.length = 0;
+  changeClass = "core";
+  const coreReady = await sendAgentNotifications(env, new Date("2026-09-24T12:59:30Z"));
+  assert.deepEqual(coreReady, { claimed: 1, sent: 1, failed: 0 });
+  const maintainerCorePost = calls.find(
+    (call) =>
+      call.url.includes("chat.postMessage") &&
+      call.body.channel === "CMAINTAIN" &&
+      call.body.thread_ts === "1790252999.000001",
+  );
+  assert.equal(
+    maintainerCorePost.body.blocks.some((block) => block.type === "actions"),
+    false,
+  );
+  assert.match(maintainerCorePost.body.text, /Founder에게 개인 승인 버튼/);
+  const founderPost = calls.find(
+    (call) => call.url.includes("chat.postMessage") && call.body.channel === "DFOUNDER",
+  );
+  assert.equal(founderPost.body.blocks[1].elements[0].text.text, "Founder 병합·배포 승인");
+  assert.equal(
+    founderPost.body.blocks[1].elements[0].action_id,
+    "community_feedback_merge_approve",
+  );
+
+  calls.length = 0;
+  changeClass = "open";
   notificationKind = "change_merged";
   const result = await sendAgentNotifications(env, new Date("2026-09-24T13:00:00Z"));
   assert.deepEqual(result, { claimed: 1, sent: 1, failed: 0 });

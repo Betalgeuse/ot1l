@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import {
   analyzeFeedback,
   approveCodexMerge,
+  dailyFeedbackPromptText,
   feedbackPromptDue,
   parseFeedbackAnalysis,
   sendDailyFeedbackPrompt,
@@ -94,6 +95,7 @@ assert.deepEqual(
 
 const calls = [];
 let queueAccepted = true;
+let approvalChangeClass = "core";
 const originalFetch = globalThis.fetch;
 globalThis.fetch = async (url, options = {}) => {
   const parsedUrl = new URL(url);
@@ -103,6 +105,7 @@ globalThis.fetch = async (url, options = {}) => {
   calls.push({ method, body, authorization });
   if (method === "users.info")
     return Response.json({ ok: true, user: { id: "UADMIN", is_admin: true, is_owner: false } });
+  if (method === "conversations.history") return Response.json({ ok: true, messages: [] });
   if (method === "sql")
     return Response.json({
       rows: [
@@ -111,7 +114,7 @@ globalThis.fetch = async (url, options = {}) => {
             ...(body.query.includes("bug_merge_approval_context")
               ? {
                   classified: true,
-                  changeClass: "core",
+                  changeClass: approvalChangeClass,
                   headSha: "a".repeat(40),
                   classificationDigest: "b".repeat(64),
                   maintainer: false,
@@ -157,7 +160,11 @@ try {
   assert.equal(await sendDailyFeedbackPrompt(promptEnv, promptStore, "2026-09-23", "18:03"), false);
   assert.match(
     calls.find((call) => call.method === "chat.postMessage")?.body.text ?? "",
-    /아래 버튼으로 편하게 남겨주세요\. 필요한 내용은 최대 세 번만 더 여쭙고, 확인된 의견은 적극 반영할게요!$/,
+    /피드백을 남겨주시면 봇이 자동으로 수정안을 만들고, Maintainer가 확인한 뒤 배포해요!$/,
+  );
+  assert.equal(
+    dailyFeedbackPromptText("2026-09-23"),
+    "2026-09-23 오늘 OT1L을 쓰면서 불편했거나 바랐던 점이 있었나요? 작은 의견도 괜찮아요. 아래 버튼으로 편하게 남겨주세요. 피드백을 남겨주시면 봇이 자동으로 수정안을 만들고, Maintainer가 확인한 뒤 배포해요!",
   );
   const dailyPrompt = calls.find(
     (call) => call.method === "chat.postMessage" && call.body.channel === "CFEEDBACK",
@@ -176,6 +183,7 @@ try {
         COMMUNITY_CODEX_REPOSITORY: "Betalgeuse/ot1l",
         COMMUNITY_CODEX_BRANCH: "main",
         COMMUNITY_FEEDBACK_CHANNEL_ID: "CFEEDBACK",
+        COMMUNITY_MAINTAINERS_CHANNEL_ID: "CMAINTAIN",
       },
       scope: { teamId: "TQA", channelId: "CFEEDBACK", userId: "UADMIN" },
       source: "123.100",
@@ -199,6 +207,14 @@ try {
   );
   assert.equal(post.body.thread_ts, "123.100");
   assert.match(post.body.text, /피드백을 접수했어요/);
+  const maintainerCard = calls.find(
+    (call) =>
+      call.method === "chat.postMessage" &&
+      call.body.channel === "CMAINTAIN" &&
+      call.body.text.includes("버그 키: BUG-ABCDEF123456"),
+  );
+  assert.match(maintainerCard.body.text, /<@UREPORTER>님의 피드백 자동 수정이 시작됐어요/);
+  assert.match(maintainerCard.body.text, /원본 피드백 보기/);
   assert.equal(
     calls.some((call) => call.method === "reactions.add" && call.body.name === "loading"),
     true,
@@ -245,6 +261,32 @@ try {
   assert.equal(
     approvalUpdate.body.blocks.some((block) => block.type === "actions"),
     false,
+  );
+  approvalChangeClass = "open";
+  await approveCodexMerge(
+    {
+      env: {
+        DATABASE_URL:
+          "postgresql://runtime:secret@ep-example-pooler.c-3.ap-southeast-1.aws.neon.tech/neondb?sslmode=require",
+        SLACK_BOT_TOKEN: "fake",
+        COMMUNITY_CODEX_REPOSITORY: "Betalgeuse/ot1l",
+        COMMUNITY_ADMIN_ID: "UADMIN",
+      },
+      scope: { teamId: "TQA", channelId: "CFEEDBACK", userId: "UADMIN" },
+      source: "123.100",
+      thread: "123.100",
+      date: "2026-09-23",
+      key: "interaction:founder-open-merge",
+      store: {},
+    },
+    {
+      feedbackId: "BUG-ABCDEF123456",
+      packetRevision: 2,
+      prNumber: 9,
+      changeClass: "open",
+      headSha: "a".repeat(40),
+      classificationDigest: "b".repeat(64),
+    },
   );
   queueAccepted = false;
   const postsBeforeMismatch = calls.filter((call) => call.method === "chat.postMessage").length;

@@ -16,5 +16,11 @@
     "name": "RATE_LIMITER",
     "namespace_id": "1002",
     "simple": { "limit": 30, "period": 60 }
-  }]
+  }],
+  "tail_consumers": [{ "service": "otl1-log-alerts" }],
+  "observability": {
+    "enabled": true,
+    "logs": { "enabled": true, "head_sampling_rate": 1 },
+    "traces": { "enabled": true, "head_sampling_rate": 0.01 }
+  }
 }

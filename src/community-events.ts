@@ -6,7 +6,10 @@ import { enrollReminderMember } from "./community-enrollment";
 import { messageDate } from "./community-followup";
 import { deliverWelcomeGuide } from "./community-guide";
 import { incomingMessageBody } from "./community-intake";
-import { handleIntroductionChannelMessage } from "./community-introduction-channel";
+import {
+  handleIntroductionChannelMessage,
+  welcomeIntroductionMember,
+} from "./community-introduction-channel";
 import { handleLifecycleAdminMessage } from "./community-lifecycle-admin";
 import { lifecycleAdminStore } from "./community-lifecycle-runtime-store";
 import { dispatchCommunityMessage, dispatchFeedbackBugMessage } from "./community-message-router";
@@ -40,20 +43,36 @@ export async function handleCommunityEvent(
     return false;
   const rawEvent = object(data.event);
   if (rawEvent.type === "team_join") {
+    const joined = object(rawEvent.user);
+    const userId = string(joined.id);
     if (env.REFERRALS_ENABLED === "true") {
-      const joined = object(rawEvent.user);
       const referral = new CommunityReferralStore(new NeonStore(env.DATABASE_URL), {
         teamId: env.SLACK_TEAM_ID,
         channelId: env.COMMUNITY_PUBLIC_CHANNEL_ID ?? "",
         userId: env.COMMUNITY_ADMIN_ID ?? "",
       });
       await handleReferralTeamJoin(
-        { teamId: env.SLACK_TEAM_ID, eventId: string(data.event_id), userId: string(joined.id) },
+        { teamId: env.SLACK_TEAM_ID, eventId: string(data.event_id), userId },
         env,
         referral,
         referralSlackPort(env),
       );
     }
+    const eventTs = String(rawEvent.event_ts ?? data.event_time ?? "");
+    const joinedChannel = (channel: string) => ({
+      type: "member_joined_channel",
+      channel,
+      user: userId,
+      event_ts: eventTs,
+    });
+    if (env.COMMUNITY_WELCOME_CHANNEL_ID && env.COMMUNITY_BOT_USER_ID && env.GUIDE_DATABASE_URL)
+      await deliverWelcomeGuide(joinedChannel(env.COMMUNITY_WELCOME_CHANNEL_ID), env);
+    if (env.COMMUNITY_INTRO_CHANNEL_ID && env.COMMUNITY_BOT_USER_ID)
+      await welcomeIntroductionMember(joinedChannel(env.COMMUNITY_INTRO_CHANNEL_ID), env);
+    if (env.COMMUNITY_PUBLIC_CHANNEL_ID)
+      await enrollReminderMember(joinedChannel(env.COMMUNITY_PUBLIC_CHANNEL_ID), env);
+    if (env.COMMUNITY_RELEASE_CHANNEL_ID)
+      await welcomeTownhallMember(joinedChannel(env.COMMUNITY_RELEASE_CHANNEL_ID), env);
     return true;
   }
   if (rawEvent.type !== "message" && rawEvent.type !== "app_mention") return false;

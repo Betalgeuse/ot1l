@@ -1,7 +1,7 @@
 import { escapeSlackText } from "./community-messages";
 import type { CommunityEnv } from "./community-runtime";
 import { addReactions, callSlack, removeReactions } from "./community-social";
-import { object, string } from "./input";
+import { type Json, list, object, string } from "./input";
 import { NeonStore } from "./store";
 
 type Notification = {
@@ -109,7 +109,7 @@ function notificationText(input: Notification): string {
   return `${input.bugId} 자동 개선을 완료하지 못했어요. 운영자가 확인할게요.`;
 }
 
-function mergeReadyMessage(input: Notification) {
+function mergeReadyMessage(input: Notification, includeButton = true) {
   if (
     input.kind !== "merge_ready" ||
     !input.prNumber ||
@@ -122,45 +122,131 @@ function mergeReadyMessage(input: Notification) {
     !input.classificationDigest
   )
     throw new TypeError("invalid merge ready notification");
+  const blocks: Json[] = [
+    {
+      type: "section",
+      text: {
+        type: "mrkdwn",
+        text: `*변경 등급*\n${input.changeClass === "open" ? "Open · 활성 Maintainer 또는 Founder가 승인하면 병합과 배포가 연속 실행됩니다." : "Core · Founder 승인 뒤 병합과 배포가 연속 실행됩니다."}\n\n*As-Is*\n${escapeSlackText(input.asIs)}\n\n*To-Be*\n${escapeSlackText(input.toBe)}\n\n*수정 결과*\n${escapeSlackText(input.summary ?? "전체 검사를 통과했습니다.")}\n\n<${input.prUrl}|변경 내용 보기>`,
+      },
+    },
+  ];
+  if (includeButton)
+    blocks.push({
+      type: "actions",
+      elements: [
+        {
+          type: "button",
+          text: {
+            type: "plain_text",
+            text:
+              input.changeClass === "core" ? "Founder 병합·배포 승인" : "Maintainer 병합·배포 승인",
+          },
+          style: "primary",
+          action_id: "community_feedback_merge_approve",
+          value: JSON.stringify({
+            ownerId: "actor",
+            key: input.bugId,
+            feedbackId: input.bugId,
+            packetRevision: input.packetRevision,
+            prNumber: input.prNumber,
+            changeClass: input.changeClass,
+            headSha: input.headSha,
+            classificationDigest: input.classificationDigest,
+          }),
+        },
+      ],
+    });
   return {
     text: notificationText(input),
-    blocks: [
-      {
-        type: "section",
-        text: {
-          type: "mrkdwn",
-          text: `*변경 등급*\n${input.changeClass === "open" ? "Open · 활성 Maintainer가 승인하면 병합과 배포가 연속 실행됩니다." : "Core · Founder 승인 뒤 병합과 배포가 연속 실행됩니다."}\n\n*As-Is*\n${escapeSlackText(input.asIs)}\n\n*To-Be*\n${escapeSlackText(input.toBe)}\n\n*수정 결과*\n${escapeSlackText(input.summary ?? "전체 검사를 통과했습니다.")}\n\n<${input.prUrl}|변경 내용 보기>`,
-        },
-      },
-      {
-        type: "actions",
-        elements: [
-          {
-            type: "button",
-            text: { type: "plain_text", text: "병합·배포 승인" },
-            style: "primary",
-            action_id: "community_feedback_merge_approve",
-            value: JSON.stringify({
-              ownerId: "actor",
-              key: input.bugId,
-              feedbackId: input.bugId,
-              packetRevision: input.packetRevision,
-              prNumber: input.prNumber,
-              changeClass: input.changeClass,
-              headSha: input.headSha,
-              classificationDigest: input.classificationDigest,
-            }),
-          },
-        ],
-      },
-    ],
+    blocks,
   };
+}
+
+async function maintainerFeedbackThread(
+  env: Pick<CommunityEnv, "SLACK_TEAM_ID" | "SLACK_BOT_TOKEN" | "COMMUNITY_MAINTAINERS_CHANNEL_ID">,
+  input: Notification,
+): Promise<string> {
+  const channelId = env.COMMUNITY_MAINTAINERS_CHANNEL_ID;
+  if (!channelId) throw new TypeError("maintainer channel missing");
+  const history = await callSlack(env.SLACK_BOT_TOKEN, "conversations.history", {
+    channel: channelId,
+    limit: 200,
+  });
+  for (const value of list(history.messages)) {
+    const message = object(value);
+    if (
+      message.thread_ts === undefined &&
+      typeof message.text === "string" &&
+      message.text.includes(`버그 키: ${input.bugId}`)
+    )
+      return string(message.ts);
+  }
+  const sourceUrl = `https://app.slack.com/client/${env.SLACK_TEAM_ID}/${input.channelId}/thread/${input.channelId}-${input.threadTs}`;
+  const text = `${input.reporterId ? `<@${input.reporterId}>님의 피드백\n\n` : ""}*As-Is*\n${escapeSlackText(input.asIs ?? "현재 상태 확인 필요")}\n\n*To-Be*\n${escapeSlackText(input.toBe ?? "원하는 상태 확인 필요")}\n\n<${sourceUrl}|원본 피드백 보기>\n버그 키: ${input.bugId}`;
+  return string(
+    (
+      await callSlack(env.SLACK_BOT_TOKEN, "chat.postMessage", {
+        channel: channelId,
+        text,
+      })
+    ).ts,
+  );
+}
+
+async function sendMaintainerNotification(
+  env: Pick<
+    CommunityEnv,
+    "SLACK_TEAM_ID" | "SLACK_BOT_TOKEN" | "COMMUNITY_MAINTAINERS_CHANNEL_ID" | "COMMUNITY_ADMIN_ID"
+  >,
+  input: Notification,
+): Promise<void> {
+  const channelId = env.COMMUNITY_MAINTAINERS_CHANNEL_ID;
+  if (!channelId) throw new TypeError("maintainer channel missing");
+  const threadTs = await maintainerFeedbackThread(env, input);
+  if (input.kind !== "merge_ready") {
+    await callSlack(env.SLACK_BOT_TOKEN, "chat.postMessage", {
+      channel: channelId,
+      thread_ts: threadTs,
+      text: notificationText(input),
+    });
+    return;
+  }
+  if (input.changeClass === "open") {
+    await callSlack(env.SLACK_BOT_TOKEN, "chat.postMessage", {
+      channel: channelId,
+      thread_ts: threadTs,
+      ...mergeReadyMessage(input),
+    });
+    return;
+  }
+  const founderId = env.COMMUNITY_ADMIN_ID;
+  if (!founderId) throw new TypeError("founder missing");
+  await callSlack(env.SLACK_BOT_TOKEN, "chat.postMessage", {
+    channel: channelId,
+    thread_ts: threadTs,
+    ...mergeReadyMessage(input, false),
+    text: `${notificationText(input)}\nFounder에게 개인 승인 버튼을 보냈습니다.`,
+  });
+  const direct = await callSlack(env.SLACK_BOT_TOKEN, "conversations.open", {
+    users: founderId,
+  });
+  const directChannelId = string(object(direct.channel).id);
+  await callSlack(env.SLACK_BOT_TOKEN, "chat.postMessage", {
+    channel: directChannelId,
+    ...mergeReadyMessage(input),
+  });
 }
 
 export async function sendAgentNotifications(
   env: Pick<
     CommunityEnv,
-    "SLACK_TEAM_ID" | "SLACK_BOT_TOKEN" | "DATABASE_URL" | "COMMUNITY_CODEX_REPOSITORY"
+    | "SLACK_TEAM_ID"
+    | "SLACK_BOT_TOKEN"
+    | "DATABASE_URL"
+    | "COMMUNITY_CODEX_REPOSITORY"
+    | "COMMUNITY_MAINTAINERS_CHANNEL_ID"
+    | "COMMUNITY_ADMIN_ID"
   >,
   now = new Date(),
 ): Promise<{ readonly claimed: number; readonly sent: number; readonly failed: number }> {
@@ -188,10 +274,19 @@ export async function sendAgentNotifications(
         await callSlack(env.SLACK_BOT_TOKEN, "chat.postMessage", {
           channel: item.channelId,
           thread_ts: item.threadTs,
-          ...(item.kind === "merge_ready"
-            ? mergeReadyMessage(item)
-            : { text: notificationText(item) }),
+          text:
+            item.kind === "merge_ready"
+              ? `수정안과 검증이 준비되어 <#${env.COMMUNITY_MAINTAINERS_CHANNEL_ID}>에 승인을 요청했어요. · ${item.bugId}`
+              : notificationText(item),
         });
+      if (
+        item.kind === "task_failed" ||
+        item.kind === "change_merged" ||
+        item.kind === "change_deployed" ||
+        item.kind === "deployment_manual" ||
+        item.kind === "merge_ready"
+      )
+        await sendMaintainerNotification(env, item);
       if (item.kind === "change_deployed") {
         await removeReactions(env.SLACK_BOT_TOKEN, {
           channel: item.channelId,

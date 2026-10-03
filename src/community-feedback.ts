@@ -15,7 +15,7 @@ import { sha256Hex } from "./community-referral-service-auth";
 import type { CommunityContext, CommunityEnv } from "./community-runtime";
 import { addReactions, callSlack } from "./community-social";
 import type { CommunityStore } from "./community-store";
-import { InputError, object } from "./input";
+import { InputError, list, object, string } from "./input";
 import { INTENT_MODEL, type IntentAI } from "./intent";
 import { NeonStore } from "./store";
 
@@ -251,6 +251,44 @@ export function feedbackPromptDue(minute: string): boolean {
   return /^18:0[0-5]$/.test(minute);
 }
 
+export function dailyFeedbackPromptText(date: string): string {
+  return `${date} 오늘 OT1L을 쓰면서 불편했거나 바랐던 점이 있었나요? 작은 의견도 괜찮아요. 아래 버튼으로 편하게 남겨주세요. 피드백을 남겨주시면 봇이 자동으로 수정안을 만들고, Maintainer가 확인한 뒤 배포해요!`;
+}
+
+function maintainerFeedbackSourceUrl(context: CommunityContext): string {
+  return `https://app.slack.com/client/${context.scope.teamId}/${context.scope.channelId}/thread/${context.scope.channelId}-${context.thread}`;
+}
+
+export async function publishMaintainerFeedbackCard(
+  context: CommunityContext,
+  input: { readonly feedbackId: string; readonly reporterId: string },
+): Promise<string | null> {
+  const channelId = context.env.COMMUNITY_MAINTAINERS_CHANNEL_ID;
+  if (!channelId) return null;
+  const history = await callSlack(context.env.SLACK_BOT_TOKEN, "conversations.history", {
+    channel: channelId,
+    limit: 200,
+  });
+  for (const value of list(history.messages)) {
+    const message = object(value);
+    if (
+      message.thread_ts === undefined &&
+      typeof message.text === "string" &&
+      message.text.includes(`버그 키: ${input.feedbackId}`)
+    )
+      return string(message.ts);
+  }
+  const text = `<@${input.reporterId}>님의 피드백 자동 수정이 시작됐어요. 수정안과 검증이 준비되면 이 스레드에서 승인받습니다.\n\n<${maintainerFeedbackSourceUrl(context)}|원본 피드백 보기>\n버그 키: ${input.feedbackId}`;
+  return string(
+    (
+      await callSlack(context.env.SLACK_BOT_TOKEN, "chat.postMessage", {
+        channel: channelId,
+        text,
+      })
+    ).ts,
+  );
+}
+
 export async function sendDailyFeedbackPrompt(
   env: Pick<
     CommunityEnv,
@@ -268,15 +306,16 @@ export async function sendDailyFeedbackPrompt(
   await store.putRecord({ ...scope, key, kind: "feedback_prompt", body: { date } });
   if (!(await store.claimRecord({ ...scope, key }))) return false;
   try {
+    const text = dailyFeedbackPromptText(date);
     await callSlack(env.SLACK_BOT_TOKEN, "chat.postMessage", {
       channel: channelId,
-      text: `${date} 오늘 OT1L을 쓰면서 불편했거나 바랐던 점이 있었나요? 작은 의견도 괜찮아요. 아래 버튼으로 편하게 남겨주세요. 필요한 내용은 최대 세 번만 더 여쭙고, 확인된 의견은 적극 반영할게요!`,
+      text,
       blocks: [
         {
           type: "section",
           text: {
             type: "mrkdwn",
-            text: `${date} 오늘 OT1L을 쓰면서 불편했거나 바랐던 점이 있었나요? 작은 의견도 괜찮아요. 아래 버튼으로 편하게 남겨주세요. 필요한 내용은 최대 세 번만 더 여쭙고, 확인된 의견은 적극 반영할게요!`,
+            text,
           },
         },
         {
@@ -391,6 +430,7 @@ async function queueCodexFeedback(
     throw new InputError(
       "확정된 버그 명세만 자동 작업에 넣을 수 있어요. 스레드에서 명세를 먼저 보완해 주세요.",
     );
+  await publishMaintainerFeedbackCard(context, input);
   await addReactions(context.env.SLACK_BOT_TOKEN, {
     channel: context.scope.channelId,
     ts: context.thread,
@@ -451,8 +491,12 @@ export async function approveCodexMerge(
     context.scope.userId !== context.env.COMMUNITY_ADMIN_ID
   )
     throw new InputError("Core 변경은 Founder만 승인할 수 있어요.");
-  if (approvalContext.changeClass === "open" && approvalContext.maintainer !== true)
-    throw new InputError("활성 Maintainer만 Open 변경을 승인할 수 있어요.");
+  if (
+    approvalContext.changeClass === "open" &&
+    approvalContext.maintainer !== true &&
+    context.scope.userId !== context.env.COMMUNITY_ADMIN_ID
+  )
+    throw new InputError("활성 Maintainer 또는 Founder만 Open 변경을 승인할 수 있어요.");
   const approved = object(
     await database.queryJson("SELECT otl.bug_actor_approve_merge($1::jsonb)", [
       JSON.stringify({

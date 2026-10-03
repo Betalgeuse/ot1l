@@ -147,6 +147,12 @@ Slack delivery 실패 로그의 `providerSubcode`는 `invalid_blocks`, `invalid_
 
 pre-release QA 배포는 기존 Worker의 승인된 검증 시나리오에만 쓰며 exact clean SHA와 rollback 대상을 기록합니다. 정식 배포는 활성 ruleset을 통과해 `public/main`에 squash merge된 SHA에서만 실행합니다.
 
+### 공개 `#sys-alert`와 서버 오류
+
+GitHub 저장소 알림은 Slack GitHub App이 담당합니다. OT1L 봇은 별도 `otl1-log-alerts` Tail Worker에서 Core, 이벤트 시간표와 홈페이지 Worker의 실행 결과를 받아 예외, HTTP 5xx, 비정상 outcome만 `#sys-alert`에 게시합니다. 동일 서비스·실행 종류·outcome·상태 코드는 60초에 한 번으로 제한합니다.
+
+Slack에는 Worker 이름, 실행 종류, outcome, HTTP 상태, 예외 개수와 Cloudflare의 잘림 여부만 보냅니다. 요청 URL, query, 헤더, cookie, 본문, IP, 원본 로그, 예외 메시지, stack trace, DB 주소와 secret은 읽거나 전송하지 않습니다. Slack 전송 실패는 Tail Worker 자체의 구조화 오류 로그로 남기며 정상 전달로 위장하지 않습니다.
+
 ## 장애와 알려진 경계
 
 공개 초대는 현재 `/join`의 공식 Slack 공유 초대 redirect를 사용합니다. referral form 기반 direct-join은 삭제하지 않고 보류 상태로 유지합니다. 복원 전에는 Site POST, Turnstile, Core 예약, Slack redirect, `team_join` 이메일 귀속, welcome·자기소개 안내를 한 신규 사용자 세션에서 모두 확인해야 합니다. 일반 초대 우회로 들어온 사용자는 소개자 귀속과 lifetime 한도 예약이 자동으로 생기지 않습니다.

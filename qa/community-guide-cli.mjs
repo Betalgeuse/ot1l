@@ -21,7 +21,7 @@ const env = {
   COMMUNITY_FEEDBACK_CHANNEL_ID: "CFEEDBACK1",
   COMMUNITY_RELEASE_CHANNEL_ID: "CTOWNHALL1",
   COMMUNITY_MAINTAINERS_CHANNEL_ID: "CMAINTAIN01",
-  COMMUNITY_MAINTAINER_WORKSTREAM_CHANNEL_IDS: "CMAINEVENT1,CMAINWEB01,CMAINWELCOME1",
+  COMMUNITY_SYS_ALERT_CHANNEL_ID: "CSYSALERT01",
   COMMUNITY_GUIDE_CHAPTER_CHANNEL_IDS: "CDEVELOP01,CENGLISH01,CSCIENT01",
   COMMUNITY_GUIDE_CANVAS_ID: "FCANVAS01",
   COMMUNITY_GUIDE_CANVAS_URL: "https://example.slack.com/docs/TQA/FCANVAS01",
@@ -36,7 +36,7 @@ const dryRun = await run("bun", ["--preload", preload, "scripts/publish-welcome-
 });
 assert.deepEqual(JSON.parse(dryRun.stdout), {
   mode: "publish",
-  version: "v0.0.76",
+  version: "v0.0.77",
   contentHash,
   publicationCount: 0,
 });
@@ -50,7 +50,7 @@ const repairDryRun = await run(
 const targetDigest = createHash("sha256").update("guide-target:UNEW").digest("hex");
 assert.deepEqual(JSON.parse(repairDryRun.stdout), {
   mode: "targeted-repair",
-  version: "v0.0.76",
+  version: "v0.0.77",
   contentHash,
   targetDigest,
   deliveryCount: 0,
@@ -70,7 +70,7 @@ const repairApplied = await run(
 );
 assert.deepEqual(JSON.parse(repairApplied.stdout), {
   mode: "targeted-repair",
-  version: "v0.0.76",
+  version: "v0.0.77",
   contentHash,
   targetDigest,
   messageDigest: createHash("sha256").update("guide-message:456.789").digest("hex"),

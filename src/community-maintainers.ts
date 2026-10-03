@@ -16,7 +16,7 @@ export function maintainerButton(label = "Maintainer 되기"): Json {
 function maintainerChannels(context: CommunityContext): readonly string[] {
   return [
     context.env.COMMUNITY_MAINTAINERS_CHANNEL_ID,
-    ...(context.env.COMMUNITY_MAINTAINER_WORKSTREAM_CHANNEL_IDS?.split(",") ?? []),
+    context.env.COMMUNITY_SYS_ALERT_CHANNEL_ID,
   ].filter((channel): channel is string => Boolean(channel && /^[CG][A-Z0-9]+$/.test(channel)));
 }
 
@@ -49,7 +49,7 @@ export async function activateMaintainer(context: CommunityContext): Promise<voi
     return;
   }
   await ephemeral(context, {
-    text: `Maintainer가 활성화됐어요. 공개 GitHub 저장소를 fork해 본인 환경에서 개발하고 PR을 올려 주세요. Open 변경은 Slack에서 정확한 SHA를 승인하면 Deployment Broker가 병합·배포하고, Core 변경은 Founder 승인이 필요해요. <https://github.com/Betalgeuse/ot1l/blob/main/CONTRIBUTING.md|개발 시작 안내>${context.env.COMMUNITY_MAINTAINERS_CHANNEL_ID ? ` · <#${context.env.COMMUNITY_MAINTAINERS_CHANNEL_ID}>` : ""}`,
+    text: `Maintainer가 활성화됐어요. 공개 GitHub 저장소를 fork해 본인 환경에서 개발하고 PR을 올려 주세요. Open 변경은 Slack에서 정확한 SHA를 승인하면 Deployment Broker가 병합·배포하고, Core 변경은 Founder 승인이 필요해요. <https://github.com/Betalgeuse/ot1l/blob/main/CONTRIBUTING.md|개발 시작 안내>${context.env.COMMUNITY_MAINTAINERS_CHANNEL_ID ? ` · <#${context.env.COMMUNITY_MAINTAINERS_CHANNEL_ID}>` : ""}${context.env.COMMUNITY_SYS_ALERT_CHANNEL_ID ? ` · 운영 알림 <#${context.env.COMMUNITY_SYS_ALERT_CHANNEL_ID}>` : ""}`,
   });
   if (context.env.COMMUNITY_MAINTAINERS_CHANNEL_ID)
     await callSlack(context.env.SLACK_BOT_TOKEN, "chat.postMessage", {

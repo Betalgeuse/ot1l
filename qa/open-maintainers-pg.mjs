@@ -40,6 +40,8 @@ try {
     await run(join(pgBin, "psql"), ["-X", "-v", "ON_ERROR_STOP=1", "-f", `migrations/${file}`]);
   await run(join(pgBin, "psql"), ["-X", "-v", "ON_ERROR_STOP=1", "-f",
     "migrations/078_idempotent_maintainer_activation.sql"]);
+  await run(join(pgBin, "psql"), ["-X", "-v", "ON_ERROR_STOP=1", "-f",
+    "migrations/081_founder_open_approval.sql"]);
 
   await psql(`INSERT INTO otl.workspaces(team_id) VALUES('TQA');
     INSERT INTO otl.workspace_members(team_id,user_id,display_name,is_bot,is_app_user,slack_deleted)
@@ -72,6 +74,17 @@ try {
     actorId: "UMAIN", founderId: "UADMIN", packetRevision: 1, prNumber: 101, headSha: openSha,
     classificationDigest: digest, idempotencyKey: "approve-open" });
   assert.equal(openApproved.approvedRole, "maintainer");
+
+  const founderOpenSha = "e".repeat(40), founderOpenDigest = "f".repeat(64);
+  await insertChange("BUG-OPEN0002", "B-OPENFOUND001", 103, founderOpenSha);
+  await call("bug_runner_classify_change", { teamId: "TQA", prNumber: 103,
+    headSha: founderOpenSha, changeClass: "open", changedPaths: ["event-site/src/app.ts"],
+    classificationDigest: founderOpenDigest });
+  const founderOpenApproved = await call("bug_actor_approve_merge", { teamId: "TQA",
+    bugId: "BUG-OPEN0002", actorId: "UADMIN", founderId: "UADMIN", packetRevision: 1,
+    prNumber: 103, headSha: founderOpenSha, classificationDigest: founderOpenDigest,
+    idempotencyKey: "approve-open-founder" });
+  assert.equal(founderOpenApproved.approvedRole, "founder");
 
   const coreSha = "c".repeat(40), coreDigest = "d".repeat(64);
   await insertChange("BUG-CORE0001", "B-COREMAINT001", 102, coreSha);
