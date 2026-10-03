@@ -46,10 +46,9 @@ function render(event) {
   const participantList = $("[data-participants]");
   participantList.replaceChildren();
   for (const profile of profiles) {
-    const link = document.createElement("a");
-    link.href = `https://app.slack.com/team/${encodeURIComponent(profile.userId)}`;
-    link.textContent = `👤 ${profile.name}`;
-    participantList.append(link);
+    const badge = document.createElement("span");
+    badge.textContent = `👤 ${profile.name}`;
+    participantList.append(badge);
   }
   const host = event.hostUserId === viewer();
   $("[data-host-config]").hidden = !(host && !event.poll);
