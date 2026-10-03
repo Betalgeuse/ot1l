@@ -5,7 +5,11 @@ import { CommunityReferralStore } from "./community-referral-store";
 import type { CommunityEnv } from "./community-runtime";
 import { callSlack } from "./community-social";
 import { CommunityStore } from "./community-store";
-import { postEventThreadStatus, syncTownhallEventMessage } from "./community-townhall-events";
+import {
+  postEventThreadStatus,
+  scheduleEventReviewPrompt,
+  syncTownhallEventMessage,
+} from "./community-townhall-events";
 import type { TownhallEvent } from "./community-types";
 import { InputError, object, string } from "./input";
 import { NeonStore } from "./store";
@@ -186,6 +190,7 @@ export async function handleEventWebRequest(
         event,
         "일정이 확정됐어요. 선택한 시간과 일치한 회원은 자동 참가됐습니다.",
       );
+      await scheduleEventReviewPrompt(env, store, event, identity.userId);
       return Response.json({ event: await eventForWeb(env, event) });
     }
     const event = await store.getTownhallEvent({ ...identity, actorId: identity.userId });

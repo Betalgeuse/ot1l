@@ -2,6 +2,7 @@ import { eventScheduleToken } from "./community-event-link";
 import { escapeSlackText } from "./community-messages";
 import { type CommunityContext, ephemeral } from "./community-runtime";
 import { callSlack } from "./community-social";
+import type { CommunityStore } from "./community-store";
 import type { TownhallEvent } from "./community-types";
 import { InputError, type Json, list, object, string } from "./input";
 import { openView } from "./slack-api";
@@ -450,7 +451,49 @@ export async function postEventThreadStatus(
   await callSlack(env.SLACK_BOT_TOKEN, "chat.postMessage", {
     channel: event.channelId,
     thread_ts: event.messageTs,
-    text: `${lead}\n👥 현재 참가자 ${going.length}명${going.length ? ` · ${going.join(" ")}` : ""}\n모임 후 인증 사진이나 짧은 후기를 이 스레드에 남겨주세요!`,
+    text: `${lead}\n👥 현재 참가자 ${going.length}명${going.length ? ` · ${going.join(" ")}` : ""}`,
+  });
+}
+
+export async function scheduleEventReviewPrompt(
+  env: Pick<CommunityContext["env"], "SLACK_BOT_TOKEN">,
+  store: CommunityStore,
+  event: TownhallEvent,
+  actorId: string,
+): Promise<void> {
+  if (!event.messageTs || !event.finalEndAt) return;
+  const postAt = Math.max(
+    Math.floor(Date.parse(event.finalEndAt) / 1000) + 15 * 60,
+    Math.floor(Date.now() / 1000) + 60,
+  );
+  const scope = {
+    teamId: event.teamId,
+    channelId: event.channelId,
+    eventId: event.eventId,
+    actorId,
+  };
+  const existing = await store.townhallEventFollowup("get", scope);
+  if (existing !== null) {
+    const record = object(existing);
+    if (Math.abs(Date.parse(string(record.postAt)) / 1000 - postAt) < 1) return;
+    await callSlack(env.SLACK_BOT_TOKEN, "chat.deleteScheduledMessage", {
+      channel: event.channelId,
+      scheduled_message_id: string(record.scheduledMessageId),
+    });
+  }
+  const text = `<@${event.hostUserId}>님, 오늘 모임은 어떠셨나요? 참가한 분들과 짧은 후기를 이 스레드에 남겨주세요!`;
+  const scheduled = object(
+    await callSlack(env.SLACK_BOT_TOKEN, "chat.scheduleMessage", {
+      channel: event.channelId,
+      thread_ts: event.messageTs,
+      post_at: postAt,
+      text,
+    }),
+  );
+  await store.townhallEventFollowup("put", {
+    ...scope,
+    scheduledMessageId: string(scheduled.scheduled_message_id),
+    postAt: new Date(postAt * 1000).toISOString(),
   });
 }
 
@@ -614,6 +657,8 @@ export async function submitTownhallEvent(
         event,
         "일정이 확정됐어요. 이 이벤트는 Slack에서 바로 참가할 수 있어요.",
       );
+    if (input.startsAt)
+      await scheduleEventReviewPrompt(context.env, context.store, event, context.scope.userId);
     createdMessageTs = null;
     await notice(context, "Townhall에 이벤트를 올렸어요.");
   } catch (error) {
