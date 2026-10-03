@@ -70,7 +70,18 @@ globalThis.fetch = async (url, options = {}) => {
   calls.push({ method, payload });
   if (method === "views.open") return Response.json({ ok: true });
   if (method === "conversations.list")
-    return Response.json({ ok: true, channels: [], response_metadata: { next_cursor: "" } });
+    return Response.json({
+      ok: true,
+      channels: [
+        {
+          id: "CARCHIVED",
+          name: "chapter-ai-research",
+          creator: "UBOT",
+          is_archived: true,
+        },
+      ],
+      response_metadata: { next_cursor: "" },
+    });
   if (method === "conversations.create")
     return Response.json({ ok: true, channel: { id: "CNEWCHAPTER", name: "chapter-ai-research", creator: "UBOT" } });
   if (method === "chat.postEphemeral") return Response.json({ ok: true, message_ts: "300.1" });
