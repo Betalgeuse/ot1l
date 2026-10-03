@@ -9,6 +9,7 @@ import {
 } from "./community-bug-schema";
 import { CommunityBugStore } from "./community-bug-store";
 import type { BugState } from "./community-bug-types";
+import { maintainerButton } from "./community-maintainers";
 import { escapeSlackText } from "./community-messages";
 import { sha256Hex } from "./community-referral-service-auth";
 import type { CommunityContext, CommunityEnv } from "./community-runtime";
@@ -287,6 +288,7 @@ export async function sendDailyFeedbackPrompt(
               action_id: "community_bug_open",
               value: JSON.stringify({ ownerId: "actor", key: "new" }),
             },
+            maintainerButton(),
           ],
         },
       ],
