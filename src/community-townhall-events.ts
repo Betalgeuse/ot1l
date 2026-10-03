@@ -14,6 +14,7 @@ export type TownhallEventInput = {
   readonly startsAt: string | null;
   readonly durationMinutes: number;
   readonly minConfirmed: number;
+  readonly capacity: number | null;
 };
 
 function button(label: string, actionId: string, ownerId: string, eventId: string): Json {
@@ -90,11 +91,19 @@ export function parseTownhallEvent(
   let startsAt: string | null = null;
   let durationMinutes = 60;
   let minConfirmed = 2;
-  if (scheduleMode !== "edit") {
-    const minimum = Number(string(object(object(values.minimum).value).value));
-    if (!Number.isSafeInteger(minimum) || minimum < 1 || minimum > 100)
-      errors.minimum = "최소 인원을 1~100명으로 적어 주세요.";
-    else minConfirmed = minimum;
+  let capacity: number | null = null;
+  const minimum = Number(string(object(object(values.minimum).value).value));
+  if (!Number.isSafeInteger(minimum) || minimum < 1 || minimum > 100)
+    errors.minimum = "최소 인원을 1~100명으로 적어 주세요.";
+  else minConfirmed = minimum;
+  const capacityText = string(object(object(values.capacity).value).value ?? "").trim();
+  if (capacityText) {
+    const maximum = Number(capacityText);
+    if (!Number.isSafeInteger(maximum) || maximum < 1 || maximum > 500)
+      errors.capacity = "최대 인원을 1~500명으로 적거나 무제한이면 비워 주세요.";
+    else if (Number.isSafeInteger(minimum) && maximum < minimum)
+      errors.capacity = "최대 인원은 최소 성사 인원보다 작을 수 없어요.";
+    else capacity = maximum;
   }
   if (scheduleMode === "fixed" || scheduleMode === "edit-fixed") {
     const selectedDate = string(object(object(values.event_date).value).selected_date);
@@ -113,7 +122,7 @@ export function parseTownhallEvent(
   }
   return Object.keys(errors).length
     ? { errors }
-    : { activity, location, scheduleMode, startsAt, durationMinutes, minConfirmed };
+    : { activity, location, scheduleMode, startsAt, durationMinutes, minConfirmed, capacity };
 }
 
 function eventMetadata(
@@ -231,20 +240,29 @@ export async function openTownhallEventModal(
               },
             ]
           : []),
-        ...(!event || event.finalStartAt
-          ? [
-              {
-                type: "input",
-                block_id: "minimum",
-                label: { type: "plain_text", text: "최소 인원" },
-                element: {
-                  type: "plain_text_input",
-                  action_id: "value",
-                  initial_value: String(event?.minConfirmed ?? 2),
-                },
-              },
-            ]
-          : []),
+        {
+          type: "input",
+          block_id: "minimum",
+          label: { type: "plain_text", text: "최소 성사 인원" },
+          element: {
+            type: "plain_text_input",
+            action_id: "value",
+            initial_value: String(event?.minConfirmed ?? 2),
+          },
+        },
+        {
+          type: "input",
+          block_id: "capacity",
+          optional: true,
+          label: { type: "plain_text", text: "최대 인원" },
+          hint: { type: "plain_text", text: "정원 제한이 없으면 비워 두세요." },
+          element: {
+            type: "plain_text_input",
+            action_id: "value",
+            ...(event?.capacity ? { initial_value: String(event.capacity) } : {}),
+            placeholder: { type: "plain_text", text: "비워 두면 무제한" },
+          },
+        },
         {
           type: "section",
           text: {
@@ -252,7 +270,7 @@ export async function openTownhallEventModal(
             text: event
               ? event.finalStartAt
                 ? "일정을 바꾸면 Slack 카드와 종료 후 후기 요청 시각도 함께 갱신됩니다."
-                : "날짜 범위·가능 시간·최소 인원·정기 회차는 이벤트 글의 *가능한 시간 고르기*에서 다시 조정할 수 있어요."
+                : "날짜 범위·가능 시간·정기 회차는 이벤트 글의 *가능한 시간 고르기*에서 조정하고, 최소 성사 인원과 최대 인원은 여기서 바꿀 수 있어요."
               : scheduleMode === "poll"
                 ? "게시한 뒤 웹 달력에서 *이 시간으로 확정되면 참가할 수 있는 시간*을 받아요. 선택된 시간으로 확정되면 자동 참가 처리됩니다."
                 : "게시 즉시 참가를 받을 수 있어요. 주최자는 참가 확정 1명으로 포함됩니다.",
@@ -299,7 +317,7 @@ export function townhallEventMessage(event: TownhallEvent): Json {
   const series = event.series
     ? `\n반복: ${event.series.recurrenceEveryWeeks === 1 ? "매주" : "격주"} · ${event.series.occurrenceCount}회`
     : "";
-  const text = `<!channel> <@${event.hostUserId}>님이 이벤트를 열었어요! 🎟️\n${phaseLabels[event.phase]}\n${eventActivityText(event.activity)}\n장소: ${escapeSlackText(event.location)}${finalTime}${deadline}${series}\n👥 참가 확정 ${event.goingCount}/${event.minConfirmed}명${event.capacity ? ` · 정원 ${event.capacity}명` : ""}${event.finalStartAt ? "" : `\n\n${schedule}`}`;
+  const text = `<!channel> <@${event.hostUserId}>님이 이벤트를 열었어요! 🎟️\n${phaseLabels[event.phase]}\n${eventActivityText(event.activity)}\n장소: ${escapeSlackText(event.location)}${finalTime}${deadline}${series}\n👥 참가 확정 ${event.goingCount}명 · 성사 기준 ${event.minConfirmed}명 · 최대 인원 ${event.capacity ? `${event.capacity}명` : "무제한"}${event.waitlistCount ? ` · 대기 ${event.waitlistCount}명` : ""}${event.finalStartAt ? "" : `\n\n${schedule}`}`;
   return {
     text,
     blocks: [
@@ -606,22 +624,22 @@ export async function submitTownhallEvent(
       ...input,
       options: input.startsAt ? [input.startsAt] : current.options.map((option) => option.startsAt),
     });
+    event = await context.store.townhallEventLifecycle("configure", {
+      teamId: context.scope.teamId,
+      channelId,
+      actorId: context.scope.userId,
+      eventId,
+      eventKind: current.eventKind,
+      minConfirmed: input.minConfirmed,
+      capacity: input.capacity,
+      recruitmentDeadline: input.startsAt
+        ? new Date(Date.parse(input.startsAt) - 12 * 60 * 60 * 1000).toISOString()
+        : current.recruitmentDeadline,
+      graceHours: current.graceHours,
+      autoCancel: current.autoCancel,
+      now: new Date().toISOString(),
+    });
     if (input.startsAt) {
-      await context.store.townhallEventLifecycle("configure", {
-        teamId: context.scope.teamId,
-        channelId,
-        actorId: context.scope.userId,
-        eventId,
-        eventKind: current.eventKind,
-        minConfirmed: input.minConfirmed,
-        capacity: current.capacity,
-        recruitmentDeadline: new Date(
-          Date.parse(input.startsAt) - 12 * 60 * 60 * 1000,
-        ).toISOString(),
-        graceHours: current.graceHours,
-        autoCancel: current.autoCancel,
-        now: new Date().toISOString(),
-      });
       await context.store.townhallEventSeries("configure", {
         teamId: context.scope.teamId,
         channelId,
@@ -692,7 +710,7 @@ export async function submitTownhallEvent(
       eventId: viewId,
       eventKind: "gathering",
       minConfirmed: input.minConfirmed,
-      capacity: null,
+      capacity: input.capacity,
       recruitmentDeadline:
         input.startsAt === null
           ? null

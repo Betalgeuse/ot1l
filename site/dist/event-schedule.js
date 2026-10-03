@@ -41,6 +41,8 @@ function render(event) {
   $("[data-event-title]").textContent = title;
   $("[data-event-description]").textContent = description.join("\n");
   $("[data-event-location]").textContent = `장소: ${event.location}`;
+  $("[data-event-people]").textContent =
+    `참가 확정 ${event.goingCount}명 · 성사 기준 ${event.minConfirmed}명 · 최대 인원 ${event.capacity === null ? "무제한" : `${event.capacity}명`}`;
   const profiles = event.participantProfiles ?? [];
   $("[data-participants-section]").hidden = profiles.length === 0;
   const participantList = $("[data-participants]");
@@ -63,6 +65,8 @@ function render(event) {
       .toISOString().slice(0, 10);
     $("[data-start-date]").value ||= start;
     $("[data-end-date]").value ||= endDate;
+    $("[data-min]").value = String(event.minConfirmed);
+    $("[data-capacity]").value = event.capacity === null ? "" : String(event.capacity);
   }
   if (!event.poll) return;
   const grid = $("[data-grid]");
