@@ -17,7 +17,7 @@ const eventView = (event, actorId) => ({
   eventKind: "gathering",
   phase: "recruiting",
   minConfirmed: event.minConfirmed ?? 2,
-  capacity: null,
+  capacity: event.capacity ?? null,
   recruitmentDeadline: null,
   graceHours: 24,
   autoCancel: true,
@@ -90,7 +90,10 @@ mock.module("../src/community-store.ts", () => ({
     }
     async townhallEventLifecycle(operation, input) {
       const event = events.get(input.eventId);
-      if (operation === "configure") event.minConfirmed = input.minConfirmed;
+      if (operation === "configure") {
+        event.minConfirmed = input.minConfirmed;
+        event.capacity = input.capacity;
+      }
       if (operation === "finalize") event.finalStartAt = input.startsAt;
       return eventView(event, input.actorId);
     }
@@ -175,7 +178,7 @@ try {
   const createModal = calls.find((call) => call.method === "views.open").body.view;
   assert.deepEqual(
     createModal.blocks.filter((block) => block.type === "input").map((block) => block.block_id),
-    ["activity", "location", "minimum"],
+    ["activity", "location", "minimum", "capacity"],
   );
   assert.doesNotMatch(JSON.stringify(createModal), /가능한 시간 후보|최대 8개|2026-10-10/);
   assert.match(JSON.stringify(createModal), /자동 참가/);
@@ -184,15 +187,27 @@ try {
     activity: { value: { value: "" } },
     location: { value: { value: "" } },
     minimum: { value: { value: "0" } },
+    capacity: { value: { value: "" } },
   });
   const invalidResponse = await communityInteraction(invalid, env, () => {});
   assert.deepEqual(Object.keys((await invalidResponse.json()).errors).sort(), ["activity", "location", "minimum"]);
+  const invalidCapacity = submission("VINVALID-CAPACITY", "community_event_submit", createModal.private_metadata, {
+    activity: { value: { value: "정원 검사" } },
+    location: { value: { value: "서울" } },
+    minimum: { value: { value: "3" } },
+    capacity: { value: { value: "2" } },
+  });
+  assert.deepEqual(await (await communityInteraction(invalidCapacity, env, () => {})).json(), {
+    response_action: "errors",
+    errors: { capacity: "최대 인원은 최소 성사 인원보다 작을 수 없어요." },
+  });
 
   const pending = [];
   const valid = submission("VEVENT-1", "community_event_submit", createModal.private_metadata, {
     activity: { value: { value: "산책 모임\n초보 환영 https://example.com/watch" } },
     location: { value: { value: "성수역 1번 출구" } },
     minimum: { value: { value: "3" } },
+    capacity: { value: { value: "" } },
   });
   const response = await communityInteraction(valid, env, (promise) => pending.push(promise));
   assert.deepEqual(await response.json(), { response_action: "clear" });
@@ -255,9 +270,15 @@ try {
   const editModal = calls.find((call) => call.method === "views.open").body.view;
   assert.equal(editModal.title.text, "이벤트 수정");
   assert.doesNotMatch(JSON.stringify(editModal), /가능한 시간 후보|최대 8개/);
+  assert.deepEqual(
+    editModal.blocks.filter((block) => block.type === "input").map((block) => block.block_id),
+    ["activity", "location", "minimum", "capacity"],
+  );
   const editValues = {
     activity: { value: { value: "저녁 산책" } },
     location: { value: { value: "서울숲" } },
+    minimum: { value: { value: "3" } },
+    capacity: { value: { value: "6" } },
   };
   const editSubmit = submission(
     "VEDIT",
@@ -284,7 +305,7 @@ try {
   const fixedModal = calls.find((call) => call.method === "views.open").body.view;
   assert.deepEqual(
     fixedModal.blocks.filter((block) => block.type === "input").map((block) => block.block_id),
-    ["activity", "location", "event_date", "event_time", "duration", "minimum"],
+    ["activity", "location", "event_date", "event_time", "duration", "minimum", "capacity"],
   );
   const fixedPending = [];
   const fixedSubmit = submission("VFIXED", "community_event_submit", fixedModal.private_metadata, {
@@ -294,12 +315,13 @@ try {
     event_time: { value: { selected_time: "19:00" } },
     duration: { value: { selected_option: { value: "120" } } },
     minimum: { value: { value: "3" } },
+    capacity: { value: { value: "6" } },
   });
   await communityInteraction(fixedSubmit, env, (promise) => fixedPending.push(promise));
   await Promise.all(fixedPending);
   const fixedUpdate = calls.filter((call) => call.method === "chat.update").at(-1).body;
   assert.match(fixedUpdate.text, /최종 일정:/);
-  assert.match(fixedUpdate.text, /참가 확정 1\/3명/);
+  assert.match(fixedUpdate.text, /참가 확정 1명 · 성사 기준 3명 · 최대 인원 6명/);
   assert.deepEqual(
     fixedUpdate.blocks[1].elements.map((item) => item.action_id),
     [
@@ -332,10 +354,11 @@ try {
   const fixedEditModal = calls.find((call) => call.method === "views.open").body.view;
   assert.deepEqual(
     fixedEditModal.blocks.filter((block) => block.type === "input").map((block) => block.block_id),
-    ["activity", "location", "event_date", "event_time", "duration", "minimum"],
+    ["activity", "location", "event_date", "event_time", "duration", "minimum", "capacity"],
   );
   assert.equal(fixedEditModal.blocks.find((block) => block.block_id === "event_date").element.initial_date, "2026-10-10");
   assert.equal(fixedEditModal.blocks.find((block) => block.block_id === "event_time").element.initial_time, "19:00");
+  assert.equal(fixedEditModal.blocks.find((block) => block.block_id === "capacity").element.initial_value, "6");
   const fixedEditPending = [];
   const fixedEditSubmit = submission("VFIXED-EDIT", "community_event_submit", fixedEditModal.private_metadata, {
     activity: { value: { value: "정해진 저녁 모임" } },
@@ -344,11 +367,12 @@ try {
     event_time: { value: { selected_time: "18:00" } },
     duration: { value: { selected_option: { value: "90" } } },
     minimum: { value: { value: "4" } },
+    capacity: { value: { value: "" } },
   });
   await communityInteraction(fixedEditSubmit, env, (promise) => fixedEditPending.push(promise));
   await Promise.all(fixedEditPending);
   const changedFixed = calls.filter((call) => call.method === "chat.update").at(-1).body.text;
-  assert.match(changedFixed, /참가 확정 1\/4명/);
+  assert.match(changedFixed, /참가 확정 1명 · 성사 기준 4명 · 최대 인원 무제한/);
   assert.match(changedFixed, /2026-10-11 18:00 KST/);
 
   console.log(

@@ -39,7 +39,11 @@ assert.match(readFileSync("site/dist/event-schedule.html", "utf8"), /data-durati
 assert.match(readFileSync("site/dist/event-schedule.js", "utf8"), /durationMinutes/);
 assert.doesNotMatch(readFileSync("site/dist/event-schedule.js", "utf8"), /api\/events\/schedule/);
 assert.match(readFileSync("site/dist/event-schedule.js", "utf8"), /\[title, [.]?[.]?[.]description\] = event[.]activity[.]split/);
-assert.match(readFileSync("site/dist/event-schedule.html", "utf8"), /event-schedule[.]js[?]v=20261003-3/);
+assert.match(readFileSync("site/dist/event-schedule.html", "utf8"), /event-schedule[.]js[?]v=20261003-4/);
 assert.match(readFileSync("site/dist/event-schedule.html", "utf8"), /data-participants/);
+assert.match(readFileSync("site/dist/event-schedule.html", "utf8"), /data-event-people/);
+assert.match(readFileSync("site/dist/event-schedule.html", "utf8"), /최대 인원/);
+assert.match(readFileSync("site/dist/event-schedule.html", "utf8"), /비워 두면 무제한/);
+assert.match(readFileSync("site/dist/event-schedule.js", "utf8"), /최대 인원.*무제한/);
 assert.doesNotMatch(readFileSync("site/dist/event-schedule.js", "utf8"), /app[.]slack[.]com\/team/);
 console.log("PASS event schedule site serves signed page and proxies only signed Core requests");
