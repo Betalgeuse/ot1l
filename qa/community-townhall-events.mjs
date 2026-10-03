@@ -198,7 +198,7 @@ try {
   assert.deepEqual(await response.json(), { response_action: "clear" });
   await Promise.all(pending.splice(0));
   const post = calls.find((call) => call.method === "chat.postMessage");
-  assert.match(post.body.text, /<@UMEMBER>님이 이벤트를 열었어요/);
+  assert.match(post.body.text, /^<!channel> <@UMEMBER>님이 이벤트를 열었어요/);
   assert.match(post.body.text, /\*산책 모임\*\n초보 환영 https:\/\/example[.]com\/watch/);
   assert.doesNotMatch(post.body.text, /example[.]com\/watch\*/);
   assert.doesNotMatch(post.body.text, /리액션은 관심 신호|다음 활동 수요/);

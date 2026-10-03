@@ -17,7 +17,6 @@ assert.equal(augmented.text, "기존 봇 응답");
 assert.equal(augmented.blocks[0].text.text, "기존 봇 응답");
 assert.equal(augmented.blocks.at(-1).elements[0].action_id, "community_bug_open");
 assert.equal(augmented.blocks.at(-1).elements[0].text.text, "피드백 남기기");
-assert.equal(augmented.blocks.at(-1).elements[1].action_id, "community_maintainer_activate");
 assert.deepEqual(withFeedbackAction("chat.postMessage", { channel: "DQA", text: "DM" }), {
   channel: "DQA",
   text: "DM",

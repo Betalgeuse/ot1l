@@ -1,5 +1,6 @@
 import type { ParsedBugReport } from "./community-bug-facts";
 import { digestBugText } from "./community-bug-private";
+import { maintainerButton } from "./community-maintainers";
 import { escapeSlackText } from "./community-messages";
 import type { CommunityContext } from "./community-runtime";
 import { callSlack } from "./community-social";
@@ -59,18 +60,22 @@ export async function canonicalFeedbackContext(
   const actual = field(parsed, "form:actual") || parsed.messages[0]?.text.trim() || "피드백";
   const expected = field(parsed, "form:expected");
   const text = `<@${context.scope.userId}> 님이 피드백을 남겼어요.\n\n*As-Is*\n${escapeSlackText(actual)}\n\n*To-Be*\n${escapeSlackText(expected || "어떻게 바뀌면 좋을지 OT1L이 확인하고 있어요.")}\n\n<${sourceUrl(context)}|처음 남긴 위치>\n버그 키: ${bugId}`;
-  const thread =
-    existing ??
-    string(
-      (
-        await callSlack(context.env.SLACK_BOT_TOKEN, "chat.postMessage", {
-          channel: channelId,
-          text,
-          unfurl_links: false,
-          unfurl_media: false,
-        })
-      ).ts,
-    );
+  const message = {
+    channel: channelId,
+    text,
+    blocks: [
+      { type: "section", text: { type: "mrkdwn", text } },
+      { type: "actions", elements: [maintainerButton("Maintainer가 되어 직접 고치기")] },
+    ],
+    unfurl_links: false,
+    unfurl_media: false,
+  } as const;
+  let thread: string;
+  if (existing) {
+    await callSlack(context.env.SLACK_BOT_TOKEN, "chat.update", { ...message, ts: existing });
+    thread = existing;
+  } else
+    thread = string((await callSlack(context.env.SLACK_BOT_TOKEN, "chat.postMessage", message)).ts);
   return {
     ...context,
     scope: { ...context.scope, channelId },

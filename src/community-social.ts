@@ -44,7 +44,7 @@ export function withFeedbackAction(method: string, payload: Json): Record<string
   const channel = value.channel;
   if (typeof channel !== "string" || !/^[CG][A-Z0-9]+$/.test(channel)) return value;
   const existing = Array.isArray(value.blocks) ? value.blocks : [];
-  const hasAction = (actionId: string) =>
+  if (
     existing.some(
       (block) =>
         typeof block === "object" &&
@@ -56,12 +56,11 @@ export function withFeedbackAction(method: string, payload: Json): Record<string
             typeof element === "object" &&
             element !== null &&
             !Array.isArray(element) &&
-            object(element).action_id === actionId,
+            object(element).action_id === "community_bug_open",
         ),
-    );
-  const hasFeedback = hasAction("community_bug_open");
-  const hasMaintainer = hasAction("community_maintainer_activate");
-  if (hasFeedback && hasMaintainer) return value;
+    )
+  )
+    return value;
   if (
     typeof value.text === "string" &&
     /버그|제보|접수|피드백|명세 확인|추가 확인|어떤 문제/.test(value.text)
@@ -71,51 +70,18 @@ export function withFeedbackAction(method: string, payload: Json): Record<string
   if (!blocks.length && typeof value.text === "string")
     blocks.push({ type: "section", text: { type: "mrkdwn", text: value.text.slice(0, 2900) } });
   if (blocks.length >= 49) return value;
-  const elements = [
-    ...(!hasFeedback
-      ? [
-          {
-            type: "button",
-            text: { type: "plain_text", text: "피드백 남기기" },
-            action_id: "community_bug_open",
-            value: JSON.stringify({ ownerId: "actor", key: "new" }),
-            accessibility_label: "불편한 점이나 개선 의견 남기기",
-          },
-        ]
-      : []),
-    ...(!hasMaintainer
-      ? [
-          {
-            type: "button",
-            text: { type: "plain_text", text: "Maintainer 되기" },
-            action_id: "community_maintainer_activate",
-            value: JSON.stringify({ ownerId: "actor", key: "maintainer-self-activate" }),
-            accessibility_label: "OT1L 공동 운영자 Maintainer로 참여하기",
-          },
-        ]
-      : []),
-  ];
-  const feedbackBlockIndex = blocks.findIndex(
-    (block) =>
-      typeof block === "object" &&
-      block !== null &&
-      !Array.isArray(block) &&
-      Array.isArray(block.elements) &&
-      block.elements.some(
-        (element: unknown) =>
-          typeof element === "object" &&
-          element !== null &&
-          !Array.isArray(element) &&
-          object(element).action_id === "community_bug_open",
-      ),
-  );
-  if (feedbackBlockIndex >= 0) {
-    const block = object(blocks[feedbackBlockIndex]);
-    blocks[feedbackBlockIndex] = {
-      ...block,
-      elements: [...(block.elements as Json[]), ...elements],
-    };
-  } else blocks.push({ type: "actions", elements });
+  blocks.push({
+    type: "actions",
+    elements: [
+      {
+        type: "button",
+        text: { type: "plain_text", text: "피드백 남기기" },
+        action_id: "community_bug_open",
+        value: JSON.stringify({ ownerId: "actor", key: "new" }),
+        accessibility_label: "불편한 점이나 개선 의견 남기기",
+      },
+    ],
+  });
   return { ...value, blocks };
 }
 
