@@ -210,6 +210,25 @@ export type CommunityChapter = {
   readonly announcementMessageTs: string | null;
   readonly guideSynced: boolean;
 };
+export type TownhallEventDemand = {
+  readonly teamId: string;
+  readonly channelId: string;
+  readonly demandId: string;
+  readonly requesterUserId: string;
+  readonly mode: "validate" | "host_request";
+  readonly activity: string;
+  readonly description: string;
+  readonly locationHint: string;
+  readonly timingHint: string;
+  readonly status: "draft" | "active" | "closed";
+  readonly messageTs: string | null;
+  readonly revision: number;
+  readonly events: readonly {
+    readonly eventId: string;
+    readonly hostUserId: string;
+    readonly messageTs: string;
+  }[];
+};
 export type ReminderBatchFinish = {
   readonly teamId: string;
   readonly channelId: string;

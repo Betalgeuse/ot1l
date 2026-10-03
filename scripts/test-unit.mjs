@@ -5,6 +5,7 @@ const suites = [
   "community-admin-access",
   "community-maintainers",
   "community-chapters",
+  "community-event-demands",
   "contributor-hygiene",
   "community-clock",
   "community-emoji",

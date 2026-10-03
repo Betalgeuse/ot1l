@@ -12,6 +12,7 @@ import type {
   MemberIntroduction,
   Outcome,
   TownhallEvent,
+  TownhallEventDemand,
 } from "./community-types";
 import { date, InputError, type Json, list, object, string } from "./input";
 
@@ -268,7 +269,57 @@ function communityChapter(value: Json): CommunityChapter | null {
   };
 }
 
+function townhallEventDemand(value: Json): TownhallEventDemand | null {
+  if (value === null) return null;
+  const input = object(value);
+  const mode = string(input.mode);
+  const status = string(input.status);
+  const revision = input.revision;
+  if (
+    !["validate", "host_request"].includes(mode) ||
+    !["draft", "active", "closed"].includes(status) ||
+    typeof revision !== "number" ||
+    !Number.isSafeInteger(revision)
+  )
+    throw new InputError("Invalid event demand");
+  return {
+    teamId: string(input.teamId),
+    channelId: string(input.channelId),
+    demandId: string(input.demandId),
+    requesterUserId: string(input.requesterUserId),
+    mode: mode as TownhallEventDemand["mode"],
+    activity: string(input.activity),
+    description: string(input.description),
+    locationHint: string(input.locationHint),
+    timingHint: string(input.timingHint),
+    status: status as TownhallEventDemand["status"],
+    messageTs: input.messageTs === null ? null : string(input.messageTs),
+    revision,
+    events: list(input.events).map((item) => {
+      const event = object(item);
+      return {
+        eventId: string(event.eventId),
+        hostUserId: string(event.hostUserId),
+        messageTs: string(event.messageTs),
+      };
+    }),
+  };
+}
+
 export class CommunityStore extends CommunityScheduleStore {
+  async townhallEventDemand(
+    operation: "create" | "get" | "bind" | "edit" | "close" | "link_event",
+    input: Json,
+  ): Promise<TownhallEventDemand> {
+    const demand = townhallEventDemand(
+      await this.db.queryJson("SELECT otl.townhall_event_demand_execute($1,$2::jsonb)", [
+        operation,
+        JSON.stringify(input),
+      ]),
+    );
+    if (!demand) throw new InputError("Event demand missing");
+    return demand;
+  }
   private chapterCall(operation: string, payload: Json): Promise<Json> {
     return this.db.queryJson("SELECT otl.community_chapter_execute($1,$2::jsonb)", [
       operation,

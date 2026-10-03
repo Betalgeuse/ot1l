@@ -1,8 +1,8 @@
 /** Reviewed, repo-owned welcome copy. Bump the version for every content change. */
 export const WELCOME_GUIDE_RELEASE = {
-  version: "v0.0.75",
+  version: "v0.0.76",
   body: `@channel
-OT1L v0.0.75 · welcome 가이드 업데이트
+OT1L v0.0.76 · welcome 가이드 업데이트
 
 OT1L (*ONE THING* 1 Line)에 오신 것을 환영합니다! Slack 채널 구조는 Toss를 차용했습니다.
 
@@ -26,6 +26,8 @@ OT1L (*ONE THING* 1 Line)에 오신 것을 환영합니다! Slack 채널 구조�
   ◦ All: 전사 누구나 자유롭게 공유하고 대화할 수 있습니다.
     ▪︎ #all-freetalk-qna-feedback: 자유롭게 대화하고 Q&A를 나눌 수 있습니다.
     ▪︎ #townhall: 날짜가 정해졌다면 *일정 정해서 열기*, 아직 모른다면 *시간 같이 정하기*를 사용합니다.
+      - 아직 주최할지 모르겠다면 *수요 먼저 확인하기*, 다른 주최자를 찾고 싶다면 *누가 좀 열어주세요*를 사용합니다.
+      - 수요 카드의 *내가 주최할래요!*를 누르면 기존 이벤트 화면에 내용이 채워집니다. 먼저 열린 뒤에도 *나도 주최하기*로 다른 날짜·지역의 이벤트를 열 수 있습니다.
       - 일정이 정해진 이벤트는 Slack의 *참가할게요* 한 번으로 끝납니다.
       - 시간 같이 정하기는 주간 달력에서 “이 시간으로 확정되면 참가”할 칸을 고릅니다. 그 시간으로 확정되면 다시 누르지 않아도 자동 참가됩니다.
       - 최소 성사 인원은 모임이 열리는 기준이고 최대 인원은 실제 정원입니다. 최대 인원을 비우면 무제한입니다.
