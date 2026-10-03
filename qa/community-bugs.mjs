@@ -2023,6 +2023,14 @@ try {
   );
   assert.match(feedbackRoot.body.text, /<@UMEMBER>/);
   assert.match(feedbackRoot.body.text, /자기소개 모음과 프로필 정보가 달라요/);
+  assert.equal(
+    feedbackRoot.body.blocks.at(-1).elements[0].action_id,
+    "community_maintainer_activate",
+  );
+  assert.equal(
+    feedbackRoot.body.blocks.at(-1).elements[0].text.text,
+    "Maintainer가 되어 직접 고치기",
+  );
   const feedbackThread = "20.000001";
   const routedReplies = routedPosts.filter(
     (call) => call.body.channel === "CFEEDBACK" && call.body.thread_ts === feedbackThread,
