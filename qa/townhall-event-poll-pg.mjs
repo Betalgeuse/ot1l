@@ -55,7 +55,7 @@ try {
   started = true;
   await run(join(pgBin, "createdb"), ["events"]);
   const files = (await readdir(join(root, "migrations")))
-    .filter((name) => /^\d{3}_.*\.sql$/.test(name) && Number(name.slice(0, 3)) <= 74)
+    .filter((name) => /^\d{3}_.*\.sql$/.test(name) && Number(name.slice(0, 3)) <= 75)
     .sort();
   for (const file of files.filter((name) => Number(name.slice(0, 3)) <= 5))
     await run(join(pgBin, "psql"), ["-X", "-v", "ON_ERROR_STOP=1", "-f", `migrations/${file}`]);
@@ -92,6 +92,9 @@ try {
   assert.equal(created.event.goingCount, 1);
   assert.equal(created.event.viewerState, "going");
   assert.equal(await call("bind", { ...base, messageTs: "2000.000001" }), true);
+  assert.deepEqual((await callSeries("get", base)).participants, [
+    { userId: "UHOST", state: "going" },
+  ]);
   const hostInterestAttempt = await callLifecycle("interest", {
     ...base, active: true, source: "button", now: "2026-10-02T00:00:00Z",
   });

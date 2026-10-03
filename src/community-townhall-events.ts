@@ -267,7 +267,7 @@ export function townhallEventMessage(event: TownhallEvent): Json {
   const series = event.series
     ? `\n반복: ${event.series.recurrenceEveryWeeks === 1 ? "매주" : "격주"} · ${event.series.occurrenceCount}회`
     : "";
-  const text = `<@${event.hostUserId}>님이 이벤트를 열었어요! 🎟️\n${phaseLabels[event.phase]}\n${eventActivityText(event.activity)}\n장소: ${escapeSlackText(event.location)}${finalTime}${deadline}${series}\n참가 확정 ${event.goingCount}/${event.minConfirmed}명${event.capacity ? ` · 정원 ${event.capacity}명` : ""}${event.finalStartAt ? "" : `\n\n${schedule}`}`;
+  const text = `<@${event.hostUserId}>님이 이벤트를 열었어요! 🎟️\n${phaseLabels[event.phase]}\n${eventActivityText(event.activity)}\n장소: ${escapeSlackText(event.location)}${finalTime}${deadline}${series}\n👥 참가 확정 ${event.goingCount}/${event.minConfirmed}명${event.capacity ? ` · 정원 ${event.capacity}명` : ""}${event.finalStartAt ? "" : `\n\n${schedule}`}`;
   return {
     text,
     blocks: [
@@ -414,6 +414,10 @@ export async function applyTownhallRsvp(
   context: CommunityContext,
   event: TownhallEvent,
 ): Promise<void> {
+  if (event.viewerState === "going") {
+    await notice(context, "이미 참가자로 등록되어 있어요.");
+    return;
+  }
   const updated = await context.store.townhallEventLifecycle("rsvp", {
     teamId: context.scope.teamId,
     channelId: context.scope.channelId,
@@ -423,6 +427,7 @@ export async function applyTownhallRsvp(
     now: new Date().toISOString(),
   });
   await updateEventMessage(context, updated);
+  await postEventThreadStatus(context.env, updated, `<@${context.scope.userId}>님이 참가해요.`);
   await notice(
     context,
     updated.viewerState === "waitlist"
@@ -431,6 +436,22 @@ export async function applyTownhallRsvp(
         ? "참가를 확정했어요."
         : "참가 상태를 확인해 주세요.",
   );
+}
+
+export async function postEventThreadStatus(
+  env: Pick<CommunityContext["env"], "SLACK_BOT_TOKEN">,
+  event: TownhallEvent,
+  lead: string,
+): Promise<void> {
+  if (!event.messageTs) return;
+  const going = event.participants
+    .filter((participant) => participant.state === "going")
+    .map((participant) => `<@${participant.userId}>`);
+  await callSlack(env.SLACK_BOT_TOKEN, "chat.postMessage", {
+    channel: event.channelId,
+    thread_ts: event.messageTs,
+    text: `${lead}\n👥 현재 참가자 ${going.length}명${going.length ? ` · ${going.join(" ")}` : ""}\n모임 후 인증 사진이나 짧은 후기를 이 스레드에 남겨주세요!`,
+  });
 }
 
 export async function runTownhallEventDue(
@@ -587,6 +608,12 @@ export async function submitTownhallEvent(
     }
     if (!event) throw new InputError("이벤트 상태를 확인할 수 없어요.");
     await updateEventMessage(context, event);
+    if (input.startsAt)
+      await postEventThreadStatus(
+        context.env,
+        event,
+        "일정이 확정됐어요. 이 이벤트는 Slack에서 바로 참가할 수 있어요.",
+      );
     createdMessageTs = null;
     await notice(context, "Townhall에 이벤트를 올렸어요.");
   } catch (error) {
