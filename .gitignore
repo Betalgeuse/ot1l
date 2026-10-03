@@ -4,6 +4,7 @@
 !.env.example
 .wrangler/
 .wrangler.production.json
+.wrangler.log-alerts.json
 .wrangler.open-events.json
 .output/
 node_modules

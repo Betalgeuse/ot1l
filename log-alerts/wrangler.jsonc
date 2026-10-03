@@ -1,0 +1,22 @@
+{
+  "$schema": "https://raw.githubusercontent.com/cloudflare/workers-sdk/main/packages/wrangler/config-schema.json",
+  "name": "otl1-log-alerts",
+  "main": "../src/log-alert-worker.ts",
+  "compatibility_date": "2026-10-03",
+  "workers_dev": false,
+  "vars": {
+    "COMMUNITY_SYS_ALERT_CHANNEL_ID": "C_REPLACE_SYS_ALERT"
+  },
+  "ratelimits": [
+    {
+      "name": "ALERT_RATE_LIMITER",
+      "namespace_id": "2026100302",
+      "simple": { "limit": 1, "period": 60 }
+    }
+  ],
+  "observability": {
+    "enabled": true,
+    "logs": { "enabled": true, "head_sampling_rate": 1 },
+    "traces": { "enabled": true, "head_sampling_rate": 0.01 }
+  }
+}

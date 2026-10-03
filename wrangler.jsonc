@@ -80,8 +80,13 @@
     ]
   },
   "observability": {
-    "enabled": true
+    "enabled": true,
+    "logs": { "enabled": true, "head_sampling_rate": 1 },
+    "traces": { "enabled": true, "head_sampling_rate": 0.01 }
   },
+  "tail_consumers": [
+    { "service": "otl1-log-alerts" }
+  ],
   "r2_buckets": [
     {
       "binding": "BUG_PRIVATE_OBJECTS",
