@@ -38,6 +38,8 @@ try {
     "-f", "migrations/006_normalized_foundation.sql", "-f", "migrations/007_normalized_legacy.sql"]);
   for (const file of files.filter((name) => Number(name.slice(0, 3)) >= 8))
     await run(join(pgBin, "psql"), ["-X", "-v", "ON_ERROR_STOP=1", "-f", `migrations/${file}`]);
+  await run(join(pgBin, "psql"), ["-X", "-v", "ON_ERROR_STOP=1", "-f",
+    "migrations/078_idempotent_maintainer_activation.sql"]);
 
   await psql(`INSERT INTO otl.workspaces(team_id) VALUES('TQA');
     INSERT INTO otl.workspace_members(team_id,user_id,display_name,is_bot,is_app_user,slack_deleted)
@@ -46,6 +48,12 @@ try {
     teamId: "TQA", actorId: "UMAIN",
   });
   assert.equal(maintainer.state, "active");
+  assert.equal(maintainer.changed, true);
+  const repeatedMaintainer = await callOp("community_maintainer_execute", "activate", {
+    teamId: "TQA", actorId: "UMAIN",
+  });
+  assert.equal(repeatedMaintainer.changed, false);
+  assert.equal(repeatedMaintainer.revision, maintainer.revision);
   const insertChange = async (bugId, alias, pr, sha) => psql(`
     INSERT INTO otl.bug_reports(bug_id,team_id,state,revision,packet_revision,public_alias,reporter_id,
       source,source_opaque_ref,title) VALUES('${bugId}','TQA','merge_eligible',1,1,'${alias}','UMAIN',

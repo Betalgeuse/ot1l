@@ -234,6 +234,7 @@ function communityMaintainer(value: Json): CommunityMaintainer | null {
     userId: string(input.userId),
     state: state as CommunityMaintainer["state"],
     revision,
+    changed: input.changed === true,
   };
 }
 
