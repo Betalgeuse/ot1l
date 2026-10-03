@@ -10,7 +10,7 @@ import { openView } from "./slack-api";
 export type TownhallEventInput = {
   readonly activity: string;
   readonly location: string;
-  readonly scheduleMode: "fixed" | "poll" | "edit";
+  readonly scheduleMode: "fixed" | "poll" | "edit" | "edit-fixed";
   readonly startsAt: string | null;
   readonly durationMinutes: number;
   readonly minConfirmed: number;
@@ -70,7 +70,7 @@ function localTime(iso: string): string {
 
 export function parseTownhallEvent(
   view: Record<string, unknown>,
-  scheduleMode: "fixed" | "poll" | "edit",
+  scheduleMode: "fixed" | "poll" | "edit" | "edit-fixed",
 ): TownhallEventInput | { readonly errors: Record<string, string> } {
   const values = object(object(view.state).values);
   const activity = string(object(object(values.activity).value).value).trim();
@@ -89,7 +89,7 @@ export function parseTownhallEvent(
       errors.minimum = "최소 인원을 1~100명으로 적어 주세요.";
     else minConfirmed = minimum;
   }
-  if (scheduleMode === "fixed") {
+  if (scheduleMode === "fixed" || scheduleMode === "edit-fixed") {
     const selectedDate = string(object(object(values.event_date).value).selected_date);
     const selectedTime = string(object(object(values.event_time).value).selected_time);
     const duration = Number(
@@ -112,7 +112,11 @@ export function parseTownhallEvent(
 function eventMetadata(
   context: CommunityContext,
   event?: TownhallEvent,
-  scheduleMode: "fixed" | "poll" | "edit" = event ? "edit" : "fixed",
+  scheduleMode: "fixed" | "poll" | "edit" | "edit-fixed" = event
+    ? event.finalStartAt
+      ? "edit-fixed"
+      : "edit"
+    : "fixed",
 ) {
   return JSON.stringify({
     userId: context.scope.userId,
@@ -135,6 +139,14 @@ export async function openTownhallEventModal(
     throw new InputError("Townhall에서 열어 주세요.");
   if (event && event.hostUserId !== context.scope.userId)
     throw new InputError("주최자만 이벤트를 수정할 수 있어요.");
+  const currentStart = event?.finalStartAt ? localTime(event.finalStartAt) : null;
+  const durationOptions = [60, 90, 120, 180, 240].map((minutes) => ({
+    text: {
+      type: "plain_text",
+      text: minutes % 60 ? `${Math.floor(minutes / 60)}시간 30분` : `${minutes / 60}시간`,
+    },
+    value: String(minutes),
+  }));
   await openView(context.env.SLACK_BOT_TOKEN, {
     trigger_id: triggerId,
     view: {
@@ -143,7 +155,11 @@ export async function openTownhallEventModal(
       title: { type: "plain_text", text: event ? "이벤트 수정" : "이벤트 열기" },
       submit: { type: "plain_text", text: event ? "수정하기" : "Townhall에 올리기" },
       close: { type: "plain_text", text: "닫기" },
-      private_metadata: eventMetadata(context, event, event ? "edit" : scheduleMode),
+      private_metadata: eventMetadata(
+        context,
+        event,
+        event ? (event.finalStartAt ? "edit-fixed" : "edit") : scheduleMode,
+      ),
       blocks: [
         {
           type: "input",
@@ -170,19 +186,27 @@ export async function openTownhallEventModal(
             placeholder: { type: "plain_text", text: "성수역 또는 온라인 링크" },
           },
         },
-        ...(!event && scheduleMode === "fixed"
+        ...((!event && scheduleMode === "fixed") || event?.finalStartAt
           ? [
               {
                 type: "input",
                 block_id: "event_date",
                 label: { type: "plain_text", text: "날짜" },
-                element: { type: "datepicker", action_id: "value" },
+                element: {
+                  type: "datepicker",
+                  action_id: "value",
+                  ...(currentStart ? { initial_date: currentStart.slice(0, 10) } : {}),
+                },
               },
               {
                 type: "input",
                 block_id: "event_time",
                 label: { type: "plain_text", text: "시작 시각" },
-                element: { type: "timepicker", action_id: "value", initial_time: "19:00" },
+                element: {
+                  type: "timepicker",
+                  action_id: "value",
+                  initial_time: currentStart?.slice(11, 16) ?? "19:00",
+                },
               },
               {
                 type: "input",
@@ -191,28 +215,26 @@ export async function openTownhallEventModal(
                 element: {
                   type: "static_select",
                   action_id: "value",
-                  initial_option: { text: { type: "plain_text", text: "2시간" }, value: "120" },
-                  options: [60, 90, 120, 180, 240].map((minutes) => ({
-                    text: {
-                      type: "plain_text",
-                      text:
-                        minutes % 60
-                          ? `${Math.floor(minutes / 60)}시간 30분`
-                          : `${minutes / 60}시간`,
-                    },
-                    value: String(minutes),
-                  })),
+                  initial_option:
+                    durationOptions.find(
+                      (option) => option.value === String(event?.durationMinutes ?? 120),
+                    ) ?? durationOptions[2],
+                  options: durationOptions,
                 },
               },
             ]
           : []),
-        ...(!event
+        ...(!event || event.finalStartAt
           ? [
               {
                 type: "input",
                 block_id: "minimum",
                 label: { type: "plain_text", text: "최소 인원" },
-                element: { type: "plain_text_input", action_id: "value", initial_value: "2" },
+                element: {
+                  type: "plain_text_input",
+                  action_id: "value",
+                  initial_value: String(event?.minConfirmed ?? 2),
+                },
               },
             ]
           : []),
@@ -221,7 +243,9 @@ export async function openTownhallEventModal(
           text: {
             type: "mrkdwn",
             text: event
-              ? "날짜 범위·가능 시간·최소 인원·정기 회차는 이벤트 글의 *가능 시간 선택*에서 다시 조정할 수 있어요."
+              ? event.finalStartAt
+                ? "일정을 바꾸면 Slack 카드와 종료 후 후기 요청 시각도 함께 갱신됩니다."
+                : "날짜 범위·가능 시간·최소 인원·정기 회차는 이벤트 글의 *가능한 시간 고르기*에서 다시 조정할 수 있어요."
               : scheduleMode === "poll"
                 ? "게시한 뒤 웹 달력에서 *이 시간으로 확정되면 참가할 수 있는 시간*을 받아요. 선택된 시간으로 확정되면 자동 참가 처리됩니다."
                 : "게시 즉시 참가를 받을 수 있어요. 주최자는 참가 확정 1명으로 포함됩니다.",
@@ -229,7 +253,7 @@ export async function openTownhallEventModal(
         },
       ],
     },
-  });
+  } as Json);
 }
 
 function slackDate(iso: string): string {
@@ -566,16 +590,61 @@ export async function submitTownhallEvent(
     });
     if (!current || current.hostUserId !== context.scope.userId)
       throw new InputError("주최자만 이벤트를 수정할 수 있어요.");
-    const event = await context.store.editTownhallEvent({
+    let event = await context.store.editTownhallEvent({
       teamId: context.scope.teamId,
       channelId,
       actorId: context.scope.userId,
       eventId,
       expectedRevision,
       ...input,
-      options: current.options.map((option) => option.startsAt),
+      options: input.startsAt ? [input.startsAt] : current.options.map((option) => option.startsAt),
     });
+    if (input.startsAt) {
+      await context.store.townhallEventLifecycle("configure", {
+        teamId: context.scope.teamId,
+        channelId,
+        actorId: context.scope.userId,
+        eventId,
+        eventKind: current.eventKind,
+        minConfirmed: input.minConfirmed,
+        capacity: current.capacity,
+        recruitmentDeadline: new Date(
+          Date.parse(input.startsAt) - 12 * 60 * 60 * 1000,
+        ).toISOString(),
+        graceHours: current.graceHours,
+        autoCancel: current.autoCancel,
+        now: new Date().toISOString(),
+      });
+      await context.store.townhallEventSeries("configure", {
+        teamId: context.scope.teamId,
+        channelId,
+        actorId: context.scope.userId,
+        eventId,
+        recurrenceEveryWeeks: current.series?.recurrenceEveryWeeks ?? 1,
+        occurrenceCount: current.series?.occurrenceCount ?? 4,
+        durationMinutes: input.durationMinutes,
+      });
+      await context.store.townhallEventLifecycle("finalize", {
+        teamId: context.scope.teamId,
+        channelId,
+        actorId: context.scope.userId,
+        eventId,
+        startsAt: input.startsAt,
+        now: new Date().toISOString(),
+      });
+      event =
+        (await context.store.townhallEventSeries("finalize", {
+          teamId: context.scope.teamId,
+          channelId,
+          actorId: context.scope.userId,
+          eventId,
+        })) ?? event;
+    }
     await updateEventMessage(context, event);
+    if (input.startsAt) {
+      await postEventThreadStatus(context.env, event, "일정이 변경됐어요.");
+      await scheduleEventReviewPrompt(context.env, context.store, event, context.scope.userId);
+    }
     await notice(context, "활동과 장소를 수정했어요. 시간표와 참여 응답은 그대로 유지했어요.");
     return;
   }
