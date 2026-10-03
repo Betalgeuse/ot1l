@@ -1,3 +1,4 @@
+import { eventDemandButton, refreshEventDemand } from "./community-event-demands";
 import { eventScheduleToken } from "./community-event-link";
 import { escapeSlackText } from "./community-messages";
 import { type CommunityContext, ephemeral } from "./community-runtime";
@@ -15,6 +16,11 @@ export type TownhallEventInput = {
   readonly durationMinutes: number;
   readonly minConfirmed: number;
   readonly capacity: number | null;
+};
+export type EventDemandPrefill = {
+  readonly demandId: string;
+  readonly activity: string;
+  readonly location: string;
 };
 
 function button(label: string, actionId: string, ownerId: string, eventId: string): Json {
@@ -64,7 +70,15 @@ export function townhallEventLauncher(): Json {
         type: "section",
         text: { type: "mrkdwn", text: `*같이할 이벤트가 있나요?*\n${text}` },
       },
-      { type: "actions", elements: [townhallEventButton(), townhallPollButton()] },
+      {
+        type: "actions",
+        elements: [
+          townhallEventButton(),
+          townhallPollButton(),
+          eventDemandButton("validate"),
+          eventDemandButton("host_request"),
+        ],
+      },
     ],
   };
 }
@@ -133,6 +147,7 @@ function eventMetadata(
       ? "edit-fixed"
       : "edit"
     : "fixed",
+  demand?: EventDemandPrefill,
 ) {
   return JSON.stringify({
     userId: context.scope.userId,
@@ -141,6 +156,7 @@ function eventMetadata(
     source: context.source,
     date: context.date,
     scheduleMode,
+    ...(demand ? { demandId: demand.demandId } : {}),
     ...(event ? { eventId: event.eventId, expectedRevision: event.revision } : {}),
   });
 }
@@ -150,6 +166,7 @@ export async function openTownhallEventModal(
   triggerId: string,
   event?: TownhallEvent,
   scheduleMode: "fixed" | "poll" = "fixed",
+  demand?: EventDemandPrefill,
 ): Promise<void> {
   if (context.scope.channelId !== context.env.COMMUNITY_RELEASE_CHANNEL_ID)
     throw new InputError("Townhall에서 열어 주세요.");
@@ -175,6 +192,7 @@ export async function openTownhallEventModal(
         context,
         event,
         event ? (event.finalStartAt ? "edit-fixed" : "edit") : scheduleMode,
+        demand,
       ),
       blocks: [
         {
@@ -186,7 +204,11 @@ export async function openTownhallEventModal(
             action_id: "value",
             multiline: true,
             max_length: 500,
-            ...(event ? { initial_value: event.activity } : {}),
+            ...(event
+              ? { initial_value: event.activity }
+              : demand?.activity
+                ? { initial_value: demand.activity }
+                : {}),
             placeholder: { type: "plain_text", text: "함께 산책하고 커피 마셔요." },
           },
         },
@@ -198,7 +220,11 @@ export async function openTownhallEventModal(
             type: "plain_text_input",
             action_id: "value",
             max_length: 120,
-            ...(event ? { initial_value: event.location } : {}),
+            ...(event
+              ? { initial_value: event.location }
+              : demand?.location
+                ? { initial_value: demand.location }
+                : {}),
             placeholder: { type: "plain_text", text: "성수역 또는 온라인 링크" },
           },
         },
@@ -686,6 +712,15 @@ export async function submitTownhallEvent(
     if (prepared.event.status === "active") await updateEventMessage(context, prepared.event);
     return;
   }
+  const demandId = metadata.demandId === undefined ? null : string(metadata.demandId);
+  if (demandId)
+    await context.store.townhallEventDemand("link_event", {
+      teamId: context.scope.teamId,
+      channelId,
+      actorId: context.scope.userId,
+      demandId,
+      eventId: viewId,
+    });
   let createdMessageTs: string | null = null;
   try {
     const sent = await callSlack(context.env.SLACK_BOT_TOKEN, "chat.postMessage", {
@@ -756,6 +791,7 @@ export async function submitTownhallEvent(
       await scheduleEventReviewPrompt(context.env, context.store, event, context.scope.userId);
     createdMessageTs = null;
     await notice(context, "Townhall에 이벤트를 올렸어요.");
+    if (demandId) await refreshEventDemand(context, demandId);
   } catch (error) {
     if (createdMessageTs)
       try {

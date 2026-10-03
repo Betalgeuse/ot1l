@@ -119,6 +119,12 @@ export function actionIdentity(data: Record<string, unknown>, env: CommunityEnv,
     "community_event_availability_submit",
     "community_event_edit",
     "community_event_rsvp",
+    "community_event_demand_open",
+    "community_event_host_request_open",
+    "community_event_demand_submit",
+    "community_event_demand_host",
+    "community_event_demand_edit",
+    "community_event_demand_close",
   ].includes(actionId);
   const maintainerAction = [
     "community_maintainer_activate",

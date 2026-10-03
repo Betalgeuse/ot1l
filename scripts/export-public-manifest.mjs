@@ -102,6 +102,7 @@ export const PUBLIC_RUNTIME_MIGRATION_PATHS = [
   "migrations/077_superseding_delivery_resolution.sql",
   "migrations/078_idempotent_maintainer_activation.sql",
   "migrations/079_self_service_chapters.sql",
+  "migrations/080_event_demands.sql",
 ];
 
 // `src` and `site` are copied as directories, but these paths keep the membership
@@ -153,6 +154,8 @@ export const PUBLIC_QA_NAMES = [
   "community-maintainers.mjs",
   "community-chapters.mjs",
   "community-chapters-pg.mjs",
+  "community-event-demands.mjs",
+  "community-event-demands-pg.mjs",
   "community-clock.mjs",
   "community-emoji.mjs",
   "community-followup.mjs",

@@ -2,6 +2,7 @@ import { handleBugView } from "./community-bug-interactions";
 import { createCommunityChapter, parseCommunityChapter } from "./community-chapters";
 import { armCommunityClock } from "./community-clock";
 import { readSettings } from "./community-controls";
+import { parseEventDemand, submitEventDemand } from "./community-event-demands";
 import { parseIntroduction, submitIntroduction } from "./community-introduction";
 import { escapeSlackText } from "./community-messages";
 import { submitCommunityPalette } from "./community-palette";
@@ -57,6 +58,18 @@ export async function handleCommunityView(input: ViewInteraction): Promise<Respo
       return Response.json({ response_action: "errors", errors: parsed.errors });
     input.waitUntil(
       submitTownhallEvent(input.context, string(input.view.id), parsed, input.metadata),
+    );
+    return Response.json({ response_action: "clear" });
+  }
+  if (input.id === "community_event_demand_submit") {
+    const mode = string(input.metadata.mode) as "validate" | "host_request";
+    if (!["validate", "host_request"].includes(mode))
+      throw new InputError("수요 방식을 확인할 수 없어요.");
+    const parsed = parseEventDemand(input.view, mode);
+    if ("errors" in parsed)
+      return Response.json({ response_action: "errors", errors: parsed.errors });
+    input.waitUntil(
+      submitEventDemand(input.context, string(input.view.id), parsed, input.metadata),
     );
     return Response.json({ response_action: "clear" });
   }

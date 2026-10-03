@@ -169,6 +169,8 @@ try {
   assert.deepEqual(launcher.blocks[1].elements.map((item) => item.action_id), [
     "community_event_open_fixed",
     "community_event_open_poll",
+    "community_event_demand_open",
+    "community_event_host_request_open",
   ]);
   const open = action("community_event_open_poll", "UMEMBER", {
     ownerId: "actor",

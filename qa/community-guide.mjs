@@ -110,7 +110,9 @@ globalThis.fetch = async (url, options) => {
 };
 
 const inspected = await inspectWelcomeGuideSource(env);
-assert.equal(inspected.version, "v0.0.75");
+assert.equal(inspected.version, "v0.0.76");
+assert.match(inspected.body, /수요 먼저 확인하기/);
+assert.match(inspected.body, /내가 주최할래요/);
 assert.match(inspected.body, /최소 성사 인원.*최대 인원.*무제한/);
 assert.equal(inspected.origin, "repo");
 assert.deepEqual(inspected.orderedFileIds, ["FLOGO1", "FDAILY2"]);

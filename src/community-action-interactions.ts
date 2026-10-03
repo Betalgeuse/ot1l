@@ -2,6 +2,12 @@ import type { parseBugAnswerActionId } from "./community-bug-actions";
 import { handleBugAction } from "./community-bug-interactions";
 import { openCommunityChapterModal } from "./community-chapters";
 import { openSettings, openShoutout } from "./community-controls";
+import {
+  closeEventDemand,
+  getEventDemand,
+  openDemandHostingModal,
+  openEventDemandModal,
+} from "./community-event-demands";
 import { introductionModal } from "./community-introduction";
 import { showIntroductionDirectory } from "./community-introduction-channel";
 import { activateMaintainer, deactivateMaintainer } from "./community-maintainers";
@@ -91,6 +97,32 @@ export async function handleCommunityAction(input: ActionInteraction): Promise<R
       undefined,
       input.id === "community_event_open_poll" ? "poll" : "fixed",
     );
+    return new Response(null, { status: 200 });
+  }
+  if (
+    input.id === "community_event_demand_open" ||
+    input.id === "community_event_host_request_open"
+  ) {
+    await openEventDemandModal(
+      context,
+      string(input.data.trigger_id),
+      input.id === "community_event_demand_open" ? "validate" : "host_request",
+    );
+    return new Response(null, { status: 200 });
+  }
+  if (
+    [
+      "community_event_demand_host",
+      "community_event_demand_edit",
+      "community_event_demand_close",
+    ].includes(input.id)
+  ) {
+    const demand = await getEventDemand(context, key);
+    if (input.id === "community_event_demand_host")
+      await openDemandHostingModal(context, string(input.data.trigger_id), demand);
+    else if (input.id === "community_event_demand_edit")
+      await openEventDemandModal(context, string(input.data.trigger_id), demand.mode, demand);
+    else input.waitUntil(closeEventDemand(context, key));
     return new Response(null, { status: 200 });
   }
   if (input.id === "community_maintainer_activate") {
