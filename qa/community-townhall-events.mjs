@@ -305,6 +305,38 @@ try {
   assert.match(scheduledReview.body.text, /<@UMEMBER>님.*짧은 후기/);
   assert.doesNotMatch(scheduledReview.body.text, /인증/);
 
+  calls.length = 0;
+  await communityInteraction(
+    action("community_event_edit", "UMEMBER", {
+      ownerId: "UMEMBER",
+      key: "VFIXED",
+      eventId: "VFIXED",
+    }),
+    env,
+    () => {},
+  );
+  const fixedEditModal = calls.find((call) => call.method === "views.open").body.view;
+  assert.deepEqual(
+    fixedEditModal.blocks.filter((block) => block.type === "input").map((block) => block.block_id),
+    ["activity", "location", "event_date", "event_time", "duration", "minimum"],
+  );
+  assert.equal(fixedEditModal.blocks.find((block) => block.block_id === "event_date").element.initial_date, "2026-10-10");
+  assert.equal(fixedEditModal.blocks.find((block) => block.block_id === "event_time").element.initial_time, "19:00");
+  const fixedEditPending = [];
+  const fixedEditSubmit = submission("VFIXED-EDIT", "community_event_submit", fixedEditModal.private_metadata, {
+    activity: { value: { value: "정해진 저녁 모임" } },
+    location: { value: { value: "서울숲" } },
+    event_date: { value: { selected_date: "2026-10-11" } },
+    event_time: { value: { selected_time: "18:00" } },
+    duration: { value: { selected_option: { value: "90" } } },
+    minimum: { value: { value: "4" } },
+  });
+  await communityInteraction(fixedEditSubmit, env, (promise) => fixedEditPending.push(promise));
+  await Promise.all(fixedEditPending);
+  const changedFixed = calls.filter((call) => call.method === "chat.update").at(-1).body.text;
+  assert.match(changedFixed, /참가 확정 1\/4명/);
+  assert.match(changedFixed, /2026-10-11 18:00 KST/);
+
   console.log(
     "PASS townhall event: fixed events stay in Slack, polls use one web commitment, and edits preserve state",
   );
