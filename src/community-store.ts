@@ -159,6 +159,16 @@ function townhallEvent(value: Json): TownhallEvent | null {
     goingCount: integer(input.goingCount, "going count"),
     waitlistCount: integer(input.waitlistCount, "waitlist count"),
     viewerState: viewerState as TownhallEvent["viewerState"],
+    participants:
+      input.participants === undefined
+        ? []
+        : list(input.participants).map((value) => {
+            const participant = object(value);
+            const state = string(participant.state);
+            if (state !== "going" && state !== "waitlist")
+              throw new InputError("Invalid event participant");
+            return { userId: string(participant.userId), state };
+          }),
     poll:
       input.poll === null
         ? null

@@ -29,9 +29,10 @@ const eventView = (event, actorId) => ({
   cancelledAt: null,
   cancellationReason: null,
   interestCount: 0,
-  goingCount: 0,
+  goingCount: 1,
   waitlistCount: 0,
   viewerState: null,
+  participants: [{ userId: event.hostUserId, state: "going" }],
 });
 mock.module("../src/community-store.ts", () => ({
   CommunityStore: class {
@@ -277,11 +278,16 @@ try {
   await Promise.all(fixedPending);
   const fixedUpdate = calls.filter((call) => call.method === "chat.update").at(-1).body;
   assert.match(fixedUpdate.text, /최종 일정:/);
-  assert.match(fixedUpdate.text, /참가 확정 0\/3명/);
+  assert.match(fixedUpdate.text, /참가 확정 1\/3명/);
   assert.deepEqual(
     fixedUpdate.blocks[1].elements.map((item) => item.action_id),
     ["community_event_rsvp", "community_event_edit"],
   );
+  const fixedThread = calls.find(
+    (call) => call.method === "chat.postMessage" && call.body.thread_ts === "200.000001",
+  );
+  assert.match(fixedThread.body.text, /현재 참가자 1명.*<@UMEMBER>/s);
+  assert.match(fixedThread.body.text, /인증 사진이나 짧은 후기/);
 
   console.log(
     "PASS townhall event: fixed events stay in Slack, polls use one web commitment, and edits preserve state",

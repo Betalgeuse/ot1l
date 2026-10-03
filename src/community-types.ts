@@ -185,6 +185,10 @@ export type TownhallEvent = {
   readonly goingCount: number;
   readonly waitlistCount: number;
   readonly viewerState: "interested" | "going" | "waitlist" | "declined" | null;
+  readonly participants: readonly {
+    readonly userId: string;
+    readonly state: "going" | "waitlist";
+  }[];
 };
 export type CommunityMaintainer = {
   readonly teamId: string;
