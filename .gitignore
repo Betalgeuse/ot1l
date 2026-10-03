@@ -21,3 +21,7 @@ qa/*.json
 !qa/bug-dialogue-cases.json
 
 .public-export
+
+# Local provider diagnostics and encrypted bug working artifacts.
+error.log
+bugs/
