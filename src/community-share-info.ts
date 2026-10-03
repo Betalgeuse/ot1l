@@ -1,3 +1,4 @@
+import { chapterCreateButton } from "./community-chapters";
 import { randomCustomEmoji } from "./community-emoji";
 import { type CommunityContext, type CommunityEnv, post } from "./community-runtime";
 import { addReactions } from "./community-social";
@@ -12,11 +13,10 @@ type ShareInfoResult = {
   readonly thought: string;
 };
 
-function validMessage(event: Record<string, unknown>, channelIds: ReadonlySet<string>): boolean {
+function validMessage(event: Record<string, unknown>): boolean {
   return (
     event.type === "message" &&
     typeof event.channel === "string" &&
-    channelIds.has(event.channel) &&
     event.bot_id === undefined &&
     event.subtype === undefined &&
     event.edit_ts === undefined &&
@@ -101,8 +101,13 @@ export async function handleShareInfoMessage(
   context: CommunityContext,
 ): Promise<boolean> {
   const channelIds = new Set(shareInfoChannelIds(context.env));
-  if (!validMessage(event, channelIds)) return false;
+  if (!validMessage(event)) return false;
   const channelId = string(event.channel);
+  if (
+    !channelIds.has(channelId) &&
+    !(await context.store.communityChapterActive(context.scope.teamId, channelId))
+  )
+    return false;
   const text = string(event.text).trim();
   if (!text || text.length > MAX_TEXT) return true;
   const source = string(event.ts);
@@ -133,9 +138,16 @@ export async function handleShareInfoMessage(
         }),
       );
     }
+    const summaryText = `한 줄 요약: ${result.summary}\n생각거리: ${result.thought}`;
     await post(
       { ...context, scope, source, thread, key },
-      { text: `한 줄 요약: ${result.summary}\n생각거리: ${result.thought}` },
+      {
+        text: summaryText,
+        blocks: [
+          { type: "section", text: { type: "mrkdwn", text: summaryText } },
+          { type: "actions", elements: [chapterCreateButton()] },
+        ],
+      },
     );
     await store.putRecord({
       ...scope,

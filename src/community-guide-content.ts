@@ -23,6 +23,12 @@ type GuideChannelEnv = Pick<
   | "COMMUNITY_GUIDE_CHAPTER_CHANNEL_IDS"
 >;
 
+export type GuideChapter = {
+  readonly channelId: string;
+  readonly title: string;
+  readonly description: string;
+};
+
 const GUIDE_CHANNEL_LABELS = [
   "daily-scrum",
   "all-freetalk-qna-feedback",
@@ -33,10 +39,14 @@ const GUIDE_CHANNEL_LABELS = [
   "maintainers-welcome",
   "chapter-developers",
   "chapter-english",
-  "chapter-investment",
+  "chapter-scientist",
 ] as const;
 
-export function renderGuideChannels(body: string, env: GuideChannelEnv): string {
+export function renderGuideChannels(
+  body: string,
+  env: GuideChannelEnv,
+  dynamicChapters: readonly GuideChapter[] = [],
+): string {
   const channelIds = [
     env.COMMUNITY_PUBLIC_CHANNEL_ID,
     env.COMMUNITY_FEEDBACK_CHANNEL_ID,
@@ -60,7 +70,7 @@ export function renderGuideChannels(body: string, env: GuideChannelEnv): string 
   );
   const seen = new Set<string>();
   const rendered = body.replace(
-    /^([ \t]*(?:▪︎|◦)[ \t]*(?:Slack 사용이 어려우면 )?)#(daily-scrum|all-freetalk-qna-feedback|townhall|maintainers|maintainers-events|maintainers-website|maintainers-welcome|chapter-developers|chapter-english|chapter-investment)(?=[:에])/gm,
+    /^([ \t]*(?:▪︎|◦)[ \t]*(?:Slack 사용이 어려우면 )?)#(daily-scrum|all-freetalk-qna-feedback|townhall|maintainers|maintainers-events|maintainers-website|maintainers-welcome|chapter-developers|chapter-english|chapter-scientist)(?=[:에])/gm,
     (_match, prefix: string, label: string) => {
       const id = channels.get(label);
       if (!id) throw new InputError("환영 안내 채널 설정을 확인해 주세요.");
@@ -70,7 +80,30 @@ export function renderGuideChannels(body: string, env: GuideChannelEnv): string 
   );
   if (seen.size !== GUIDE_CHANNEL_LABELS.length)
     throw new InputError("환영 안내 채널 표기를 확인해 주세요.");
-  return rendered;
+  const marker = "{{COMMUNITY_DYNAMIC_CHAPTERS}}";
+  if ((rendered.match(/\{\{COMMUNITY_DYNAMIC_CHAPTERS\}\}/g)?.length ?? 0) !== 1)
+    throw new InputError("환영 안내 Chapter 목록 위치를 확인해 주세요.");
+  const dynamic = dynamicChapters
+    .filter(
+      (chapter, index, values) =>
+        /^C[A-Z0-9]+$/.test(chapter.channelId) &&
+        chapter.title.trim() !== "" &&
+        chapter.description.trim() !== "" &&
+        values.findIndex((value) => value.channelId === chapter.channelId) === index,
+    )
+    .sort((left, right) => left.title.localeCompare(right.title, "ko"))
+    .map((chapter) => {
+      const description = chapter.description
+        .replace(/[\r\n]+/g, " ")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replace(/[*_`~]/g, "")
+        .trim();
+      return `    ▪︎ <#${chapter.channelId}>: ${description}`;
+    })
+    .join("\n");
+  return rendered.replace(marker, dynamic);
 }
 
 export function parseGuideFileIds(value: string | undefined): readonly [string, string] {

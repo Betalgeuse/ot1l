@@ -15,6 +15,7 @@ let historyReads = 0;
 mock.module("../src/store.ts", () => ({
   NeonStore: class {
     async queryJson(_sql, params) {
+      if (_sql.includes("community_chapter_list")) return [];
       const op = params[0];
       const payload = JSON.parse(params[1]);
       if (op === "publish") {
@@ -70,7 +71,7 @@ const env = {
   COMMUNITY_RELEASE_CHANNEL_ID: "CTOWNHALL1",
   COMMUNITY_MAINTAINERS_CHANNEL_ID: "CMAINTAIN01",
   COMMUNITY_MAINTAINER_WORKSTREAM_CHANNEL_IDS: "CMAINEVENT1,CMAINWEB01,CMAINWELCOME1",
-  COMMUNITY_GUIDE_CHAPTER_CHANNEL_IDS: "CDEVELOP01,CENGLISH01,CINVEST001",
+  COMMUNITY_GUIDE_CHAPTER_CHANNEL_IDS: "CDEVELOP01,CENGLISH01,CSCIENT01",
 };
 
 globalThis.fetch = async (url, options) => {
@@ -109,7 +110,7 @@ globalThis.fetch = async (url, options) => {
 };
 
 const inspected = await inspectWelcomeGuideSource(env);
-assert.equal(inspected.version, "v0.0.73");
+assert.equal(inspected.version, "v0.0.74");
 assert.equal(inspected.origin, "repo");
 assert.deepEqual(inspected.orderedFileIds, ["FLOGO1", "FDAILY2"]);
 assert.match(inspected.body, /친구 초대하기 버튼/);
@@ -121,6 +122,9 @@ assert.match(inspected.body, /자동 취소·보관/);
 assert.match(inspected.body, /Maintainer 되기/);
 assert.match(inspected.body, /Deployment Broker/);
 assert.match(inspected.body, /공개 GitHub 저장소.*fork/);
+assert.match(inspected.body, /나도 관심주제 채널 만들기/);
+assert.match(inspected.body, /#chapter-scientist/);
+assert.doesNotMatch(inspected.body, /chapter-investment|chapter-trader/);
 assert.equal(
   (await executeWelcomeGuideCommand({ kind: "publish", apply: false }, env)).applied,
   false,

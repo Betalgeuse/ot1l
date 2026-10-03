@@ -77,7 +77,7 @@ ONE THING의 날짜 경계는 오전 2시입니다. 00:00~01:59의 회원 입력
 
 Slack Events API가 전달한 최상위 사람 메시지는 먼저 `share-info:<message_ts>` 영수증을 DB에 만들고 claim한 뒤 리액션, 감사 답글, Qwen 한 줄 요약과 생각거리를 같은 스레드에 게시합니다. Qwen이 실패하면 원문 기반 대체 문구로 끝까지 게시합니다. 같은 영수증은 중복 효과를 만들지 않습니다.
 
-이벤트 누락에 대비해 Cron이 15분마다 최근 20분의 Share Info·Chapter 최상위 글을 다시 읽어 같은 처리기를 호출합니다. `conversations.history` 응답의 메시지에는 `channel`이 없으므로 재수집기가 현재 순회 중인 채널 ID를 이벤트에 명시적으로 붙인 뒤 처리해야 합니다. 합성 QA도 실제 Slack 응답처럼 메시지의 `channel` 필드를 생략합니다. 운영 확인 순서는 `community.share_info.reconcile`의 처리 수, `community_records`의 `share-info:<message_ts>` 상태, 원글 리액션, 감사 답글, 요약·생각거리 답글입니다.
+이벤트 누락에 대비해 Cron이 15분마다 최근 20분의 Share Info·고정 Chapter·회원 생성 Chapter 최상위 글을 다시 읽어 같은 처리기를 호출합니다. 같은 주기로 활성 Chapter의 Townhall 공지와 welcome Canvas 동기화 영수증도 확인해 누락된 효과를 보충합니다. `conversations.history` 응답의 메시지에는 `channel`이 없으므로 재수집기가 현재 순회 중인 채널 ID를 이벤트에 명시적으로 붙인 뒤 처리해야 합니다. 합성 QA도 실제 Slack 응답처럼 메시지의 `channel` 필드를 생략합니다. 운영 확인 순서는 `community.share_info.reconcile`의 처리 수, `community_records`의 `share-info:<message_ts>` 상태, 원글 리액션, 감사 답글, 요약·생각거리·Chapter 생성 버튼입니다.
 
 2026-09-18 기준 v0.0.55 수정본의 **지정 회원 대상 복구**는 Slack Web에서 봇 작성자·본문·이미지 순서까지 확인했습니다. 배포 뒤 실제 신규 회원의 자연스러운 채널 입장 이벤트부터 최종 게시까지는 아직 관찰하지 않았으므로, 다음 입장에서 정확히 한 건의 봇 게시를 별도 확인해야 합니다.
 

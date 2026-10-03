@@ -685,6 +685,10 @@ globalThis.fetch = async (url, options) => {
     }
     if (query.includes("bug_admin_queue"))
       return Response.json({ rows: [[JSON.stringify({ accepted: true, state: "queued" })]] });
+    if (query.includes("community_chapter_execute"))
+      return Response.json({ rows: [["false"]] });
+    if (query.includes("community_chapter_list"))
+      return Response.json({ rows: [["[]"]] });
     throw new Error(`unexpected SQL: ${query}`);
   }
   if (forcedSlackError && target.includes(`slack.com/api/${forcedSlackPath}`))

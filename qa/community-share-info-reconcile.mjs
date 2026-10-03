@@ -3,6 +3,12 @@ import { reconcileShareInfoChannels } from "../src/community-share-info-reconcil
 
 const records = new Map();
 const store = {
+  async listCommunityChapters() {
+    return [{ channelId: "CDYNAMIC" }];
+  },
+  async communityChapterActive(_teamId, channelId) {
+    return channelId === "CDYNAMIC";
+  },
   async putRecord(input) {
     const scopedKey = `${input.channelId}:${input.key}`;
     const prior = records.get(scopedKey);
@@ -40,7 +46,7 @@ globalThis.fetch = async (url, options = {}) => {
         {
           type: "message",
           user: "UQA",
-          ts: payload.channel === "CSHARE" ? "100.1" : "200.1",
+          ts: payload.channel === "CSHARE" ? "100.1" : payload.channel === "CSCI" ? "200.1" : "250.1",
           text: "놓친 정보 공유 글",
         },
         {
@@ -79,14 +85,14 @@ try {
       },
     },
   };
-  assert.equal(await reconcileShareInfoChannels(env, Date.parse("2026-09-22T07:30:00Z"), store), 2);
-  assert.equal(calls.filter((call) => call.method === "conversations.history").length, 2);
-  assert.equal(calls.filter((call) => call.method === "reactions.add").length, 2);
-  assert.equal(calls.filter((call) => call.method === "chat.postMessage").length, 4);
-  assert.equal(await reconcileShareInfoChannels(env, Date.parse("2026-09-22T07:45:00Z"), store), 2);
+  assert.equal(await reconcileShareInfoChannels(env, Date.parse("2026-09-22T07:30:00Z"), store), 3);
+  assert.equal(calls.filter((call) => call.method === "conversations.history").length, 3);
+  assert.equal(calls.filter((call) => call.method === "reactions.add").length, 3);
+  assert.equal(calls.filter((call) => call.method === "chat.postMessage").length, 6);
+  assert.equal(await reconcileShareInfoChannels(env, Date.parse("2026-09-22T07:45:00Z"), store), 3);
   assert.equal(
     calls.filter((call) => call.method === "chat.postMessage").length,
-    4,
+    6,
     "reconciliation is idempotent",
   );
   console.log(

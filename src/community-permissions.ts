@@ -70,6 +70,8 @@ const memberActions = new Set([
   "community_event_submit",
   "community_maintainer_activate",
   "community_maintainer_deactivate",
+  "community_chapter_open",
+  "community_chapter_submit",
   "community_bug_open",
   "community_bug_submit",
   "community_bug_confirm",

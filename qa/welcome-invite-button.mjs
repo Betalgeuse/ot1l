@@ -43,16 +43,26 @@ const channelEnv = {
   COMMUNITY_RELEASE_CHANNEL_ID: "CTOWNHALL1",
   COMMUNITY_MAINTAINERS_CHANNEL_ID: "CMAINTAIN01",
   COMMUNITY_MAINTAINER_WORKSTREAM_CHANNEL_IDS: "CMAINEVENT1,CMAINWEB01,CMAINWELCOME1",
-  COMMUNITY_GUIDE_CHAPTER_CHANNEL_IDS: "CDEVELOP01,CENGLISH01,CINVEST001",
+  COMMUNITY_GUIDE_CHAPTER_CHANNEL_IDS: "CDEVELOP01,CENGLISH01,CSCIENT01",
 };
 const rendered = renderGuideChannels(WELCOME_GUIDE_RELEASE.body, channelEnv);
-const expectedIds = ["CPUBLIC001", "CFEEDBACK1", "CTOWNHALL1", "CMAINTAIN01", "CMAINEVENT1", "CMAINWEB01", "CMAINWELCOME1", "CDEVELOP01", "CENGLISH01", "CINVEST001"];
+const expectedIds = ["CPUBLIC001", "CFEEDBACK1", "CTOWNHALL1", "CMAINTAIN01", "CMAINEVENT1", "CMAINWEB01", "CMAINWELCOME1", "CDEVELOP01", "CENGLISH01", "CSCIENT01"];
 assert.equal((WELCOME_GUIDE_RELEASE.body.match(/<#[CG]/g) ?? []).length, 0);
 for (const id of expectedIds) assert.ok(rendered.includes(`<#${id}>`));
 assert.equal((rendered.match(/<#[CG]/g) ?? []).length, 12);
 assert.equal(rendered.includes("#chapter-developers"), false);
 assert.equal(rendered.includes("#chapter-english"), false);
-assert.equal(rendered.includes("#chapter-investment"), false);
+assert.equal(rendered.includes("#chapter-scientist"), false);
+assert.equal(rendered.includes("{{COMMUNITY_DYNAMIC_CHAPTERS}}"), false);
+const withDynamic = renderGuideChannels(WELCOME_GUIDE_RELEASE.body, channelEnv, [
+  {
+    channelId: "CNEWTOPIC1",
+    title: "새 연구",
+    description: "새로운 <연구>와 *실험*을 나눠요.",
+  },
+]);
+assert.match(withDynamic, /<#CNEWTOPIC1>/);
+assert.match(withDynamic, /새로운 &lt;연구&gt;와 실험을 나눠요[.]/);
 const unrelated = "https://example.com/#daily-scrum: and #chapter-english in prose";
 assert.ok(renderGuideChannels(`${WELCOME_GUIDE_RELEASE.body}\n${unrelated}`, channelEnv).endsWith(unrelated));
 const renderedBlocks = guideBlocks("UNEW", guide, rendered);
@@ -64,7 +74,7 @@ const longBlocks = guideBlocks("UNEW", guide, `${filler}${rendered}`)
   .filter((block) => block.type === "section").map((block) => block.text.text);
 assert.equal(longBlocks.join(""), `<@UNEW> 어서 오세요!!! 처음 오셨다면 이 안내부터 함께 읽어주세요.\n\n${filler}${rendered}`);
 assert.ok(longBlocks.every((text) => text.length <= 2900 && !/<#[^>]*$/.test(text)));
-for (const bad of [undefined, "", "CDEVELOP01,CENGLISH01", "CDEVELOP01,CENGLISH01,CENGLISH01", "FINVALID01,CENGLISH01,CINVEST001"])
+for (const bad of [undefined, "", "CDEVELOP01,CENGLISH01", "CDEVELOP01,CENGLISH01,CENGLISH01", "FINVALID01,CENGLISH01,CSCIENT01"])
   assert.throws(() => renderGuideChannels(WELCOME_GUIDE_RELEASE.body, { ...channelEnv, COMMUNITY_GUIDE_CHAPTER_CHANNEL_IDS: bad }), /안내 채널/);
 assert.throws(() => renderGuideChannels(WELCOME_GUIDE_RELEASE.body, { ...channelEnv, COMMUNITY_RELEASE_CHANNEL_ID: "CFEEDBACK1" }), /안내 채널/);
 const inviteAction = blocks

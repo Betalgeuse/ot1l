@@ -69,6 +69,8 @@ psql -X --single-transaction -v ON_ERROR_STOP=1 -f migrations/028_welcome_guide_
 
 GenQuant 자동 개선 실행기를 활성화하려면 048 뒤에 `049_bug_runner_handoff.sql`부터 `064_verified_operator_recovery.sql`까지 번호 순서대로 적용합니다. 063은 수정 결과 검증이 실패하면 새 Codex 작업으로 최대 세 번 재시도하고, 마지막 실패는 `fix_failed`와 Slack 알림으로 끝내 접수 스레드가 `fixing`에 멈추지 않게 합니다. 064는 자동 경로가 이미 소진된 뒤 운영자가 같은 변경을 main 병합·배포·검증한 경우에만 감사 근거와 Slack 완료 알림을 묶어 `resolved`로 복구합니다. DB 소유자 연결은 migration과 `bootstrap-bug-runner-db-role.mjs`에서만 사용합니다. 부트스트랩은 무작위 비밀번호의 `otl_bug_runner_login`을 만들고, 완성된 URL을 `BUG_RUNNER_SECRET_SINK`의 표준입력으로만 전달합니다. URL을 명령 인자·로그·Git에 쓰지 않습니다. 실행기 로그인은 runner 함수만 호출할 수 있고 bug·member·agent table을 직접 읽을 수 없습니다.
 
+회원 생성 Chapter를 열려면 078 뒤에 `079_self_service_chapters.sql`을 적용하고 Slack 앱에 `channels:manage`를 추가한 뒤 다시 설치합니다. 이 scope는 공개 `chapter-*` 생성·설명 설정·보관에만 사용합니다. 운영 채널 ID를 코드나 공개 config에 새로 박지 않습니다. 활성 동적 Chapter는 DB registry로 인식하고 15분 reconciliation에 자동 포함합니다.
+
 `ops/genquant/otl1-bug-runner.service`를 설치하기 전에 `runner.env.example`을 사용자 전용 `~/.config/otl1-bug-runner/env`로 옮기고 mode 0600을 확인합니다. `BUG_RUNNER_ROOT`도 실행 사용자만 접근 가능한 디렉터리여야 합니다. 서비스는 Cloudflare나 Slack의 inbound 포트를 열지 않으며 Neon과 Codex Cloud로 outbound 요청만 보냅니다. 최초 운영 검증은 확정된 비공개 QA bug 하나로 실행하고, `task_started`와 `task_ready`가 같은 feedback 스레드에 한 번씩 돌아오는지 확인합니다.
 
 Migration 028 뒤에는 DB 소유자 연결로 [환영 안내 DB 권한 부트스트랩](GUIDE_DATABASE_SECURITY.md)을 한 번 실행해 `GUIDE_DATABASE_URL`과 `GUIDE_ADMIN_DATABASE_URL`을 서로 다른 로그인으로 발급합니다. 소유자 연결은 migration과 부트스트랩에만 쓰고 Worker에는 넣지 않습니다. Worker에는 런타임 자격증명만, 발행 CLI를 실행하는 로컬 비밀 저장소에는 관리자 자격증명만 둡니다.

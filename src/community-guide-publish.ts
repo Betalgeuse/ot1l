@@ -6,6 +6,7 @@ import {
 import { WELCOME_GUIDE_RELEASE } from "./community-guide-release";
 import { syncWelcomeGuideSurface } from "./community-guide-surface";
 import type { CommunityEnv } from "./community-runtime";
+import { CommunityStore } from "./community-store";
 import { InputError, string } from "./input";
 import { NeonStore } from "./store";
 
@@ -87,10 +88,34 @@ async function storePublishedGuide(
   );
 }
 
+async function renderedGuideBody(
+  env: WelcomeGuideAdminEnv,
+  guide: WelcomeGuideRelease,
+): Promise<string> {
+  const chapters = await new CommunityStore(
+    new NeonStore(env.GUIDE_ADMIN_DATABASE_URL),
+  ).listCommunityChapters(env.SLACK_TEAM_ID);
+  return renderGuideChannels(
+    guide.body,
+    env,
+    chapters.flatMap((chapter) =>
+      chapter.channelId
+        ? [
+            {
+              channelId: chapter.channelId,
+              title: chapter.title,
+              description: chapter.description,
+            },
+          ]
+        : [],
+    ),
+  );
+}
+
 export async function publishWelcomeGuide(env: WelcomeGuideAdminEnv): Promise<string> {
   const guide = await inspectWelcomeGuideSource(env);
   const hash = await storePublishedGuide(env, guide);
-  await syncWelcomeGuideSurface(guide, renderGuideChannels(guide.body, env), env);
+  await syncWelcomeGuideSurface(guide, await renderedGuideBody(env, guide), env);
   return hash;
 }
 
@@ -101,7 +126,7 @@ export async function executeWelcomeGuideCommand(
   const guide = await inspectWelcomeGuideSource(env);
   if (command.apply) {
     await storePublishedGuide(env, guide);
-    await syncWelcomeGuideSurface(guide, renderGuideChannels(guide.body, env), env);
+    await syncWelcomeGuideSurface(guide, await renderedGuideBody(env, guide), env);
   }
   return { applied: command.apply, version: guide.version, contentHash: guide.hash };
 }

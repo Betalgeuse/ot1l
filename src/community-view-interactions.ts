@@ -1,4 +1,5 @@
 import { handleBugView } from "./community-bug-interactions";
+import { createCommunityChapter, parseCommunityChapter } from "./community-chapters";
 import { armCommunityClock } from "./community-clock";
 import { readSettings } from "./community-controls";
 import { parseIntroduction, submitIntroduction } from "./community-introduction";
@@ -57,6 +58,13 @@ export async function handleCommunityView(input: ViewInteraction): Promise<Respo
     input.waitUntil(
       submitTownhallEvent(input.context, string(input.view.id), parsed, input.metadata),
     );
+    return Response.json({ response_action: "clear" });
+  }
+  if (input.id === "community_chapter_submit") {
+    const parsed = parseCommunityChapter(input.view);
+    if ("errors" in parsed)
+      return Response.json({ response_action: "errors", errors: parsed.errors });
+    input.waitUntil(createCommunityChapter(input.context, parsed));
     return Response.json({ response_action: "clear" });
   }
   if (input.id === "community_event_availability_submit") {

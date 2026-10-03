@@ -13,7 +13,10 @@ export async function reconcileShareInfoChannels(
   store: CommunityStore = new CommunityStore(new NeonStore(env.DATABASE_URL)),
 ): Promise<number> {
   let processed = 0;
-  for (const channelId of shareInfoChannelIds(env)) {
+  const dynamic = (await store.listCommunityChapters(env.SLACK_TEAM_ID)).flatMap((chapter) =>
+    chapter.channelId ? [chapter.channelId] : [],
+  );
+  for (const channelId of new Set([...shareInfoChannelIds(env), ...dynamic])) {
     const history = await callSlack(env.SLACK_BOT_TOKEN, "conversations.history", {
       channel: channelId,
       oldest: String(scheduledTime / 1_000 - LOOKBACK_SECONDS),
