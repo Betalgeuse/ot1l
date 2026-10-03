@@ -44,7 +44,10 @@ export async function handleCommunityView(input: ViewInteraction): Promise<Respo
     return Response.json({ response_action: "clear" });
   }
   if (input.id === "community_event_submit") {
-    const parsed = parseTownhallEvent(input.view);
+    const scheduleMode = string(input.metadata.scheduleMode) as "fixed" | "poll" | "edit";
+    if (!["fixed", "poll", "edit"].includes(scheduleMode))
+      throw new InputError("이벤트 일정 방식을 확인할 수 없어요.");
+    const parsed = parseTownhallEvent(input.view, scheduleMode);
     if ("errors" in parsed)
       return Response.json({ response_action: "errors", errors: parsed.errors });
     input.waitUntil(

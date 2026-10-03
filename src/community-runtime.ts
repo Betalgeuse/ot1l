@@ -111,6 +111,8 @@ export function actionIdentity(data: Record<string, unknown>, env: CommunityEnv,
   const guideAction = actionId === "community_guide_open";
   const eventAction = [
     "community_event_open",
+    "community_event_open_fixed",
+    "community_event_open_poll",
     "community_event_submit",
     "community_event_availability",
     "community_event_availability_submit",

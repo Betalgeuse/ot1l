@@ -101,14 +101,14 @@ globalThis.fetch = async (url, options) => {
 };
 
 const inspected = await inspectWelcomeGuideSource(env);
-assert.equal(inspected.version, "v0.0.65");
+assert.equal(inspected.version, "v0.0.66");
 assert.equal(inspected.origin, "repo");
 assert.deepEqual(inspected.orderedFileIds, ["FLOGO1", "FDAILY2"]);
 assert.match(inspected.body, /친구 초대하기 버튼/);
-assert.match(inspected.body, /이벤트 열기/);
-assert.match(inspected.body, /가능 시간 선택/);
-assert.match(inspected.body, /최대 14일/);
-assert.match(inspected.body, /매주 또는 격주 정기 모임/);
+assert.match(inspected.body, /일정 정해서 열기/);
+assert.match(inspected.body, /시간 같이 정하기/);
+assert.match(inspected.body, /참가할게요/);
+assert.match(inspected.body, /자동 참가/);
 assert.match(inspected.body, /자동 취소·보관/);
 assert.match(inspected.body, /Maintainer 되기/);
 assert.match(inspected.body, /Deployment Broker/);

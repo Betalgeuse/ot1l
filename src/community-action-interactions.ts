@@ -79,8 +79,17 @@ export async function handleCommunityAction(input: ActionInteraction): Promise<R
     await introductionModal(context, string(input.data.trigger_id));
     return new Response(null, { status: 200 });
   }
-  if (input.id === "community_event_open") {
-    await openTownhallEventModal(context, string(input.data.trigger_id));
+  if (
+    input.id === "community_event_open" ||
+    input.id === "community_event_open_fixed" ||
+    input.id === "community_event_open_poll"
+  ) {
+    await openTownhallEventModal(
+      context,
+      string(input.data.trigger_id),
+      undefined,
+      input.id === "community_event_open_poll" ? "poll" : "fixed",
+    );
     return new Response(null, { status: 200 });
   }
   if (input.id === "community_maintainer_activate") {
