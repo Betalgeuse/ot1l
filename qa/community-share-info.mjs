@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 const { handleShareInfoMessage } = await import("../src/community-share-info.ts");
 
 const records = new Map();
+const dynamicChapters = new Set(["CDYNAMIC"]);
 const calls = [];
 const originalFetch = globalThis.fetch;
 globalThis.fetch = async (url, options = {}) => {
@@ -33,6 +34,9 @@ const store = {
     if (!value) return false;
     value.status = status;
     return true;
+  },
+  async communityChapterActive(_teamId, channelId) {
+    return dynamicChapters.has(channelId);
   },
 };
 const context = {
@@ -71,11 +75,25 @@ try {
     },
   ), true);
   assert.equal(await handleShareInfoMessage({ type: "message", channel: "COTHER", user: "UQA", ts: "300.1", text: "범위 밖 글" }, context), false);
-  assert.equal(calls.filter((call) => call.method === "chat.postMessage").length, 6);
-  assert.equal(calls.filter((call) => call.method === "reactions.add").length, 3);
+  assert.equal(await handleShareInfoMessage(
+    { type: "message", channel: "CDYNAMIC", user: "UQA", ts: "350.1", text: "새 동적 Chapter 글" },
+    { ...context, scope: { ...context.scope, channelId: "CDYNAMIC" }, source: "350.1", thread: "350.1" },
+  ), true);
+  assert.equal(calls.filter((call) => call.method === "chat.postMessage").length, 8);
+  assert.equal(calls.filter((call) => call.method === "reactions.add").length, 4);
   assert.match(calls.find((call) => call.method === "chat.postMessage" && call.payload.text.includes("한 줄 요약"))?.payload.thread_ts, /^100\.1$/);
   assert.equal(calls.filter((call) => call.method === "chat.postMessage" && call.payload.thread_ts === "200.1").length, 2);
   assert.match(calls.find((call) => call.method === "chat.postMessage" && call.payload.thread_ts === "250.1" && call.payload.text.includes("한 줄 요약"))?.payload.text, /개발 자료를 공유합니다/);
+  const summaryPosts = calls.filter(
+    (call) => call.method === "chat.postMessage" && call.payload.text.includes("한 줄 요약"),
+  );
+  assert.ok(
+    summaryPosts.every((call) =>
+      call.payload.blocks.some((block) =>
+        block.elements?.some((element) => element.action_id === "community_chapter_open"),
+      ),
+    ),
+  );
   console.log("PASS Share Info and Chapters: top-level human posts get emoji, thanks, and Qwen summary/thought in their own thread; bot/reply/unconfigured posts ignored");
 } finally {
   globalThis.fetch = originalFetch;

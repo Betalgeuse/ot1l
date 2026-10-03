@@ -124,6 +124,7 @@ export function actionIdentity(data: Record<string, unknown>, env: CommunityEnv,
     "community_maintainer_activate",
     "community_maintainer_deactivate",
   ].includes(actionId);
+  const chapterAction = ["community_chapter_open", "community_chapter_submit"].includes(actionId);
   const communityActionChannels = [
     env.COMMUNITY_CHANNEL_ID,
     env.COMMUNITY_PUBLIC_CHANNEL_ID,
@@ -157,6 +158,7 @@ export function actionIdentity(data: Record<string, unknown>, env: CommunityEnv,
         env.COMMUNITY_INTRO_CHANNEL_ID,
       ].includes(channelId)) ||
     (eventAction && channelId === env.COMMUNITY_RELEASE_CHANNEL_ID) ||
+    (chapterAction && /^C[A-Z0-9]+$/.test(channelId)) ||
     (maintainerAction &&
       [
         env.COMMUNITY_WELCOME_CHANNEL_ID,
@@ -182,6 +184,7 @@ export function actionIdentity(data: Record<string, unknown>, env: CommunityEnv,
         env.COMMUNITY_INTRO_CHANNEL_ID,
       ].includes(channelId)) ||
     (eventAction && channelId !== env.COMMUNITY_RELEASE_CHANNEL_ID) ||
+    (chapterAction && !/^C[A-Z0-9]+$/.test(channelId)) ||
     (maintainerAction &&
       ![
         env.COMMUNITY_WELCOME_CHANNEL_ID,

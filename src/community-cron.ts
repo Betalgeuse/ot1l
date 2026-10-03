@@ -1,5 +1,6 @@
 import { sendAgentNotifications } from "./community-agent-notifications";
 import { armBugDeliveryClock } from "./community-bug-clock-client";
+import { reconcileCommunityChapters } from "./community-chapters";
 import { runDueGardenDeliveries } from "./community-garden-delivery";
 import { collectCurrentChannelMembers } from "./community-membership";
 import { runMembershipDue } from "./community-membership-schedule";
@@ -58,8 +59,10 @@ export async function communityCron(env: CommunityEnv, scheduledTime: number): P
     }
   if (Math.floor(scheduledTime / 60_000) % 15 === 0)
     try {
-      const processed = await reconcileShareInfoChannels(env, scheduledTime);
-      console.log(JSON.stringify({ event: "community.share_info.reconcile", processed }));
+      const shareStore = new CommunityStore(new NeonStore(env.DATABASE_URL));
+      const chapters = await reconcileCommunityChapters(env, shareStore);
+      const processed = await reconcileShareInfoChannels(env, scheduledTime, shareStore);
+      console.log(JSON.stringify({ event: "community.share_info.reconcile", processed, chapters }));
     } catch (error) {
       console.error(
         JSON.stringify({

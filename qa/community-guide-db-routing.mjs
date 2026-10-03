@@ -11,6 +11,7 @@ mock.module("../src/store.ts", () => ({
     }
     async queryJson(sql, params) {
       operations.push({ sql, op: params[0] });
+      if (sql.includes("community_chapter_list")) return [];
       if (params[0] === "publish") return JSON.parse(params[1]).hash;
       if (params[0] === "latest" || params[0] === "repair_latest")
         return {
@@ -46,7 +47,7 @@ const env = {
   COMMUNITY_RELEASE_CHANNEL_ID: "CTOWNHALL1",
   COMMUNITY_MAINTAINERS_CHANNEL_ID: "CMAINTAIN01",
   COMMUNITY_MAINTAINER_WORKSTREAM_CHANNEL_IDS: "CMAINEVENT1,CMAINWEB01,CMAINWELCOME1",
-  COMMUNITY_GUIDE_CHAPTER_CHANNEL_IDS: "CDEVELOP01,CENGLISH01,CINVEST001",
+  COMMUNITY_GUIDE_CHAPTER_CHANNEL_IDS: "CDEVELOP01,CENGLISH01,CSCIENT01",
 };
 globalThis.fetch = async (url, options) => {
   const parsed = new URL(url);
@@ -86,7 +87,12 @@ await deliverWelcomeGuide(
   env,
 );
 
-assert.deepEqual(stores, ["postgresql://admin", "postgresql://admin", "postgresql://runtime"]);
+assert.deepEqual(stores, [
+  "postgresql://admin",
+  "postgresql://admin",
+  "postgresql://admin",
+  "postgresql://runtime",
+]);
 assert.ok(
   operations.some(({ sql, op }) => sql.includes("guide_admin_execute") && op === "publish"),
 );

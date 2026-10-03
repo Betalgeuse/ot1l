@@ -63,6 +63,9 @@ class FakeCommunityStore {
     record.status = status;
     return true;
   }
+  async communityChapterActive() {
+    return false;
+  }
   async change(input) {
     const key = dayKey(input);
     const previous = days.get(key) ?? emptyDay({

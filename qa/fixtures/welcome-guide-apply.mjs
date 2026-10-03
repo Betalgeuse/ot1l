@@ -5,6 +5,7 @@ import { WELCOME_GUIDE_RELEASE } from "../../src/community-guide-release.ts";
 mock.module("../../src/store.ts", () => ({
   NeonStore: class {
     async queryJson(_sql, params) {
+      if (_sql.includes("community_chapter_list")) return [];
       const operation = params[0];
       const payload = JSON.parse(params[1]);
       if (operation === "publish") return payload.hash;

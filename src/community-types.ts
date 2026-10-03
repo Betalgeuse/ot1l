@@ -197,6 +197,19 @@ export type CommunityMaintainer = {
   readonly revision: number;
   readonly changed: boolean;
 };
+export type CommunityChapter = {
+  readonly teamId: string;
+  readonly slug: string;
+  readonly channelId: string | null;
+  readonly title: string;
+  readonly description: string;
+  readonly createdBy: string;
+  readonly state: "creating" | "active" | "failed" | "archived";
+  readonly revision: number;
+  readonly changed: boolean;
+  readonly announcementMessageTs: string | null;
+  readonly guideSynced: boolean;
+};
 export type ReminderBatchFinish = {
   readonly teamId: string;
   readonly channelId: string;

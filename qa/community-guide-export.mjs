@@ -109,7 +109,7 @@ try {
   assert.equal(config.vars.COMMUNITY_GUIDE_FILE_IDS, "FREPLACELOGO,FREPLACEDAILY");
   assert.equal(
     config.vars.COMMUNITY_GUIDE_CHAPTER_CHANNEL_IDS,
-    "C_REPLACE_DEVELOPERS,C_REPLACE_ENGLISH,C_REPLACE_INVESTMENT",
+    "C_REPLACE_DEVELOPERS,C_REPLACE_ENGLISH,C_REPLACE_SCIENTIST",
   );
   assert.equal(config.vars.COMMUNITY_GUIDE_CANVAS_ID, "FREPLACECANVAS");
   assert.equal(
@@ -119,7 +119,7 @@ try {
   assert.equal(config.vars.COMMUNITY_GUIDE_ANCHOR_TS, "1000000000.000000");
   assert.equal(
     config.vars.COMMUNITY_CHAPTER_CHANNEL_IDS,
-    "C_REPLACE_DEVELOPERS,C_REPLACE_ENGLISH,C_REPLACE_INVESTMENT,C_REPLACE_SCIENTIST",
+    "C_REPLACE_DEVELOPERS,C_REPLACE_ENGLISH,C_REPLACE_SCIENTIST",
   );
   assert.equal(config.vars.COMMUNITY_INTRO_CANVAS_ID, "FREPLACEINTROCANVAS");
   assert.equal(
@@ -146,8 +146,10 @@ try {
   const exportedText = textFiles(destination)
     .map((path) => readFileSync(path, "utf8"))
     .join("\n");
-  for (const value of sourceGuideIds) assert.doesNotMatch(exportedText, new RegExp(value));
-  for (const value of sourceChapterIds) assert.doesNotMatch(exportedText, new RegExp(value));
+  for (const id of sourceGuideIds.filter((value) => !value.includes("REPLACE")))
+    assert.doesNotMatch(exportedText, new RegExp(id));
+  for (const id of sourceChapterIds.filter((value) => !value.includes("REPLACE")))
+    assert.doesNotMatch(exportedText, new RegExp(id));
   const workspaceLinks = [
     ...exportedText.matchAll(/https:\/\/([a-z0-9-]+)\.slack\.com\/archives\//g),
   ].filter((match) => !["test", "example"].includes(match[1]));

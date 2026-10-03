@@ -1,6 +1,7 @@
 import { CommunityScheduleStore, parseCommunityRecord } from "./community-schedule-store";
 import type {
   ChangeResult,
+  CommunityChapter,
   CommunityDay,
   CommunityMaintainer,
   CommunityRecord,
@@ -238,7 +239,96 @@ function communityMaintainer(value: Json): CommunityMaintainer | null {
   };
 }
 
+function communityChapter(value: Json): CommunityChapter | null {
+  if (value === null) return null;
+  const input = object(value);
+  const state = string(input.state);
+  const revision = input.revision;
+  const channelId = input.channelId;
+  if (
+    !["creating", "active", "failed", "archived"].includes(state) ||
+    typeof revision !== "number" ||
+    !Number.isSafeInteger(revision) ||
+    (channelId !== null && (typeof channelId !== "string" || !/^C[A-Z0-9]+$/.test(channelId)))
+  )
+    throw new InputError("Invalid chapter");
+  return {
+    teamId: string(input.teamId),
+    slug: string(input.slug),
+    channelId: channelId as string | null,
+    title: string(input.title),
+    description: string(input.description),
+    createdBy: string(input.createdBy),
+    state: state as CommunityChapter["state"],
+    revision,
+    changed: input.changed === true,
+    announcementMessageTs:
+      input.announcementMessageTs === null ? null : string(input.announcementMessageTs),
+    guideSynced: input.guideSynced === true,
+  };
+}
+
 export class CommunityStore extends CommunityScheduleStore {
+  private chapterCall(operation: string, payload: Json): Promise<Json> {
+    return this.db.queryJson("SELECT otl.community_chapter_execute($1,$2::jsonb)", [
+      operation,
+      JSON.stringify(payload),
+    ]);
+  }
+  async requestCommunityChapter(input: {
+    readonly teamId: string;
+    readonly actorId: string;
+    readonly slug: string;
+    readonly title: string;
+    readonly description: string;
+  }): Promise<CommunityChapter> {
+    const result = communityChapter(await this.chapterCall("request", input));
+    if (!result) throw new InputError("Chapter missing");
+    return result;
+  }
+  async activateCommunityChapter(input: {
+    readonly teamId: string;
+    readonly actorId: string;
+    readonly slug: string;
+    readonly channelId: string;
+  }): Promise<CommunityChapter> {
+    const result = communityChapter(await this.chapterCall("activate", input));
+    if (!result) throw new InputError("Chapter missing");
+    return result;
+  }
+  async markCommunityChapterAnnouncement(input: {
+    readonly teamId: string;
+    readonly slug: string;
+    readonly channelId: string;
+    readonly messageTs: string;
+  }): Promise<CommunityChapter> {
+    const result = communityChapter(await this.chapterCall("mark_announcement", input));
+    if (!result) throw new InputError("Chapter missing");
+    return result;
+  }
+  async markCommunityChapterGuide(input: {
+    readonly teamId: string;
+    readonly slug: string;
+    readonly channelId: string;
+  }): Promise<CommunityChapter> {
+    const result = communityChapter(await this.chapterCall("mark_guide", input));
+    if (!result) throw new InputError("Chapter missing");
+    return result;
+  }
+  async communityChapterActive(teamId: string, channelId: string): Promise<boolean> {
+    return (await this.chapterCall("active", { teamId, channelId })) === true;
+  }
+  async listCommunityChapters(teamId: string): Promise<readonly CommunityChapter[]> {
+    return list(
+      await this.db.queryJson("SELECT otl.community_chapter_list($1::jsonb)", [
+        JSON.stringify({ teamId }),
+      ]),
+    ).map((value) => {
+      const result = communityChapter(value as Json);
+      if (!result) throw new InputError("Chapter missing");
+      return result;
+    });
+  }
   private maintainerCall(operation: string, payload: Json): Promise<Json> {
     return this.db.queryJson("SELECT otl.community_maintainer_execute($1,$2::jsonb)", [
       operation,

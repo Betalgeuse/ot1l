@@ -1,5 +1,6 @@
 import type { parseBugAnswerActionId } from "./community-bug-actions";
 import { handleBugAction } from "./community-bug-interactions";
+import { openCommunityChapterModal } from "./community-chapters";
 import { openSettings, openShoutout } from "./community-controls";
 import { introductionModal } from "./community-introduction";
 import { showIntroductionDirectory } from "./community-introduction-channel";
@@ -98,6 +99,10 @@ export async function handleCommunityAction(input: ActionInteraction): Promise<R
   }
   if (input.id === "community_maintainer_deactivate") {
     input.waitUntil(deactivateMaintainer(context));
+    return new Response(null, { status: 200 });
+  }
+  if (input.id === "community_chapter_open") {
+    await openCommunityChapterModal(context, string(input.data.trigger_id));
     return new Response(null, { status: 200 });
   }
   if (

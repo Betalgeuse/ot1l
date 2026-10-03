@@ -1,8 +1,8 @@
 /** Reviewed, repo-owned welcome copy. Bump the version for every content change. */
 export const WELCOME_GUIDE_RELEASE = {
-  version: "v0.0.73",
+  version: "v0.0.74",
   body: `@channel
-OT1L v0.0.73 · welcome 가이드 업데이트
+OT1L v0.0.74 · welcome 가이드 업데이트
 
 OT1L (*ONE THING* 1 Line)에 오신 것을 환영합니다! Slack 채널 구조는 Toss를 차용했습니다.
 
@@ -33,10 +33,11 @@ OT1L (*ONE THING* 1 Line)에 오신 것을 환영합니다! Slack 채널 구조�
       - 최소 인원이 모이지 않으면 유예 상태가 Slack에 표시되고, 설정한 유예가 끝난 뒤 자동 취소·보관됩니다.
       - 주최자는 활동·장소를 수정할 수 있습니다. 복잡한 시간 조율이 필요한 경우에만 웹 달력을 엽니다.
       - 이벤트 글의 스레드에는 참여 의견과 다음에 열었으면 하는 활동을 남겨주세요.
-  ◦ Chapter: 직군·전공별로 자유롭게 소통할 수 있습니다.
+  ◦ Chapter: 직군·관심 주제별로 자유롭게 소통할 수 있습니다. Chapter 글에 달리는 *나도 관심주제 채널 만들기*로 누구나 공개 채널을 열 수 있습니다.
     ▪︎ #chapter-developers: 개발자들을 위한 채널입니다.
     ▪︎ #chapter-english: 영어 공부를 함께합니다.
-    ▪︎ #chapter-investment: 투자 이야기를 나눕니다.
+    ▪︎ #chapter-scientist: 과학과 연구 이야기를 나눕니다.
+{{COMMUNITY_DYNAMIC_CHAPTERS}}
 
 • 함께할 사람 초대하기
 친구 초대하기 버튼에서 내 전용 링크를 받아 지인에게 아래 문장과 함께 보내주세요. OT1L은 지인 초대로 함께합니다.
