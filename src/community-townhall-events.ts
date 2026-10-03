@@ -25,10 +25,10 @@ function button(label: string, actionId: string, ownerId: string, eventId: strin
   };
 }
 
-export function townhallEventButton(): Json {
+export function townhallEventButton(label = "일정 정해서 열기"): Json {
   return {
     type: "button",
-    text: { type: "plain_text", text: "일정 정해서 열기" },
+    text: { type: "plain_text", text: label },
     style: "primary",
     action_id: "community_event_open_fixed",
     value: JSON.stringify({ ownerId: "actor", key: "new-townhall-event" }),
@@ -287,6 +287,7 @@ export function townhallEventMessage(event: TownhallEvent): Json {
                 ),
               ]),
           button("이벤트 수정", "community_event_edit", event.hostUserId, event.eventId),
+          townhallEventButton("나도 이벤트 열기"),
         ],
       },
     ],
