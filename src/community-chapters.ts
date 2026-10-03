@@ -136,7 +136,11 @@ async function findBotChapterChannel(
     });
     for (const item of list(result.channels)) {
       const channel = object(item);
-      if (channel.name === name && channel.creator === context.env.COMMUNITY_BOT_USER_ID)
+      if (
+        channel.name === name &&
+        channel.creator === context.env.COMMUNITY_BOT_USER_ID &&
+        channel.is_archived !== true
+      )
         return string(channel.id);
     }
     cursor = string(object(result.response_metadata ?? {}).next_cursor ?? "");
