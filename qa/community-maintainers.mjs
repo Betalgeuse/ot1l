@@ -8,7 +8,6 @@ const context = {
   env: {
     SLACK_BOT_TOKEN: "token",
     COMMUNITY_MAINTAINERS_CHANNEL_ID: "CMAINTAIN",
-    COMMUNITY_MAINTAINER_WORKSTREAM_CHANNEL_IDS: "CMAINEVENT,CMAINWEB,CMAINWELCOME",
     COMMUNITY_SYS_ALERT_CHANNEL_ID: "CSYSALERT",
   },
   scope: { teamId: "TQA", channelId: "CWELCOME", userId: "UMEMBER" },
@@ -36,30 +35,26 @@ try {
   assert.equal(JSON.parse(button.value).ownerId, "actor");
   await activateMaintainer(context);
   assert.deepEqual(transitions[0], ["activate", "TQA", "UMEMBER"]);
-  assert.deepEqual(calls.slice(0, 5).map((call) => call.method), Array(5).fill("conversations.invite"));
-  assert.ok(calls.slice(0, 5).every((call) => call.body.users === "UMEMBER"));
-  assert.equal(calls[4].body.channel, "CSYSALERT");
-  assert.equal(calls[5].method, "chat.postEphemeral");
-  assert.equal(calls[5].body.user, "UMEMBER");
-  assert.match(calls[5].body.text, /공개 GitHub 저장소.*fork/);
-  assert.match(calls[5].body.text, /정확한 SHA.*Deployment Broker/);
-  assert.match(calls[5].body.text, /CONTRIBUTING[.]md/);
-  assert.match(calls[5].body.text, /운영 알림 <#CSYSALERT>/);
-  assert.equal(calls[6].method, "chat.postMessage");
-  assert.equal(calls[6].body.channel, "CMAINTAIN");
+  assert.deepEqual(calls.slice(0, 2).map((call) => call.method), Array(2).fill("conversations.invite"));
+  assert.ok(calls.slice(0, 2).every((call) => call.body.users === "UMEMBER"));
+  assert.equal(calls[1].body.channel, "CSYSALERT");
+  assert.equal(calls[2].method, "chat.postEphemeral");
+  assert.equal(calls[2].body.user, "UMEMBER");
+  assert.match(calls[2].body.text, /공개 GitHub 저장소.*fork/);
+  assert.match(calls[2].body.text, /정확한 SHA.*Deployment Broker/);
+  assert.match(calls[2].body.text, /CONTRIBUTING[.]md/);
+  assert.match(calls[2].body.text, /운영 알림 <#CSYSALERT>/);
+  assert.equal(calls[3].method, "chat.postMessage");
+  assert.equal(calls[3].body.channel, "CMAINTAIN");
   await activateMaintainer(context);
-  assert.deepEqual(calls.slice(7, 12).map((call) => call.method), Array(5).fill("conversations.invite"));
-  assert.equal(calls[12].method, "chat.postEphemeral");
-  assert.match(calls[12].body.text, /이미 Maintainer/);
+  assert.deepEqual(calls.slice(4, 6).map((call) => call.method), Array(2).fill("conversations.invite"));
+  assert.equal(calls[6].method, "chat.postEphemeral");
+  assert.match(calls[6].body.text, /이미 Maintainer/);
   assert.equal(calls.filter((call) => call.method === "chat.postMessage").length, 1);
   await deactivateMaintainer(context);
   assert.deepEqual(transitions[2], ["deactivate", "TQA", "UMEMBER"]);
-  assert.equal(calls[13].method, "conversations.kick");
-  assert.equal(calls[13].body.channel, "CSYSALERT");
-  assert.equal(calls[13].body.user, "UMEMBER");
-  assert.equal(calls[14].method, "chat.postEphemeral");
-  assert.match(calls[14].body.text, /승인 권한/);
-  assert.match(calls[14].body.text, /운영 알림 접근도 해제/);
+  assert.equal(calls[7].method, "chat.postEphemeral");
+  assert.match(calls[7].body.text, /승인 권한/);
 
   const failedTransitions = [];
   const failedContext = {

@@ -16,7 +16,6 @@ export function maintainerButton(label = "Maintainer 되기"): Json {
 function maintainerChannels(context: CommunityContext): readonly string[] {
   return [
     context.env.COMMUNITY_MAINTAINERS_CHANNEL_ID,
-    ...(context.env.COMMUNITY_MAINTAINER_WORKSTREAM_CHANNEL_IDS?.split(",") ?? []),
     context.env.COMMUNITY_SYS_ALERT_CHANNEL_ID,
   ].filter((channel): channel is string => Boolean(channel && /^[CG][A-Z0-9]+$/.test(channel)));
 }
@@ -60,22 +59,8 @@ export async function activateMaintainer(context: CommunityContext): Promise<voi
 }
 
 export async function deactivateMaintainer(context: CommunityContext): Promise<void> {
-  const sysAlertChannel = context.env.COMMUNITY_SYS_ALERT_CHANNEL_ID;
-  if (sysAlertChannel)
-    try {
-      await callSlack(context.env.SLACK_BOT_TOKEN, "conversations.kick", {
-        channel: sysAlertChannel,
-        user: context.scope.userId,
-      });
-    } catch (error) {
-      if (
-        !(error instanceof CommunitySlackError) ||
-        !["not_in_channel", "user_not_found"].includes(error.code)
-      )
-        throw error;
-    }
   await context.store.deactivateMaintainer(context.scope.teamId, context.scope.userId);
   await ephemeral(context, {
-    text: "Maintainer 승인 권한을 내려놓았어요. 비공개 운영 알림 접근도 해제했습니다. 공개 채널은 그대로 볼 수 있고, 언제든 다시 활성화할 수 있어요.",
+    text: "Maintainer 승인 권한을 내려놓았어요. 공개 채널은 그대로 볼 수 있고, 언제든 다시 활성화할 수 있어요.",
   });
 }

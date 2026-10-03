@@ -42,14 +42,14 @@ const channelEnv = {
   COMMUNITY_FEEDBACK_CHANNEL_ID: "CFEEDBACK1",
   COMMUNITY_RELEASE_CHANNEL_ID: "CTOWNHALL1",
   COMMUNITY_MAINTAINERS_CHANNEL_ID: "CMAINTAIN01",
-  COMMUNITY_MAINTAINER_WORKSTREAM_CHANNEL_IDS: "CMAINEVENT1,CMAINWEB01,CMAINWELCOME1",
+  COMMUNITY_SYS_ALERT_CHANNEL_ID: "CSYSALERT01",
   COMMUNITY_GUIDE_CHAPTER_CHANNEL_IDS: "CDEVELOP01,CENGLISH01,CSCIENT01",
 };
 const rendered = renderGuideChannels(WELCOME_GUIDE_RELEASE.body, channelEnv);
-const expectedIds = ["CPUBLIC001", "CFEEDBACK1", "CTOWNHALL1", "CMAINTAIN01", "CMAINEVENT1", "CMAINWEB01", "CMAINWELCOME1", "CDEVELOP01", "CENGLISH01", "CSCIENT01"];
+const expectedIds = ["CPUBLIC001", "CFEEDBACK1", "CTOWNHALL1", "CMAINTAIN01", "CSYSALERT01", "CDEVELOP01", "CENGLISH01", "CSCIENT01"];
 assert.equal((WELCOME_GUIDE_RELEASE.body.match(/<#[CG]/g) ?? []).length, 0);
 for (const id of expectedIds) assert.ok(rendered.includes(`<#${id}>`));
-assert.equal((rendered.match(/<#[CG]/g) ?? []).length, 12);
+assert.equal((rendered.match(/<#[CG]/g) ?? []).length, 10);
 assert.equal(rendered.includes("#chapter-developers"), false);
 assert.equal(rendered.includes("#chapter-english"), false);
 assert.equal(rendered.includes("#chapter-scientist"), false);

@@ -18,14 +18,15 @@ Slack 리액션은 자유로운 반응이며 제품 상태로 집계하지 않�
 
 ## Maintainer와 승인 경계
 
-- 모든 회원은 welcome 또는 피드백 카드의 **Maintainer 되기**로 역할을 스스로 활성화할 수 있습니다. 버튼을 누른 본인만 DB 역할이 활성화되고 Maintainer 작업 채널과 비공개 `#sys-alert`에 초대됩니다. 역할을 내려놓으면 `#sys-alert` 접근도 회수됩니다.
+- 모든 회원은 welcome 또는 피드백 카드의 **Maintainer 되기**로 역할을 스스로 활성화할 수 있습니다. 버튼을 누른 본인만 DB 역할이 활성화되고 `#maintainers`와 공개 `#sys-alert`에 초대됩니다.
 - 저장소는 공개입니다. GitHub collaborator 초대나 upstream push 권한을 주지 않고, 각자 fork에서 개발·push한 뒤 PR을 엽니다. 시작 절차는 [기여 시작하기](../CONTRIBUTING.md)를 따릅니다.
 - Open 변경은 활성 Maintainer 한 명이 검증 결과와 정확한 head SHA를 Slack에서 승인하면 Deployment Broker가 병합과 배포를 이어서 수행합니다. Maintainer 개인 컴퓨터에서 운영 Worker를 배포하지 않습니다.
+- 확정된 피드백은 자동 수정이 시작될 때 `#maintainers` 작업 카드로 전달됩니다. 수정안과 검증이 준비되면 Open 변경에는 Maintainer 승인 버튼이 같은 스레드에 나타나며 활성 Maintainer 또는 Founder가 누를 수 있습니다. Core 변경은 공개 작업 스레드에 검증 결과만 보이고, Founder에게만 개인 승인 버튼을 보냅니다.
 - 이벤트 공개 화면은 별도 `otl1-time` Worker에서 실행합니다. 이 Worker에는 Slack token, DB URL, SSH key가 없고 이벤트 전용 Core 서명키만 있습니다.
 - 가입, 개인정보, 보안, Slack 처리와 Core Worker 코드 변경은 Founder 승인 뒤에만 병합·배포합니다. DB migration과 일반 홈페이지처럼 별도 순서가 필요한 변경은 Founder 승인 뒤에도 자동 배포하지 않고 운영 절차로 넘깁니다.
 - 경로가 섞였거나 분류 digest 또는 head SHA가 바뀌면 승인은 무효가 되며 다시 검증해야 합니다.
 - Deployment Broker는 승인된 SHA만 fast-forward하고 전체 검사, 배포, health 확인 뒤 영수증을 남깁니다. Maintainer에게 GenQuant SSH나 Cloudflare token을 전달하지 않습니다.
-- `#sys-alert`에는 GitHub·홈페이지·Worker의 배포 실패와 장애 요약만 게시합니다. 요청 본문, 토큰, 쿠키, 이메일, IP, 원본 stack trace와 DB 주소는 게시하지 않습니다.
+- 공개 `#sys-alert`에는 GitHub·홈페이지·Worker의 배포 실패와 장애 요약만 게시합니다. 요청 본문, 토큰, 쿠키, 이메일, IP, 원본 stack trace와 DB 주소는 게시하지 않습니다.
 
 현재 Broker의 자동 큐는 OT1L 피드백 흐름에서 만든 PR을 기준으로 합니다. Maintainer가 자신의 fork에서 만든 PR을 자동 큐에 등록하는 버튼은 아직 없습니다. 직접 만든 PR은 `#maintainers`에 링크해 Founder가 피드백 항목과 정확한 SHA에 연결한 뒤 같은 승인 경계로 반영합니다. 단순히 public PR이 열렸다는 이유만으로 병합하거나 배포하지 않습니다.
 

@@ -52,7 +52,6 @@ export type CommunityEnv = {
   readonly COMMUNITY_CHAPTER_CHANNEL_IDS?: string;
   readonly COMMUNITY_RELEASE_CHANNEL_ID?: string;
   readonly COMMUNITY_MAINTAINERS_CHANNEL_ID?: string;
-  readonly COMMUNITY_MAINTAINER_WORKSTREAM_CHANNEL_IDS?: string;
   readonly COMMUNITY_SYS_ALERT_CHANNEL_ID?: string;
   readonly COMMUNITY_WELCOME_CHANNEL_ID?: string;
   readonly COMMUNITY_GUIDE_FILE_IDS?: string;
@@ -131,12 +130,17 @@ export function actionIdentity(data: Record<string, unknown>, env: CommunityEnv,
     "community_maintainer_activate",
     "community_maintainer_deactivate",
   ].includes(actionId);
+  const founderApprovalInDm =
+    actionId === "community_feedback_merge_approve" &&
+    /^D[A-Z0-9]+$/.test(channelId) &&
+    userId === env.COMMUNITY_ADMIN_ID;
   const chapterAction = ["community_chapter_open", "community_chapter_submit"].includes(actionId);
   const communityActionChannels = [
     env.COMMUNITY_CHANNEL_ID,
     env.COMMUNITY_PUBLIC_CHANNEL_ID,
     env.COMMUNITY_RELEASE_CHANNEL_ID,
     env.COMMUNITY_MAINTAINERS_CHANNEL_ID,
+    env.COMMUNITY_SYS_ALERT_CHANNEL_ID,
     env.COMMUNITY_INTRO_CHANNEL_ID,
     env.COMMUNITY_FEEDBACK_CHANNEL_ID,
     env.COMMUNITY_WELCOME_CHANNEL_ID,
@@ -145,6 +149,7 @@ export function actionIdentity(data: Record<string, unknown>, env: CommunityEnv,
   ];
   const expandedChannelAllowed =
     (bugAction && communityActionChannels.includes(channelId)) ||
+    founderApprovalInDm ||
     (introductionAction &&
       [
         env.COMMUNITY_RELEASE_CHANNEL_ID,
@@ -172,6 +177,7 @@ export function actionIdentity(data: Record<string, unknown>, env: CommunityEnv,
         env.COMMUNITY_PUBLIC_CHANNEL_ID,
         env.COMMUNITY_RELEASE_CHANNEL_ID,
         env.COMMUNITY_MAINTAINERS_CHANNEL_ID,
+        env.COMMUNITY_SYS_ALERT_CHANNEL_ID,
       ].includes(channelId));
   const feedbackActionDenied = channelId === env.COMMUNITY_FEEDBACK_CHANNEL_ID && !bugAction;
   if (
@@ -198,6 +204,7 @@ export function actionIdentity(data: Record<string, unknown>, env: CommunityEnv,
         env.COMMUNITY_PUBLIC_CHANNEL_ID,
         env.COMMUNITY_RELEASE_CHANNEL_ID,
         env.COMMUNITY_MAINTAINERS_CHANNEL_ID,
+        env.COMMUNITY_SYS_ALERT_CHANNEL_ID,
       ].includes(channelId)) ||
     (![env.COMMUNITY_CHANNEL_ID, env.COMMUNITY_PUBLIC_CHANNEL_ID].includes(channelId) &&
       !expandedChannelAllowed) ||

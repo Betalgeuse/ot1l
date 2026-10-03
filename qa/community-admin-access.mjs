@@ -5,6 +5,7 @@ const {adminCommand, releasePreview, publishRelease} = await import('../src/comm
 const {groupCard, openSettings, settingsCard} = await import('../src/community-controls.ts');
 const {enablePublicSchedule} = await import('../src/community-cutover.ts');
 const {communityInteraction} = await import('../src/community-interactions.ts');
+const {actionIdentity} = await import('../src/community-runtime.ts');
 const env={SLACK_TEAM_ID:'TQA',COMMUNITY_ADMIN_ID:'UADMIN',COMMUNITY_CHANNEL_ID:'CADMIN',COMMUNITY_PUBLIC_CHANNEL_ID:'CPUBLIC',COMMUNITY_ENABLED:'true',DATABASE_URL:'invalid',SLACK_BOT_TOKEN:'test'};
 const scope={teamId:'TQA',channelId:'CADMIN',userId:'UADMIN'};
 let effects=0;const sent=[];
@@ -39,5 +40,8 @@ try {
  assert.doesNotMatch(JSON.stringify(sent.at(-1)),/community_test/);
  await settingsCard(ctx);assert.match(JSON.stringify(sent.at(-1)),/community_test_schedule/);
  await openSettings(ctx,'trigger',false);assert.equal(JSON.parse(sent.at(-1).view.private_metadata).userId,'UADMIN');
+ const founderDm={team:{id:'TQA'},user:{id:'UADMIN'},container:{channel_id:'DFOUNDER'}};
+ assert.deepEqual(actionIdentity(founderDm,env,'community_feedback_merge_approve'),{teamId:'TQA',channelId:'DFOUNDER',userId:'UADMIN'});
+ assert.throws(()=>actionIdentity({...founderDm,user:{id:'UMEMBER'}},env,'community_feedback_merge_approve'),/사용할 수 없습니다/);
  console.log('PASS admin access: actor/team/channel guards before effects; explicit action allowlist; private QA controls; modal owner binding');
 } finally {globalThis.fetch=original;}
