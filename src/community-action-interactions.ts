@@ -126,7 +126,22 @@ export async function handleCommunityAction(input: ActionInteraction): Promise<R
     return new Response(null, { status: 200 });
   }
   if (input.id === "community_maintainer_activate") {
-    input.waitUntil(activateMaintainer(context));
+    input.waitUntil(
+      activateMaintainer(context).catch(async (error: unknown) => {
+        console.error(
+          JSON.stringify({
+            event: "community.maintainer.activation_failed",
+            errorType: error instanceof Error ? error.name : "Unknown",
+          }),
+        );
+        await ephemeral(context, {
+          text:
+            error instanceof InputError
+              ? error.message
+              : "Maintainer 참여를 완료하지 못했어요. 잠시 후 다시 눌러 주세요. 이미 받은 채널 초대는 다시 눌러도 중복되지 않습니다.",
+        });
+      }),
+    );
     return new Response(null, { status: 200 });
   }
   if (input.id === "community_maintainer_deactivate") {

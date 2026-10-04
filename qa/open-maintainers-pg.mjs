@@ -42,6 +42,8 @@ try {
     "migrations/078_idempotent_maintainer_activation.sql"]);
   await run(join(pgBin, "psql"), ["-X", "-v", "ON_ERROR_STOP=1", "-f",
     "migrations/081_founder_open_approval.sql"]);
+  await run(join(pgBin, "psql"), ["-X", "-v", "ON_ERROR_STOP=1", "-f",
+    "migrations/082_maintainer_verified_profile.sql"]);
 
   await psql(`INSERT INTO otl.workspaces(team_id) VALUES('TQA');
     INSERT INTO otl.workspace_members(team_id,user_id,display_name,is_bot,is_app_user,slack_deleted)
@@ -56,6 +58,11 @@ try {
   });
   assert.equal(repeatedMaintainer.changed, false);
   assert.equal(repeatedMaintainer.revision, maintainer.revision);
+  await psql(`INSERT INTO otl.workspace_members(team_id,user_id,display_name) VALUES('TQA','UNEW','New')`);
+  await assert.rejects(callOp('community_maintainer_execute','activate',{teamId:'TQA',actorId:'UNEW'}));
+  await call('community_maintainer_sync_profile',{teamId:'TQA',actorId:'UNEW',displayName:'New',isBot:false,isAppUser:false,deleted:false});
+  assert.equal((await callOp('community_maintainer_execute','activate',{teamId:'TQA',actorId:'UNEW'})).state,'active');
+  await assert.rejects(call('community_maintainer_sync_profile',{teamId:'TQA',actorId:'UBOT',displayName:'Bot',isBot:true,isAppUser:false,deleted:false}));
   const insertChange = async (bugId, alias, pr, sha) => psql(`
     INSERT INTO otl.bug_reports(bug_id,team_id,state,revision,packet_revision,public_alias,reporter_id,
       source,source_opaque_ref,title) VALUES('${bugId}','TQA','merge_eligible',1,1,'${alias}','UMAIN',

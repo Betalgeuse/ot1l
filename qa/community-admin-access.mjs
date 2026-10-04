@@ -43,5 +43,11 @@ try {
  const founderDm={team:{id:'TQA'},user:{id:'UADMIN'},container:{channel_id:'DFOUNDER'}};
  assert.deepEqual(actionIdentity(founderDm,env,'community_feedback_merge_approve'),{teamId:'TQA',channelId:'DFOUNDER',userId:'UADMIN'});
  assert.throws(()=>actionIdentity({...founderDm,user:{id:'UMEMBER'}},env,'community_feedback_merge_approve'),/사용할 수 없습니다/);
+ const maintainerEnv={...env,COMMUNITY_FEEDBACK_CHANNEL_ID:'CFEEDBACK',COMMUNITY_WELCOME_CHANNEL_ID:'CWELCOME',COMMUNITY_RELEASE_CHANNEL_ID:'CTOWN',COMMUNITY_MAINTAINERS_CHANNEL_ID:'CMAIN',COMMUNITY_SYS_ALERT_CHANNEL_ID:'CALERT',COMMUNITY_MAINTAINER_WORKSTREAM_CHANNEL_IDS:'CEVENT,CWEB,CMAINWELCOME'};
+ for(const channel of ['CFEEDBACK','CWELCOME','CPUBLIC','CTOWN','CMAIN','CALERT','CEVENT','CWEB','CMAINWELCOME']){
+  const actor={team:{id:'TQA'},user:{id:'UMEMBER'},container:{channel_id:channel}};
+  assert.equal(actionIdentity(actor,maintainerEnv,'community_maintainer_activate').userId,'UMEMBER');
+ }
+ assert.throws(()=>actionIdentity({team:{id:'TQA'},user:{id:'UMEMBER'},container:{channel_id:'CUNKNOWN'}},maintainerEnv,'community_maintainer_activate'),/사용할 수 없습니다/);
  console.log('PASS admin access: actor/team/channel guards before effects; explicit action allowlist; private QA controls; modal owner binding');
 } finally {globalThis.fetch=original;}

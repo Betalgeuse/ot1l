@@ -1,6 +1,6 @@
 import { type CommunityContext, ephemeral } from "./community-runtime";
 import { CommunitySlackError, callSlack } from "./community-social";
-import type { Json } from "./input";
+import { InputError, type Json, object } from "./input";
 
 export function maintainerButton(label = "Maintainer 되기"): Json {
   return {
@@ -15,9 +15,16 @@ export function maintainerButton(label = "Maintainer 되기"): Json {
 
 function maintainerChannels(context: CommunityContext): readonly string[] {
   return [
-    context.env.COMMUNITY_MAINTAINERS_CHANNEL_ID,
-    context.env.COMMUNITY_SYS_ALERT_CHANNEL_ID,
-  ].filter((channel): channel is string => Boolean(channel && /^[CG][A-Z0-9]+$/.test(channel)));
+    ...new Set(
+      [
+        context.env.COMMUNITY_MAINTAINERS_CHANNEL_ID,
+        ...(context.env.COMMUNITY_MAINTAINER_WORKSTREAM_CHANNEL_IDS?.split(",").map((id) =>
+          id.trim(),
+        ) ?? []),
+        context.env.COMMUNITY_SYS_ALERT_CHANNEL_ID,
+      ].filter((channel): channel is string => Boolean(channel && /^[CG][A-Z0-9]+$/.test(channel))),
+    ),
+  ];
 }
 
 async function changeMaintainerChannels(
@@ -37,6 +44,30 @@ async function changeMaintainerChannels(
 }
 
 export async function activateMaintainer(context: CommunityContext): Promise<void> {
+  const profile = object(
+    (await callSlack(context.env.SLACK_BOT_TOKEN, "users.info", { user: context.scope.userId }))
+      .user,
+  );
+  if (
+    profile.id !== context.scope.userId ||
+    profile.is_bot !== false ||
+    profile.is_app_user === true ||
+    profile.deleted === true ||
+    (profile.team_id !== undefined && profile.team_id !== context.scope.teamId)
+  )
+    throw new InputError("현재 워크스페이스의 회원 계정으로 참여해 주세요.");
+  if (
+    (await context.store.maintainerStatus(context.scope.teamId, context.scope.userId))?.state ===
+    "revoked"
+  )
+    throw new InputError("Maintainer 참여가 제한된 계정이에요. 운영자에게 문의해 주세요.");
+  await context.store.syncMaintainerProfile(
+    context.scope.teamId,
+    context.scope.userId,
+    typeof profile.real_name === "string" && profile.real_name.trim()
+      ? profile.real_name.trim()
+      : context.scope.userId,
+  );
   await changeMaintainerChannels(context, "conversations.invite");
   const maintainer = await context.store.activateMaintainer(
     context.scope.teamId,

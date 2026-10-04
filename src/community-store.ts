@@ -386,6 +386,18 @@ export class CommunityStore extends CommunityScheduleStore {
       JSON.stringify(payload),
     ]);
   }
+  async syncMaintainerProfile(teamId: string, actorId: string, displayName: string): Promise<void> {
+    await this.db.queryJson("SELECT otl.community_maintainer_sync_profile($1::jsonb)", [
+      JSON.stringify({
+        teamId,
+        actorId,
+        displayName,
+        isBot: false,
+        isAppUser: false,
+        deleted: false,
+      }),
+    ]);
+  }
   async activateMaintainer(teamId: string, actorId: string): Promise<CommunityMaintainer> {
     const maintainer = communityMaintainer(
       await this.maintainerCall("activate", { teamId, actorId }),

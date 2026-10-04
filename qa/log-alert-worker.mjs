@@ -47,30 +47,59 @@ const trace = (overrides = {}) => ({
 try {
   assert.equal(safeLogIncident(trace()), null, "successful requests stay silent");
   assert.equal(await handleLogAlerts([trace()], env), 0);
-  assert.equal(calls.some((call) => call.method === "chat.postMessage"), false);
+  assert.equal(
+    calls.some((call) => call.method === "chat.postMessage"),
+    false,
+  );
 
   const serverError = trace({
     event: { ...trace().event, response: { status: 503 } },
+    logs: [
+      {
+        timestamp: Date.now(),
+        level: "error",
+        message: [
+          JSON.stringify({
+            event: "community.event.failed",
+            errorType: "InputError",
+            secret: "must-not-appear",
+          }),
+        ],
+      },
+    ],
     exceptions: [
       { timestamp: Date.now(), name: "Error", message: "token=secret", stack: "private stack" },
     ],
   });
-  assert.equal(await handleLogAlerts([serverError], env), 1);
+  assert.equal(await handleLogAlerts([serverError, serverError], env), 1);
   const post = calls.find((call) => call.method === "chat.postMessage");
   assert.equal(post.body.channel, "CSYSALERT");
   assert.match(post.body.text, /otl1-onething-garden/);
-  assert.match(post.body.text, /HTTP 503/);
-  assert.match(post.body.text, /예외: 1개/);
+  assert.deepEqual(
+    post.body.blocks.map((block) => block.type),
+    ["header", "section", "context", "context"],
+  );
+  const rendered = JSON.stringify(post.body.blocks);
+  assert.match(rendered, /HTTP 503/);
+  assert.match(rendered, /이벤트 API/);
+  assert.match(rendered, /community[.]event[.]failed/);
+  assert.match(rendered, /InputError/);
+  assert.equal(calls.filter((call) => call.method === "limit").length, 1);
   assert.doesNotMatch(
     JSON.stringify(post.body),
-    /signed-secret-token|private-token|password|token=secret|private stack|authorization|cookie/i,
+    /signed-secret-token|private-token|password|token=secret|private stack|authorization|cookie|must-not-appear/i,
   );
 
   calls.length = 0;
   limiterSuccess = false;
   assert.equal(await handleLogAlerts([serverError], env), 0);
-  assert.equal(calls.some((call) => call.method === "chat.postMessage"), false);
-  console.log("PASS Tail Worker: real failure signals reach Slack while request and raw logs stay out");
+  assert.equal(
+    calls.some((call) => call.method === "chat.postMessage"),
+    false,
+  );
+  console.log(
+    "PASS Tail Worker: real failure signals reach Slack while request and raw logs stay out",
+  );
 } finally {
   globalThis.fetch = originalFetch;
 }
