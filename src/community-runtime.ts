@@ -141,6 +141,7 @@ export function actionIdentity(data: Record<string, unknown>, env: CommunityEnv,
     env.COMMUNITY_PUBLIC_CHANNEL_ID,
     env.COMMUNITY_RELEASE_CHANNEL_ID,
     env.COMMUNITY_MAINTAINERS_CHANNEL_ID,
+    ...(env.COMMUNITY_MAINTAINER_WORKSTREAM_CHANNEL_IDS?.split(",").map((id) => id.trim()) ?? []),
     env.COMMUNITY_SYS_ALERT_CHANNEL_ID,
     env.COMMUNITY_INTRO_CHANNEL_ID,
     env.COMMUNITY_FEEDBACK_CHANNEL_ID,
@@ -172,15 +173,9 @@ export function actionIdentity(data: Record<string, unknown>, env: CommunityEnv,
       ].includes(channelId)) ||
     (eventAction && channelId === env.COMMUNITY_RELEASE_CHANNEL_ID) ||
     (chapterAction && /^C[A-Z0-9]+$/.test(channelId)) ||
-    (maintainerAction &&
-      [
-        env.COMMUNITY_WELCOME_CHANNEL_ID,
-        env.COMMUNITY_PUBLIC_CHANNEL_ID,
-        env.COMMUNITY_RELEASE_CHANNEL_ID,
-        env.COMMUNITY_MAINTAINERS_CHANNEL_ID,
-        env.COMMUNITY_SYS_ALERT_CHANNEL_ID,
-      ].includes(channelId));
-  const feedbackActionDenied = channelId === env.COMMUNITY_FEEDBACK_CHANNEL_ID && !bugAction;
+    (maintainerAction && communityActionChannels.includes(channelId));
+  const feedbackActionDenied =
+    channelId === env.COMMUNITY_FEEDBACK_CHANNEL_ID && !bugAction && !maintainerAction;
   if (
     teamId !== env.SLACK_TEAM_ID ||
     feedbackActionDenied ||
@@ -199,14 +194,7 @@ export function actionIdentity(data: Record<string, unknown>, env: CommunityEnv,
       ].includes(channelId)) ||
     (eventAction && channelId !== env.COMMUNITY_RELEASE_CHANNEL_ID) ||
     (chapterAction && !/^C[A-Z0-9]+$/.test(channelId)) ||
-    (maintainerAction &&
-      ![
-        env.COMMUNITY_WELCOME_CHANNEL_ID,
-        env.COMMUNITY_PUBLIC_CHANNEL_ID,
-        env.COMMUNITY_RELEASE_CHANNEL_ID,
-        env.COMMUNITY_MAINTAINERS_CHANNEL_ID,
-        env.COMMUNITY_SYS_ALERT_CHANNEL_ID,
-      ].includes(channelId)) ||
+    (maintainerAction && !communityActionChannels.includes(channelId)) ||
     (![env.COMMUNITY_CHANNEL_ID, env.COMMUNITY_PUBLIC_CHANNEL_ID].includes(channelId) &&
       !expandedChannelAllowed) ||
     (channelId === env.COMMUNITY_CHANNEL_ID && userId !== env.COMMUNITY_ADMIN_ID) ||

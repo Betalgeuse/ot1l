@@ -4,6 +4,7 @@ import { execFileSync } from "node:child_process";
 const suites = [
   "community-admin-access",
   "community-maintainers",
+  "maintainer-button-routing",
   "community-chapters",
   "community-event-demands",
   "contributor-hygiene",

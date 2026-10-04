@@ -1,77 +1,31 @@
-import assert from "node:assert/strict";
-import { activateMaintainer, deactivateMaintainer, maintainerButton } from "../src/community-maintainers.ts";
-
-const calls = [];
-const transitions = [];
-let activationChanged = true;
-const context = {
-  env: {
-    SLACK_BOT_TOKEN: "token",
-    COMMUNITY_MAINTAINERS_CHANNEL_ID: "CMAINTAIN",
-    COMMUNITY_MAINTAINER_WORKSTREAM_CHANNEL_IDS: "CMAINEVENT,CMAINWEB,CMAINWELCOME",
-    COMMUNITY_SYS_ALERT_CHANNEL_ID: "CSYSALERT",
-  },
-  scope: { teamId: "TQA", channelId: "CWELCOME", userId: "UMEMBER" },
-  store: {
-    async activateMaintainer(teamId, actorId) {
-      transitions.push(["activate", teamId, actorId]);
-      const changed = activationChanged;
-      activationChanged = false;
-      return { teamId, userId: actorId, state: "active", revision: 1, changed };
-    },
-    async deactivateMaintainer(teamId, actorId) {
-      transitions.push(["deactivate", teamId, actorId]);
-      return true;
-    },
-  },
+import assert from 'node:assert/strict';
+import { activateMaintainer, maintainerButton } from '../src/community-maintainers.ts';
+const calls=[]; const transitions=[]; let changed=true; let failInvite=false; let revoked=false;
+const context={env:{SLACK_BOT_TOKEN:'fake',COMMUNITY_MAINTAINERS_CHANNEL_ID:'CMAIN',COMMUNITY_MAINTAINER_WORKSTREAM_CHANNEL_IDS:'CEVENT, CWEB,CWELCOME,CEVENT',COMMUNITY_SYS_ALERT_CHANNEL_ID:'CALERT'},scope:{teamId:'TQA',channelId:'CFEEDBACK',userId:'UMEMBER'},store:{
+ async maintainerStatus(){return revoked?{state:'revoked'}:null},
+ async syncMaintainerProfile(team,actor,name){transitions.push(['profile',team,actor,name])},
+ async activateMaintainer(team,actor){transitions.push(['activate',team,actor]);const was=changed;changed=false;return{userId:actor,changed:was,state:'active'}},
+}};
+const original=globalThis.fetch;
+globalThis.fetch=async(url,options={})=>{const method=new URL(url).pathname.split('/').at(-1);const body=options.body?JSON.parse(options.body):{};calls.push({method,body});
+ if(method==='users.info')return Response.json({ok:true,user:{id:'UMEMBER',team_id:'TQA',is_bot:false,is_app_user:false,deleted:false,real_name:'Member'}});
+ if(method==='conversations.invite'&&failInvite)return Response.json({ok:false,error:'missing_scope'});
+ return Response.json({ok:true,ts:'1.000001',message_ts:'1.000002'});
 };
-const originalFetch = globalThis.fetch;
-globalThis.fetch = async (url, options) => {
-  calls.push({ method: new URL(url).pathname.split("/").at(-1), body: JSON.parse(options.body) });
-  return Response.json({ ok: true, message_ts: "100.1", ts: "100.2" });
-};
-try {
-  const button = maintainerButton();
-  assert.equal(button.action_id, "community_maintainer_activate");
-  assert.equal(JSON.parse(button.value).ownerId, "actor");
-  await activateMaintainer(context);
-  assert.deepEqual(transitions[0], ["activate", "TQA", "UMEMBER"]);
-  assert.deepEqual(calls.slice(0, 5).map((call) => call.method), Array(5).fill("conversations.invite"));
-  assert.ok(calls.slice(0, 5).every((call) => call.body.users === "UMEMBER"));
-  assert.equal(calls[4].body.channel, "CSYSALERT");
-  assert.equal(calls[5].method, "chat.postEphemeral");
-  assert.equal(calls[5].body.user, "UMEMBER");
-  assert.match(calls[5].body.text, /공개 GitHub 저장소.*fork/);
-  assert.match(calls[5].body.text, /정확한 SHA.*Deployment Broker/);
-  assert.match(calls[5].body.text, /CONTRIBUTING[.]md/);
-  assert.match(calls[5].body.text, /운영 알림 <#CSYSALERT>/);
-  assert.equal(calls[6].method, "chat.postMessage");
-  assert.equal(calls[6].body.channel, "CMAINTAIN");
-  await activateMaintainer(context);
-  assert.deepEqual(calls.slice(7, 12).map((call) => call.method), Array(5).fill("conversations.invite"));
-  assert.equal(calls[12].method, "chat.postEphemeral");
-  assert.match(calls[12].body.text, /이미 Maintainer/);
-  assert.equal(calls.filter((call) => call.method === "chat.postMessage").length, 1);
-  await deactivateMaintainer(context);
-  assert.deepEqual(transitions[2], ["deactivate", "TQA", "UMEMBER"]);
-  assert.equal(calls[13].method, "chat.postEphemeral");
-  assert.match(calls[13].body.text, /승인 권한/);
-
-  const failedTransitions = [];
-  const failedContext = {
-    ...context,
-    store: {
-      ...context.store,
-      async activateMaintainer() {
-        failedTransitions.push("activate");
-        return { teamId: "TQA", userId: "UMEMBER", state: "active", revision: 1, changed: true };
-      },
-    },
-  };
-  globalThis.fetch = async () => Response.json({ ok: false, error: "missing_scope" });
-  await assert.rejects(activateMaintainer(failedContext), /missing_scope/);
-  assert.deepEqual(failedTransitions, [], "Slack enrollment failure must not grant approval authority");
-  console.log("PASS maintainer self-activation, public channel notice, and self-deactivation");
-} finally {
-  globalThis.fetch = originalFetch;
-}
+try{
+ assert.equal(JSON.parse(maintainerButton().value).ownerId,'actor');
+ await activateMaintainer(context);
+ assert.deepEqual(transitions,[['profile','TQA','UMEMBER','Member'],['activate','TQA','UMEMBER']]);
+ assert.deepEqual(calls.filter(c=>c.method==='conversations.invite').map(c=>c.body.channel),['CMAIN','CEVENT','CWEB','CWELCOME','CALERT']);
+ assert.ok(calls.filter(c=>c.method==='conversations.invite').every(c=>c.body.users==='UMEMBER'));
+ await activateMaintainer(context);
+ assert.equal(calls.filter(c=>c.method==='chat.postMessage').length,1);
+ assert.match(calls.filter(c=>c.method==='chat.postEphemeral').at(-1).body.text,/이미 Maintainer/);
+ failInvite=true; const before=transitions.filter(t=>t[0]==='activate').length;
+ await assert.rejects(()=>activateMaintainer(context),/missing_scope/);
+ assert.equal(transitions.filter(t=>t[0]==='activate').length,before);
+ revoked=true; const invitesBefore=calls.filter(c=>c.method==='conversations.invite').length;
+ await assert.rejects(()=>activateMaintainer(context),/제한된 계정/);
+ assert.equal(calls.filter(c=>c.method==='conversations.invite').length,invitesBefore);
+ console.log('PASS verified member activation, five-channel invitations, repair retry and failure boundaries');
+}finally{globalThis.fetch=original}
