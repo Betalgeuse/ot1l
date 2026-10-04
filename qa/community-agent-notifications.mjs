@@ -4,6 +4,7 @@ import { sendAgentNotifications } from "../src/community-agent-notifications.ts"
 const calls = [];
 let notificationKind = "merge_ready";
 let changeClass = "open";
+let includeTaskUrl = true;
 const originalFetch = globalThis.fetch;
 globalThis.fetch = async (url, options = {}) => {
   const parsed = new URL(url);
@@ -22,8 +23,12 @@ globalThis.fetch = async (url, options = {}) => {
                 thread_ts: "1790252981.933479",
                 kind: notificationKind,
                 payload: {
-                  taskUrl:
-                    "https://chatgpt.com/codex/tasks/task_e_0123456789abcdef0123456789abcdef",
+                  ...(includeTaskUrl
+                    ? {
+                        taskUrl:
+                          "https://chatgpt.com/codex/tasks/task_e_0123456789abcdef0123456789abcdef",
+                      }
+                    : {}),
                   attempt: 1,
                   reporterId: "UREPORTER",
                   adminId: "UADMIN",
@@ -116,6 +121,7 @@ try {
   calls.length = 0;
   changeClass = "open";
   notificationKind = "change_merged";
+  includeTaskUrl = false;
   const result = await sendAgentNotifications(env, new Date("2026-09-24T13:00:00Z"));
   assert.deepEqual(result, { claimed: 1, sent: 1, failed: 0 });
   const post = calls.find((call) => call.url.includes("chat.postMessage"));
@@ -150,6 +156,14 @@ try {
     .filter((call) => call.url.includes("reactions."))
     .map((call) => new URL(call.url).pathname.split("/").at(-1));
   assert.deepEqual(manualReactionMethods, ["reactions.remove", "reactions.add"]);
+  calls.length = 0;
+  notificationKind = "invalid_kind";
+  const malformed = await sendAgentNotifications(env, new Date("2026-09-24T13:03:00Z"));
+  assert.deepEqual(malformed, { claimed: 1, sent: 0, failed: 1 });
+  const malformedFinish = calls.find((call) =>
+    call.body.query?.includes("bug_runner_finish_notification"),
+  );
+  assert.match(malformedFinish.body.params[0], /"status":"failed"/);
   console.log(
     "PASS agent notifications: review, merge, deployment, and final check remain distinct",
   );
