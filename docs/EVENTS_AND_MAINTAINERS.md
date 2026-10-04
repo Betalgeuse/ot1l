@@ -18,7 +18,7 @@ Slack 리액션은 자유로운 반응이며 제품 상태로 집계하지 않�
 
 ## Maintainer와 승인 경계
 
-- 모든 회원은 welcome 또는 피드백 카드의 **Maintainer 되기**로 역할을 스스로 활성화할 수 있습니다. 버튼을 누른 본인만 DB 역할이 활성화되고 `#maintainers`와 공개 `#sys-alert`에 초대됩니다.
+- 모든 회원은 welcome 또는 피드백 카드의 **Maintainer 되기**로 역할을 스스로 활성화할 수 있습니다. 버튼을 누른 본인만 DB 역할이 활성화되고 `#maintainers`, 세 작업 채널과 공개 `#sys-alert`에 초대됩니다.
 - 저장소는 공개입니다. GitHub collaborator 초대나 upstream push 권한을 주지 않고, 각자 fork에서 개발·push한 뒤 PR을 엽니다. 시작 절차는 [기여 시작하기](../CONTRIBUTING.md)를 따릅니다.
 - Open 변경은 활성 Maintainer 한 명이 검증 결과와 정확한 head SHA를 Slack에서 승인하면 Deployment Broker가 병합과 배포를 이어서 수행합니다. Maintainer 개인 컴퓨터에서 운영 Worker를 배포하지 않습니다.
 - 확정된 피드백은 자동 수정이 시작될 때 `#maintainers` 작업 카드로 전달됩니다. 수정안과 검증이 준비되면 Open 변경에는 Maintainer 승인 버튼이 같은 스레드에 나타나며 활성 Maintainer 또는 Founder가 누를 수 있습니다. Core 변경은 공개 작업 스레드에 검증 결과만 보이고, Founder에게만 개인 승인 버튼을 보냅니다.

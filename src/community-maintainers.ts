@@ -16,6 +16,7 @@ export function maintainerButton(label = "Maintainer 되기"): Json {
 function maintainerChannels(context: CommunityContext): readonly string[] {
   return [
     context.env.COMMUNITY_MAINTAINERS_CHANNEL_ID,
+    ...(context.env.COMMUNITY_MAINTAINER_WORKSTREAM_CHANNEL_IDS?.split(",") ?? []),
     context.env.COMMUNITY_SYS_ALERT_CHANNEL_ID,
   ].filter((channel): channel is string => Boolean(channel && /^[CG][A-Z0-9]+$/.test(channel)));
 }
