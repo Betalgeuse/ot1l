@@ -17,7 +17,7 @@ type Notification = {
     | "change_merged"
     | "change_deployed"
     | "deployment_manual";
-  readonly taskUrl: string;
+  readonly taskUrl: string | null;
   readonly attempt: number;
   readonly reporterId: string | null;
   readonly adminId: string | null;
@@ -38,7 +38,7 @@ function parseNotification(value: unknown, repository: string): Notification {
   const notificationId = Number(row.notification_id);
   const attempt = Number(payload.attempt);
   const kind = string(row.kind);
-  const taskUrl = string(payload.taskUrl);
+  const taskUrl = typeof payload.taskUrl === "string" ? payload.taskUrl : null;
   if (
     !Number.isSafeInteger(notificationId) ||
     notificationId < 1 ||
@@ -53,7 +53,11 @@ function parseNotification(value: unknown, repository: string): Notification {
       "change_deployed",
       "deployment_manual",
     ].includes(kind) ||
-    !/^https:\/\/chatgpt[.]com\/codex\/tasks\/task_[a-z]_[a-f0-9]{32}$/.test(taskUrl)
+    (["task_started", "task_ready", "task_failed", "merge_ready"].includes(kind) &&
+      (!taskUrl ||
+        !/^https:\/\/chatgpt[.]com\/codex\/tasks\/task_[a-z]_[a-f0-9]{32}$/.test(taskUrl))) ||
+    (taskUrl !== null &&
+      !/^https:\/\/chatgpt[.]com\/codex\/tasks\/task_[a-z]_[a-f0-9]{32}$/.test(taskUrl))
   )
     throw new TypeError("invalid agent notification");
   return {
@@ -262,8 +266,12 @@ export async function sendAgentNotifications(
   if (!repository || !/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repository))
     throw new TypeError("invalid agent repository");
   for (const raw of claimed) {
-    const item = parseNotification(raw, repository);
+    let notificationId: number | null = null;
     try {
+      const row = object(raw);
+      const parsedId = Number(row.notification_id);
+      if (Number.isSafeInteger(parsedId) && parsedId > 0) notificationId = parsedId;
+      const item = parseNotification(raw, repository);
       if (
         item.kind === "task_failed" ||
         item.kind === "change_merged" ||
@@ -319,15 +327,23 @@ export async function sendAgentNotifications(
         }),
       ]);
       sent += 1;
-    } catch {
-      await db.queryJson("SELECT otl.bug_runner_finish_notification($1::jsonb)", [
+    } catch (error) {
+      if (notificationId !== null)
+        await db.queryJson("SELECT otl.bug_runner_finish_notification($1::jsonb)", [
+          JSON.stringify({
+            notificationId,
+            leaseToken,
+            status: "failed",
+            now: now.toISOString(),
+          }),
+        ]);
+      console.error(
         JSON.stringify({
-          notificationId: item.notificationId,
-          leaseToken,
-          status: "failed",
-          now: now.toISOString(),
+          event: "community.agent_notification.failed",
+          notificationId,
+          errorType: error instanceof Error ? error.name : "Unknown",
         }),
-      ]);
+      );
       failed += 1;
     }
   }
