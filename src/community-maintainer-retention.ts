@@ -10,7 +10,7 @@ function requestButton(label: string, mode: "question" | "qna" | "ot"): Json {
   return {
     type: "button",
     text: { type: "plain_text", text: label },
-    action_id: "community_maintainer_help_open",
+    action_id: `community_maintainer_help_open_${mode}`,
     value: JSON.stringify({ ownerId: "actor", key: `retention-${mode}`, mode }),
   };
 }

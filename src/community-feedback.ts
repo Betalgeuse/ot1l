@@ -9,6 +9,7 @@ import {
 } from "./community-bug-schema";
 import { CommunityBugStore } from "./community-bug-store";
 import type { BugState } from "./community-bug-types";
+import { MaintainerOpsStore } from "./community-maintainer-store";
 import { maintainerButton } from "./community-maintainers";
 import { escapeSlackText } from "./community-messages";
 import { sha256Hex } from "./community-referral-service-auth";
@@ -265,6 +266,13 @@ export async function publishMaintainerFeedbackCard(
 ): Promise<string | null> {
   const channelId = context.env.COMMUNITY_MAINTAINERS_CHANNEL_ID;
   if (!channelId) return null;
+  if (context.env.MAINTAINER_LINEAR_ENABLED === "true") {
+    const stored = await new MaintainerOpsStore(context.env).execute("surface_get", {
+      workKey: input.feedbackId,
+      channelId,
+    });
+    if (typeof stored === "string") return stored;
+  }
   const history = await callSlack(context.env.SLACK_BOT_TOKEN, "conversations.history", {
     channel: channelId,
     limit: 200,
@@ -272,7 +280,7 @@ export async function publishMaintainerFeedbackCard(
   for (const value of list(history.messages)) {
     const message = object(value);
     if (
-      message.thread_ts === undefined &&
+      (message.thread_ts === undefined || message.thread_ts === message.ts) &&
       typeof message.text === "string" &&
       message.text.includes(`버그 키: ${input.feedbackId}`)
     )
@@ -529,11 +537,6 @@ export async function approveCodexMerge(
         },
       },
     ],
-  });
-  await callSlack(context.env.SLACK_BOT_TOKEN, "chat.postMessage", {
-    channel: context.scope.channelId,
-    thread_ts: context.thread,
-    text: `병합 승인을 확인했어요. 반영이 끝나면 여기에서 알려드릴게요. · ${input.feedbackId}`,
   });
 }
 

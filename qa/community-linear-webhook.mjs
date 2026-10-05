@@ -70,6 +70,23 @@ try {
   assert.match(sync.body.params[1], /"driUserId":"UMAIN"/);
   const updates = calls.filter((call) => call.pathname.endsWith("/chat.update"));
   assert.equal(updates.length, 2);
+  const memberUpdate = updates.find((call) => call.body.channel === "CFEEDBACK");
+  const maintainerUpdate = updates.find((call) => call.body.channel === "CMAIN");
+  assert.match(memberUpdate.body.text, /버그 키 BUG-QA/);
+  assert.deepEqual(
+    memberUpdate.body.blocks.at(-1).elements.map((element) => element.action_id),
+    ["community_maintainer_activate"],
+  );
+  assert.match(maintainerUpdate.body.blocks[0].text.text, /DRI  <@UMAIN>/);
+  assert.match(maintainerUpdate.body.blocks[0].text.text, /버그 키  BUG-QA/);
+  assert.deepEqual(
+    maintainerUpdate.body.blocks.at(-1).elements.map((element) => element.action_id),
+    ["community_feedback_dri_select", "community_maintainer_linear_connect", "community_linear_open"],
+  );
+  assert.equal(
+    maintainerUpdate.body.blocks.at(-1).elements[0].options[0].text.text,
+    "Main",
+  );
   const before = calls.length;
   assert.equal((await request(payload)).status, 200);
   assert.equal(calls.slice(before).some((call) => call.pathname.endsWith("/chat.update")), false);

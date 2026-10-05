@@ -5,6 +5,7 @@ import {
   dailyFeedbackPromptText,
   feedbackPromptDue,
   parseFeedbackAnalysis,
+  publishMaintainerFeedbackCard,
   sendDailyFeedbackPrompt,
   startCodexFeedback,
 } from "../src/community-feedback.ts";
@@ -96,6 +97,7 @@ assert.deepEqual(
 const calls = [];
 let queueAccepted = true;
 let approvalChangeClass = "core";
+let historyMessages = [];
 const originalFetch = globalThis.fetch;
 globalThis.fetch = async (url, options = {}) => {
   const parsedUrl = new URL(url);
@@ -105,7 +107,10 @@ globalThis.fetch = async (url, options = {}) => {
   calls.push({ method, body, authorization });
   if (method === "users.info")
     return Response.json({ ok: true, user: { id: "UADMIN", is_admin: true, is_owner: false } });
-  if (method === "conversations.history") return Response.json({ ok: true, messages: [] });
+  if (method === "conversations.history")
+    return Response.json({ ok: true, messages: historyMessages });
+  if (method === "sql" && body.params?.[0] === "surface_get")
+    return Response.json({ rows: [[JSON.stringify("123.789")]] });
   if (method === "sql")
     return Response.json({
       rows: [
@@ -215,6 +220,69 @@ try {
   );
   assert.match(maintainerCard.body.text, /<@UREPORTER>님의 피드백 자동 수정이 시작됐어요/);
   assert.match(maintainerCard.body.text, /원본 피드백 보기/);
+  historyMessages = [
+    {
+      ts: "123.456",
+      thread_ts: "123.456",
+      text: "기존 Maintainer 작업\n버그 키: BUG-ABCDEF123456",
+    },
+  ];
+  const maintainerPostsBefore = calls.filter(
+    (call) => call.method === "chat.postMessage" && call.body.channel === "CMAINTAIN",
+  ).length;
+  assert.equal(
+    await publishMaintainerFeedbackCard(
+      {
+        env: { SLACK_BOT_TOKEN: "fake", COMMUNITY_MAINTAINERS_CHANNEL_ID: "CMAINTAIN" },
+        scope: { teamId: "TQA", channelId: "CFEEDBACK", userId: "UADMIN" },
+        thread: "123.100",
+      },
+      { feedbackId: "BUG-ABCDEF123456", reporterId: "UREPORTER" },
+    ),
+    "123.456",
+  );
+  assert.equal(
+    calls.filter(
+      (call) => call.method === "chat.postMessage" && call.body.channel === "CMAINTAIN",
+    ).length,
+    maintainerPostsBefore,
+    "a root with replies must be reused instead of creating a duplicate placeholder card",
+  );
+  historyMessages = [];
+  const historyCallsBefore = calls.filter((call) => call.method === "conversations.history").length;
+  const postsBeforeStoredSurface = calls.filter(
+    (call) => call.method === "chat.postMessage" && call.body.channel === "CMAINTAIN",
+  ).length;
+  assert.equal(
+    await publishMaintainerFeedbackCard(
+      {
+        env: {
+          DATABASE_URL:
+            "postgresql://runtime:secret@ep-example-pooler.c-3.ap-southeast-1.aws.neon.tech/neondb?sslmode=require",
+          SLACK_TEAM_ID: "TQA",
+          SLACK_BOT_TOKEN: "fake",
+          COMMUNITY_ADMIN_ID: "UADMIN",
+          COMMUNITY_MAINTAINERS_CHANNEL_ID: "CMAINTAIN",
+          MAINTAINER_LINEAR_ENABLED: "true",
+        },
+        scope: { teamId: "TQA", channelId: "CFEEDBACK", userId: "UADMIN" },
+        thread: "123.100",
+      },
+      { feedbackId: "BUG-ABCDEF123456", reporterId: "UREPORTER" },
+    ),
+    "123.789",
+  );
+  assert.equal(
+    calls.filter((call) => call.method === "conversations.history").length,
+    historyCallsBefore,
+    "the persisted Maintainer work surface must win over Slack history discovery",
+  );
+  assert.equal(
+    calls.filter(
+      (call) => call.method === "chat.postMessage" && call.body.channel === "CMAINTAIN",
+    ).length,
+    postsBeforeStoredSurface,
+  );
   assert.equal(
     calls.some((call) => call.method === "reactions.add" && call.body.name === "loading"),
     true,
@@ -225,6 +293,7 @@ try {
   assert.match(queueCall.body.params[0], /"reporterId":"UREPORTER"/);
   assert.match(queueCall.body.params[0], /"repository":"Betalgeuse\/ot1l"/);
   assert.match(queueCall.body.params[0], /"branch":"main"/);
+  const approvalPostsBefore = calls.filter((call) => call.method === "chat.postMessage").length;
   await approveCodexMerge(
     {
       env: {
@@ -254,7 +323,11 @@ try {
     calls.some(
       (call) => call.method === "chat.postMessage" && call.body.text.includes("병합 승인을 확인"),
     ),
-    true,
+    false,
+  );
+  assert.equal(
+    calls.filter((call) => call.method === "chat.postMessage").length,
+    approvalPostsBefore,
   );
   const approvalUpdate = calls.find((call) => call.method === "chat.update");
   assert.equal(approvalUpdate.body.ts, "123.100");

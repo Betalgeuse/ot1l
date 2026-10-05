@@ -108,7 +108,7 @@ function notificationText(input: Notification): string {
   if (input.kind === "change_merged")
     return `${mentions}\n수정안을 main에 병합했어요. 운영 배포와 실제 동작 확인을 기다리고 있습니다.\n${input.bugId}`;
   if (input.kind === "deployment_manual")
-    return `${mentions}\n자동 배포 범위를 벗어난 변경이 있어 운영자 배포가 필요해요.\n${input.summary ?? input.bugId}`;
+    return `${mentions}\nmain 병합은 완료됐고, migration·Core·사이트를 안전한 순서로 운영 반영하고 있어요.\n${input.summary ?? input.bugId}`;
   if (input.kind === "merge_ready")
     return `수정안과 검증이 준비됐어요. 변경 내용을 확인한 뒤 병합을 승인해 주세요.\n${input.summary ?? "전체 검사를 통과했습니다."}`;
   return `${input.bugId} 자동 개선을 완료하지 못했어요. 운영자가 확인할게요.`;
@@ -174,6 +174,7 @@ async function maintainerFeedbackThread(
 ): Promise<string> {
   const channelId = env.COMMUNITY_MAINTAINERS_CHANNEL_ID;
   if (!channelId) throw new TypeError("maintainer channel missing");
+  if (input.channelId === channelId) return input.threadTs;
   const history = await callSlack(env.SLACK_BOT_TOKEN, "conversations.history", {
     channel: channelId,
     limit: 200,
@@ -181,7 +182,7 @@ async function maintainerFeedbackThread(
   for (const value of list(history.messages)) {
     const message = object(value);
     if (
-      message.thread_ts === undefined &&
+      (message.thread_ts === undefined || message.thread_ts === message.ts) &&
       typeof message.text === "string" &&
       message.text.includes(`버그 키: ${input.bugId}`)
     )
@@ -265,24 +266,38 @@ export async function sendAgentNotifications(
       const parsedId = Number(row.notification_id);
       if (Number.isSafeInteger(parsedId) && parsedId > 0) notificationId = parsedId;
       const item = parseNotification(raw, repository);
+      if (item.kind === "change_merged") {
+        await setMaintainerWorkReleaseStage(env, item.bugId, "배포 확인 중");
+        await db.queryJson("SELECT otl.bug_runner_finish_notification($1::jsonb)", [
+          JSON.stringify({
+            notificationId: item.notificationId,
+            leaseToken,
+            status: "sent",
+            now: now.toISOString(),
+          }),
+        ]);
+        sent += 1;
+        continue;
+      }
       if (
         item.kind === "task_failed" ||
-        item.kind === "change_merged" ||
         item.kind === "change_deployed" ||
         item.kind === "deployment_manual" ||
         item.kind === "merge_ready"
-      )
-        await callSlack(env.SLACK_BOT_TOKEN, "chat.postMessage", {
-          channel: item.channelId,
-          thread_ts: item.threadTs,
-          text:
-            item.kind === "merge_ready"
-              ? `수정안과 검증이 준비되어 <#${env.COMMUNITY_MAINTAINERS_CHANNEL_ID}>에 승인을 요청했어요. · ${item.bugId}`
-              : notificationText(item),
-        });
+      ) {
+        const sourceIsMaintainer = item.channelId === env.COMMUNITY_MAINTAINERS_CHANNEL_ID;
+        if (!sourceIsMaintainer)
+          await callSlack(env.SLACK_BOT_TOKEN, "chat.postMessage", {
+            channel: item.channelId,
+            thread_ts: item.threadTs,
+            text:
+              item.kind === "merge_ready"
+                ? `수정안과 검증이 준비되어 <#${env.COMMUNITY_MAINTAINERS_CHANNEL_ID}>에 승인을 요청했어요. · ${item.bugId}`
+                : notificationText(item),
+          });
+      }
       if (
         item.kind === "task_failed" ||
-        item.kind === "change_merged" ||
         item.kind === "change_deployed" ||
         item.kind === "deployment_manual" ||
         item.kind === "merge_ready"
@@ -291,15 +306,13 @@ export async function sendAgentNotifications(
       const releaseStage =
         item.kind === "merge_ready"
           ? "검토·승인 중"
-          : item.kind === "change_merged"
-            ? "배포 확인 중"
-            : item.kind === "change_deployed"
-              ? "운영 반영 완료"
-              : item.kind === "deployment_manual"
-                ? "운영자 배포 필요"
-                : item.kind === "task_failed"
-                  ? "확인 필요"
-                  : null;
+          : item.kind === "change_deployed"
+            ? "운영 반영 완료"
+            : item.kind === "deployment_manual"
+              ? "순차 배포 중"
+              : item.kind === "task_failed"
+                ? "확인 필요"
+                : null;
       if (releaseStage) await setMaintainerWorkReleaseStage(env, item.bugId, releaseStage);
       if (item.kind === "change_deployed") {
         await removeReactions(env.SLACK_BOT_TOKEN, {
@@ -312,7 +325,7 @@ export async function sendAgentNotifications(
           ts: item.threadTs,
           names: ["white_check_mark"],
         });
-      } else if (item.kind === "task_failed" || item.kind === "deployment_manual") {
+      } else if (item.kind === "task_failed") {
         await removeReactions(env.SLACK_BOT_TOKEN, {
           channel: item.channelId,
           ts: item.threadTs,
