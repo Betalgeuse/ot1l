@@ -352,7 +352,7 @@ export function townhallEventMessage(event: TownhallEvent): Json {
         type: "actions",
         elements: [
           ...(event.finalStartAt
-            ? [button("참가할게요", "community_event_rsvp", "actor", event.eventId)]
+            ? [button("참가 / 참가 취소", "community_event_rsvp", "actor", event.eventId)]
             : [
                 button(
                   "가능한 시간 고르기",
@@ -491,27 +491,32 @@ export async function applyTownhallRsvp(
   context: CommunityContext,
   event: TownhallEvent,
 ): Promise<void> {
-  if (event.viewerState === "going") {
-    await notice(context, "이미 참가자로 등록되어 있어요.");
-    return;
-  }
+  const cancelling = event.viewerState === "going" || event.viewerState === "waitlist";
   const updated = await context.store.townhallEventLifecycle("rsvp", {
     teamId: context.scope.teamId,
     channelId: context.scope.channelId,
     actorId: context.scope.userId,
     eventId: event.eventId,
-    state: "going",
+    state: cancelling ? "declined" : "going",
     now: new Date().toISOString(),
   });
   await updateEventMessage(context, updated);
-  await postEventThreadStatus(context.env, updated, `<@${context.scope.userId}>님이 참가해요.`);
+  await postEventThreadStatus(
+    context.env,
+    updated,
+    cancelling
+      ? `<@${context.scope.userId}>님이 참가를 취소했어요.`
+      : `<@${context.scope.userId}>님이 참가해요.`,
+  );
   await notice(
     context,
-    updated.viewerState === "waitlist"
-      ? "정원이 차서 대기자로 등록했어요."
-      : updated.viewerState === "going"
-        ? "참가를 확정했어요."
-        : "참가 상태를 확인해 주세요.",
+    cancelling && updated.viewerState === "declined"
+      ? "참가를 취소했어요."
+      : updated.viewerState === "waitlist"
+        ? "정원이 차서 대기자로 등록했어요."
+        : updated.viewerState === "going"
+          ? "참가를 확정했어요."
+          : "참가 상태를 확인해 주세요.",
   );
 }
 
