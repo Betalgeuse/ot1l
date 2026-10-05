@@ -10,6 +10,13 @@ import {
 } from "./community-event-demands";
 import { introductionModal } from "./community-introduction";
 import { showIntroductionDirectory } from "./community-introduction-channel";
+import { claimMaintainerHelp, openMaintainerHelpModal } from "./community-maintainer-retention";
+import {
+  assignMaintainerWork,
+  connectMaintainerToLinear,
+  pauseMaintainerLinear,
+  showMaintainerLinearMembers,
+} from "./community-maintainer-work";
 import { activateMaintainer, deactivateMaintainer } from "./community-maintainers";
 import { openCommunityPalette } from "./community-palette";
 import {
@@ -145,9 +152,81 @@ export async function handleCommunityAction(input: ActionInteraction): Promise<R
     return new Response(null, { status: 200 });
   }
   if (input.id === "community_maintainer_deactivate") {
-    input.waitUntil(deactivateMaintainer(context));
+    input.waitUntil(
+      (async () => {
+        await pauseMaintainerLinear(context);
+        await deactivateMaintainer(context);
+      })().catch(async (error: unknown) => {
+        console.error(
+          JSON.stringify({
+            event: "community.maintainer.deactivation_failed",
+            errorType: error instanceof Error ? error.name : "Unknown",
+          }),
+        );
+        await ephemeral(context, {
+          text:
+            error instanceof InputError
+              ? error.message
+              : "Maintainer 역할과 Linear 연결을 함께 정리하지 못했어요. 잠시 후 다시 시도해 주세요.",
+        });
+      }),
+    );
     return new Response(null, { status: 200 });
   }
+  if (input.id === "community_maintainer_linear_connect") {
+    input.waitUntil(
+      connectMaintainerToLinear(context).catch(async (error: unknown) => {
+        console.error(
+          JSON.stringify({
+            event: "community.maintainer.linear_connect_failed",
+            errorType: error instanceof Error ? error.name : "Unknown",
+          }),
+        );
+        await ephemeral(context, {
+          text:
+            error instanceof InputError
+              ? error.message
+              : "Linear 연결을 확인하지 못했어요. 잠시 후 다시 눌러 주세요.",
+        });
+      }),
+    );
+    return new Response(null, { status: 200 });
+  }
+  if (input.id === "community_maintainer_linear_members") {
+    input.waitUntil(showMaintainerLinearMembers(context));
+    return new Response(null, { status: 200 });
+  }
+  if (input.id === "community_feedback_dri_select") {
+    input.waitUntil(
+      assignMaintainerWork(context, key, string(value.driUserId)).catch(async (error: unknown) => {
+        console.error(
+          JSON.stringify({
+            event: "community.maintainer.dri_assignment_failed",
+            errorType: error instanceof Error ? error.name : "Unknown",
+          }),
+        );
+        await ephemeral(context, {
+          text:
+            error instanceof InputError
+              ? error.message
+              : "DRI 변경을 확인하지 못했어요. 잠시 후 다시 시도해 주세요.",
+        });
+      }),
+    );
+    return new Response(null, { status: 200 });
+  }
+  if (input.id === "community_maintainer_help_open") {
+    const mode = value.mode;
+    if (mode !== "question" && mode !== "qna" && mode !== "ot")
+      throw new InputError("도움 요청 종류를 확인할 수 없어요.");
+    await openMaintainerHelpModal(context, string(input.data.trigger_id), mode);
+    return new Response(null, { status: 200 });
+  }
+  if (input.id === "community_maintainer_help_claim") {
+    input.waitUntil(claimMaintainerHelp(context, string(value.requesterId)));
+    return new Response(null, { status: 200 });
+  }
+  if (input.id === "community_linear_open") return new Response(null, { status: 200 });
   if (input.id === "community_chapter_open") {
     await openCommunityChapterModal(context, string(input.data.trigger_id));
     return new Response(null, { status: 200 });

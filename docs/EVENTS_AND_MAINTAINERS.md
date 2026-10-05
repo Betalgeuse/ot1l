@@ -21,7 +21,11 @@ Slack 리액션은 자유로운 반응이며 제품 상태로 집계하지 않�
 - 모든 회원은 welcome 또는 피드백 카드의 **Maintainer 되기**로 역할을 스스로 활성화할 수 있습니다. 버튼을 누른 본인만 DB 역할이 활성화되고 `#maintainers`, 세 작업 채널과 공개 `#sys-alert`에 초대됩니다.
 - 저장소는 공개입니다. GitHub collaborator 초대나 upstream push 권한을 주지 않고, 각자 fork에서 개발·push한 뒤 PR을 엽니다. 시작 절차는 [기여 시작하기](../CONTRIBUTING.md)를 따릅니다.
 - Open 변경은 활성 Maintainer 한 명이 검증 결과와 정확한 head SHA를 Slack에서 승인하면 Deployment Broker가 병합과 배포를 이어서 수행합니다. Maintainer 개인 컴퓨터에서 운영 Worker를 배포하지 않습니다.
-- 확정된 피드백은 자동 수정이 시작될 때 `#maintainers` 작업 카드로 전달됩니다. 수정안과 검증이 준비되면 Open 변경에는 Maintainer 승인 버튼이 같은 스레드에 나타나며 활성 Maintainer 또는 Founder가 누를 수 있습니다. Core 변경은 공개 작업 스레드에 검증 결과만 보이고, Founder에게만 개인 승인 버튼을 보냅니다.
+- 피드백은 일반 피드백 채널과 `#maintainers`에서 시작할 수 있습니다. 한 Linear 이슈를 원본으로 두고 두 Slack 카드의 단계와 DRI를 갱신합니다. Maintainer 작성자는 기본 DRI이며 드롭다운에서 다른 활성 Maintainer에게 넘길 수 있습니다.
+- 수정안과 검증이 준비되면 Open과 Core 승인 버튼 모두 같은 `#maintainers` 작업 스레드에 나타납니다. Open은 활성 Maintainer 또는 Founder, Core는 Founder 본인만 승인할 수 있고 DM은 작업 스레드 링크만 알립니다.
+- Linear 연결은 DRI를 맡을 Maintainer가 명시적으로 요청할 때 `ot1l` 전용 Guest로 진행합니다. `DEV` 팀, 워크스페이스 역할과 운영 비밀에는 접근시키지 않습니다. OT1L 앱은 무료 Delegate이며 사람 DRI를 대신하지 않습니다.
+- `#maintainers-retention`의 버전 안내에서 질문, Q&A 허들과 첫 기여 OT를 요청합니다. 허들은 요청 즉시 자동 시작하지 않고 담당자가 정해진 뒤 같은 채널과 스레드에서 엽니다.
+- 웹의 **함께 만드는 중**은 Plane의 낮은 밀도 보드 방식을 참고한 선택 화면입니다. Linear나 웹을 확인하지 않아도 일반 회원은 원래 Slack 스레드에서 담당자와 단계를 볼 수 있습니다.
 - 이벤트 공개 화면은 별도 `otl1-time` Worker에서 실행합니다. 이 Worker에는 Slack token, DB URL, SSH key가 없고 이벤트 전용 Core 서명키만 있습니다.
 - 가입, 개인정보, 보안, Slack 처리와 Core Worker 코드 변경은 Founder 승인 뒤에만 병합·배포합니다. DB migration과 일반 홈페이지처럼 별도 순서가 필요한 변경은 Founder 승인 뒤에도 자동 배포하지 않고 운영 절차로 넘깁니다.
 - 경로가 섞였거나 분류 digest 또는 head SHA가 바뀌면 승인은 무효가 되며 다시 검증해야 합니다.
@@ -34,7 +38,7 @@ Open 경로의 기준은 `automation/runner/change-policy.mjs`이며 fail-closed
 
 ## 운영 점검
 
-- DB: 이벤트용 `067`–`076`과 Maintainer 재클릭 안전성용 `078` migration이 순서대로 적용되어야 합니다.
+- DB: 이벤트용 `067`–`076`, Maintainer 재클릭 안전성용 `078`, Linear 작업 연결용 `083` migration이 순서대로 적용되어야 합니다.
 - Core secrets: `EVENT_SIGNING_SECRET`, `EVENT_CORE_HMAC_SECRET`.
 - Open events secret: 같은 `EVENT_CORE_HMAC_SECRET`만 둡니다.
 - Slack app: `reactions:read` scope와 `reaction_added`, `reaction_removed` event subscription을 적용한 뒤 앱을 다시 설치합니다.

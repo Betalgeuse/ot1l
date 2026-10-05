@@ -1,9 +1,9 @@
 import type { Json } from "./input";
 
-export function feedbackButton(): Json {
+export function feedbackButton(label = "피드백 남기기"): Json {
   return {
     type: "button",
-    text: { type: "plain_text", text: "피드백 남기기" },
+    text: { type: "plain_text", text: label },
     action_id: "community_bug_open",
     value: JSON.stringify({ ownerId: "actor", key: "new" }),
     accessibility_label: "불편한 점이나 개선 의견 남기기",

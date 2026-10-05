@@ -18,6 +18,7 @@ import {
   startCodexFeedbackAutomatically,
 } from "./community-feedback";
 import { canonicalFeedbackContext, feedbackBugIdentity } from "./community-feedback-route";
+import { syncFeedbackToLinear } from "./community-maintainer-work";
 import type { CommunityContext } from "./community-runtime";
 import { InputError } from "./input";
 import { NeonStore, StoreError } from "./store";
@@ -126,6 +127,17 @@ export async function startBugReport(
         sourceOpaqueRef,
         reporterId: context.scope.userId,
         fromState: "new",
+      });
+      const actual = parsed.messages.find((message) => message.id === "form:actual")?.text ?? "";
+      const expected =
+        parsed.messages.find((message) => message.id === "form:expected")?.text ?? "";
+      await syncFeedbackToLinear(deliveryContext, {
+        feedbackId: draft.bugId,
+        reporterId: context.scope.userId,
+        actual,
+        expected,
+        sourceChannel: context.scope.channelId,
+        sourceThread: context.thread,
       });
       await startCodexFeedbackAutomatically(deliveryContext, {
         feedbackId: draft.bugId,

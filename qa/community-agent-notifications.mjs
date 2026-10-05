@@ -106,17 +106,15 @@ try {
   );
   assert.equal(
     maintainerCorePost.body.blocks.some((block) => block.type === "actions"),
-    false,
+    true,
   );
-  assert.match(maintainerCorePost.body.text, /Founder에게 개인 승인 버튼/);
+  assert.match(maintainerCorePost.body.text, /Founder 본인만 승인/);
+  assert.equal(maintainerCorePost.body.blocks[1].elements[0].text.text, "Founder 병합·배포 승인");
   const founderPost = calls.find(
     (call) => call.url.includes("chat.postMessage") && call.body.channel === "DFOUNDER",
   );
-  assert.equal(founderPost.body.blocks[1].elements[0].text.text, "Founder 병합·배포 승인");
-  assert.equal(
-    founderPost.body.blocks[1].elements[0].action_id,
-    "community_feedback_merge_approve",
-  );
+  assert.match(founderPost.body.text, /Maintainer 작업 스레드에서 Founder 병합·배포 승인하기/);
+  assert.equal(founderPost.body.blocks, undefined);
 
   calls.length = 0;
   changeClass = "open";

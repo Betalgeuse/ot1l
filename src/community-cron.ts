@@ -2,6 +2,7 @@ import { sendAgentNotifications } from "./community-agent-notifications";
 import { armBugDeliveryClock } from "./community-bug-clock-client";
 import { reconcileCommunityChapters } from "./community-chapters";
 import { runDueGardenDeliveries } from "./community-garden-delivery";
+import { reconcileMaintainerLinear } from "./community-maintainer-work";
 import { collectCurrentChannelMembers } from "./community-membership";
 import { runMembershipDue } from "./community-membership-schedule";
 import type { CommunityEnv } from "./community-runtime";
@@ -26,6 +27,20 @@ export async function communityCron(env: CommunityEnv, scheduledTime: number): P
   }
   if (env.COMMUNITY_ENABLED !== "true" || env.DATABASE_MAINTENANCE === "true") return;
   if (!env.COMMUNITY_ADMIN_ID) return;
+  if (env.MAINTAINER_LINEAR_ENABLED === "true")
+    try {
+      const linear = await reconcileMaintainerLinear(env);
+      if (linear.linked > 0 || linear.assigned > 0)
+        console.log(JSON.stringify({ event: "community.linear.reconciled", ...linear }));
+    } catch (error) {
+      console.error(
+        JSON.stringify({
+          event: "community.cron.queue.failed",
+          queue: "linear",
+          errorType: error instanceof Error ? error.name : "Unknown",
+        }),
+      );
+    }
   try {
     const eventStore = new CommunityStore(new NeonStore(env.DATABASE_URL));
     const eventTransitions = await runTownhallEventDue(
