@@ -111,7 +111,7 @@ globalThis.fetch = async (url, options) => {
 };
 
 const inspected = await inspectWelcomeGuideSource(env);
-assert.equal(inspected.version, "v0.0.78");
+assert.equal(inspected.version, "v0.0.79");
 assert.match(inspected.body, /수요 먼저 확인하기/);
 assert.match(inspected.body, /내가 주최할래요/);
 assert.match(inspected.body, /최소 성사 인원.*최대 인원.*무제한/);

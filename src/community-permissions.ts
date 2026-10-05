@@ -86,6 +86,13 @@ const memberActions = new Set([
   "community_bug_answer_submit",
   "community_feedback_admin_start",
   "community_feedback_merge_approve",
+  "community_feedback_dri_select",
+  "community_maintainer_linear_connect",
+  "community_maintainer_linear_members",
+  "community_maintainer_help_open",
+  "community_maintainer_help_submit",
+  "community_maintainer_help_claim",
+  "community_linear_open",
 ]);
 
 export function authorizeCommunityAction(

@@ -1,3 +1,4 @@
+import { setMaintainerWorkReleaseStage } from "./community-maintainer-work";
 import { escapeSlackText } from "./community-messages";
 import type { CommunityEnv } from "./community-runtime";
 import { addReactions, callSlack, removeReactions } from "./community-social";
@@ -229,8 +230,8 @@ async function sendMaintainerNotification(
   await callSlack(env.SLACK_BOT_TOKEN, "chat.postMessage", {
     channel: channelId,
     thread_ts: threadTs,
-    ...mergeReadyMessage(input, false),
-    text: `${notificationText(input)}\nFounder에게 개인 승인 버튼을 보냈습니다.`,
+    ...mergeReadyMessage(input),
+    text: `<@${founderId}> ${notificationText(input)}\nCore 변경은 Founder 본인만 승인할 수 있습니다.`,
   });
   const direct = await callSlack(env.SLACK_BOT_TOKEN, "conversations.open", {
     users: founderId,
@@ -238,20 +239,12 @@ async function sendMaintainerNotification(
   const directChannelId = string(object(direct.channel).id);
   await callSlack(env.SLACK_BOT_TOKEN, "chat.postMessage", {
     channel: directChannelId,
-    ...mergeReadyMessage(input),
+    text: `<https://app.slack.com/client/${env.SLACK_TEAM_ID}/${channelId}/thread/${channelId}-${threadTs}|Maintainer 작업 스레드에서 Founder 병합·배포 승인하기>\n${input.bugId}`,
   });
 }
 
 export async function sendAgentNotifications(
-  env: Pick<
-    CommunityEnv,
-    | "SLACK_TEAM_ID"
-    | "SLACK_BOT_TOKEN"
-    | "DATABASE_URL"
-    | "COMMUNITY_CODEX_REPOSITORY"
-    | "COMMUNITY_MAINTAINERS_CHANNEL_ID"
-    | "COMMUNITY_ADMIN_ID"
-  >,
+  env: CommunityEnv,
   now = new Date(),
 ): Promise<{ readonly claimed: number; readonly sent: number; readonly failed: number }> {
   const db = new NeonStore(env.DATABASE_URL);
@@ -295,6 +288,19 @@ export async function sendAgentNotifications(
         item.kind === "merge_ready"
       )
         await sendMaintainerNotification(env, item);
+      const releaseStage =
+        item.kind === "merge_ready"
+          ? "검토·승인 중"
+          : item.kind === "change_merged"
+            ? "배포 확인 중"
+            : item.kind === "change_deployed"
+              ? "운영 반영 완료"
+              : item.kind === "deployment_manual"
+                ? "운영자 배포 필요"
+                : item.kind === "task_failed"
+                  ? "확인 필요"
+                  : null;
+      if (releaseStage) await setMaintainerWorkReleaseStage(env, item.bugId, releaseStage);
       if (item.kind === "change_deployed") {
         await removeReactions(env.SLACK_BOT_TOKEN, {
           channel: item.channelId,

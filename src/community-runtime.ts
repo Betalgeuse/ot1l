@@ -54,6 +54,16 @@ export type CommunityEnv = {
   readonly COMMUNITY_MAINTAINERS_CHANNEL_ID?: string;
   readonly COMMUNITY_MAINTAINER_WORKSTREAM_CHANNEL_IDS?: string;
   readonly COMMUNITY_SYS_ALERT_CHANNEL_ID?: string;
+  readonly COMMUNITY_RETENTION_CHANNEL_ID?: string;
+  readonly MAINTAINER_LINEAR_ENABLED?: string;
+  readonly LINEAR_API_KEY?: string;
+  readonly LINEAR_ADMIN_API_KEY?: string;
+  readonly LINEAR_APP_CLIENT_ID?: string;
+  readonly LINEAR_APP_CLIENT_SECRET?: string;
+  readonly LINEAR_WEBHOOK_SECRET?: string;
+  readonly LINEAR_TEAM_ID?: string;
+  readonly LINEAR_ORGANIZATION_ID?: string;
+  readonly LINEAR_GUEST_SEAT_LIMIT?: string;
   readonly COMMUNITY_WELCOME_CHANNEL_ID?: string;
   readonly COMMUNITY_GUIDE_FILE_IDS?: string;
   readonly COMMUNITY_GUIDE_CHAPTER_CHANNEL_IDS?: string;
@@ -103,6 +113,13 @@ export function actionIdentity(data: Record<string, unknown>, env: CommunityEnv,
     "community_bug_answer_submit",
     "community_feedback_admin_start",
     "community_feedback_merge_approve",
+    "community_feedback_dri_select",
+    "community_maintainer_linear_connect",
+    "community_maintainer_linear_members",
+    "community_maintainer_help_open",
+    "community_maintainer_help_submit",
+    "community_maintainer_help_claim",
+    "community_linear_open",
   ].includes(actionId);
   const introductionAction = [
     "community_introduction",
@@ -130,6 +147,11 @@ export function actionIdentity(data: Record<string, unknown>, env: CommunityEnv,
   const maintainerAction = [
     "community_maintainer_activate",
     "community_maintainer_deactivate",
+    "community_maintainer_linear_connect",
+    "community_maintainer_linear_members",
+    "community_maintainer_help_open",
+    "community_maintainer_help_submit",
+    "community_maintainer_help_claim",
   ].includes(actionId);
   const founderApprovalInDm =
     actionId === "community_feedback_merge_approve" &&

@@ -8,6 +8,8 @@ import { handleCommunityEvent } from "./community-events";
 import { communityInteraction } from "./community-interactions";
 import { handleInterestIntakeRequest } from "./community-interest-intake";
 import { CommunityInterestStore } from "./community-interest-store";
+import { handleLinearWebhook } from "./community-linear-webhook";
+import { handleMaintainerPublicRequest } from "./community-maintainer-public";
 import { handleReferralIntakeRequest } from "./community-referral-intake";
 import { CommunityReferralStore } from "./community-referral-store";
 import type { CommunityEnv } from "./community-runtime";
@@ -50,6 +52,14 @@ export async function handleRequest(
     if (request.method === "GET" && url.pathname === "/health") {
       return Response.json({ status: "ok", capabilities: BUG_CLOCK_CAPABILITIES });
     }
+    if (url.pathname === "/linear/webhook")
+      return handleLinearWebhook(request, env, (promise) => ctx.waitUntil(promise));
+    if (request.method === "GET" && url.pathname === "/linear/oauth/callback")
+      return new Response("OT1L Linear 연결을 확인했습니다. 이 창을 닫아도 됩니다.", {
+        headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" },
+      });
+    if (url.pathname === "/internal/maintainers/status")
+      return handleMaintainerPublicRequest(request, env);
     if (url.pathname.startsWith("/internal/interest/")) {
       if (env.DATABASE_MAINTENANCE === "true")
         return new Response("Maintenance", { status: 503, headers: { "Retry-After": "30" } });

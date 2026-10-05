@@ -4,6 +4,7 @@ import { armCommunityClock } from "./community-clock";
 import { readSettings } from "./community-controls";
 import { parseEventDemand, submitEventDemand } from "./community-event-demands";
 import { parseIntroduction, submitIntroduction } from "./community-introduction";
+import { submitMaintainerHelp } from "./community-maintainer-retention";
 import { escapeSlackText } from "./community-messages";
 import { submitCommunityPalette } from "./community-palette";
 import { parsePastReviewSubmission, pastReviewChange } from "./community-past-review";
@@ -43,6 +44,13 @@ export async function handleCommunityView(input: ViewInteraction): Promise<Respo
     if (!Number.isSafeInteger(revision) || revision < 0)
       throw new InputError("자기소개 버전을 확인할 수 없어요.");
     input.waitUntil(submitIntroduction(input.context, string(input.view.id), parsed, revision));
+    return Response.json({ response_action: "clear" });
+  }
+  if (input.id === "community_maintainer_help_submit") {
+    const mode = input.metadata.mode;
+    if (mode !== "question" && mode !== "qna" && mode !== "ot")
+      throw new InputError("도움 요청 종류를 확인할 수 없어요.");
+    input.waitUntil(submitMaintainerHelp(input.context, input.view, mode));
     return Response.json({ response_action: "clear" });
   }
   if (input.id === "community_event_submit") {
