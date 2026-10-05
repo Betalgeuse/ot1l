@@ -5,6 +5,7 @@ mock.module("cloudflare:workers", () => ({ DurableObject: class {} }));
 const events = new Map();
 const votes = new Map();
 const followups = new Map();
+const participants = new Map();
 const eventView = (event, actorId) => ({
   ...event,
   options: event.options.map((option, position) => ({
@@ -30,10 +31,26 @@ const eventView = (event, actorId) => ({
   cancelledAt: null,
   cancellationReason: null,
   interestCount: 0,
-  goingCount: 1,
+  goingCount:
+    1 +
+    [...participants.values()].filter(
+      (participant) => participant.eventId === event.eventId && participant.state === "going",
+    ).length,
   waitlistCount: 0,
-  viewerState: null,
-  participants: [{ userId: event.hostUserId, state: "going" }],
+  viewerState:
+    actorId === event.hostUserId
+      ? "going"
+      : (participants.get(`${event.eventId}:${actorId}`)?.state ?? null),
+  participants: [
+    { userId: event.hostUserId, state: "going" },
+    ...[...participants.values()]
+      .filter(
+        (participant) =>
+          participant.eventId === event.eventId &&
+          ["going", "waitlist"].includes(participant.state),
+      )
+      .map(({ userId, state }) => ({ userId, state })),
+  ],
 });
 mock.module("../src/community-store.ts", () => ({
   CommunityStore: class {
@@ -95,6 +112,12 @@ mock.module("../src/community-store.ts", () => ({
         event.capacity = input.capacity;
       }
       if (operation === "finalize") event.finalStartAt = input.startsAt;
+      if (operation === "rsvp")
+        participants.set(`${input.eventId}:${input.actorId}`, {
+          eventId: input.eventId,
+          userId: input.actorId,
+          state: input.state,
+        });
       return eventView(event, input.actorId);
     }
     async townhallEventSeries(operation, input) {
@@ -342,6 +365,40 @@ try {
   assert.equal(scheduledReview.body.thread_ts, "200.000001");
   assert.match(scheduledReview.body.text, /<@UMEMBER>님.*짧은 후기/);
   assert.doesNotMatch(scheduledReview.body.text, /인증/);
+
+  calls.length = 0;
+  for (const expected of [
+    { notice: /참가를 확정했어요/, thread: /<@UATTENDEE>님이 참가해요/, count: /참가 확정 2명/ },
+    {
+      notice: /참가를 취소했어요/,
+      thread: /<@UATTENDEE>님이 참가를 취소했어요/,
+      count: /참가 확정 1명/,
+    },
+  ]) {
+    const rsvpPending = [];
+    await communityInteraction(
+      action("community_event_rsvp", "UATTENDEE", {
+        ownerId: "actor",
+        key: "VFIXED",
+        eventId: "VFIXED",
+      }),
+      env,
+      (promise) => rsvpPending.push(promise),
+    );
+    await Promise.all(rsvpPending);
+    assert.match(
+      calls.filter((call) => call.method === "chat.update").at(-1).body.text,
+      expected.count,
+    );
+    assert.match(
+      calls.filter((call) => call.method === "chat.postMessage").at(-1).body.text,
+      expected.thread,
+    );
+    assert.match(
+      calls.filter((call) => call.method === "chat.postEphemeral").at(-1).body.text,
+      expected.notice,
+    );
+  }
 
   calls.length = 0;
   await communityInteraction(
