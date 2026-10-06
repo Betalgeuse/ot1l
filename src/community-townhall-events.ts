@@ -121,12 +121,22 @@ export function parseTownhallEvent(
   }
   if (scheduleMode === "fixed" || scheduleMode === "edit-fixed") {
     const selectedDate = string(object(object(values.event_date).value).selected_date);
-    const selectedTime = string(object(object(values.event_time).value).selected_time);
+    const selectedHour = string(
+      object(object(object(values.event_hour).value).selected_option).value,
+    );
+    const selectedMinute = string(
+      object(object(object(values.event_minute).value).selected_option).value,
+    );
+    const selectedTime = `${selectedHour}:${selectedMinute}`;
     const duration = Number(
       string(object(object(object(values.duration).value).selected_option).value),
     );
     const timestamp = Date.parse(`${selectedDate}T${selectedTime}:00+09:00`);
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(selectedDate) || !/^\d{2}:\d{2}$/.test(selectedTime))
+    if (
+      !/^\d{4}-\d{2}-\d{2}$/.test(selectedDate) ||
+      !/^(?:[01]\d|2[0-3])$/.test(selectedHour) ||
+      !/^(?:00|15|30|45)$/.test(selectedMinute)
+    )
       errors.event_date = "날짜와 시작 시각을 확인해 주세요.";
     else if (!Number.isFinite(timestamp) || timestamp <= Date.now())
       errors.event_date = "미래 일정을 선택해 주세요.";
@@ -180,6 +190,16 @@ export async function openTownhallEventModal(
     },
     value: String(minutes),
   }));
+  const hourOptions = Array.from({ length: 24 }, (_, hour) => {
+    const value = String(hour).padStart(2, "0");
+    return { text: { type: "plain_text", text: value }, value };
+  });
+  const minuteOptions = ["00", "15", "30", "45"].map((value) => ({
+    text: { type: "plain_text", text: value },
+    value,
+  }));
+  const initialHour = currentStart?.slice(11, 13) ?? "19";
+  const initialMinute = currentStart?.slice(14, 16) ?? "00";
   await openView(context.env.SLACK_BOT_TOKEN, {
     trigger_id: triggerId,
     view: {
@@ -242,12 +262,27 @@ export async function openTownhallEventModal(
               },
               {
                 type: "input",
-                block_id: "event_time",
-                label: { type: "plain_text", text: "시작 시각" },
+                block_id: "event_hour",
+                label: { type: "plain_text", text: "시작 시 (0~23시)" },
                 element: {
-                  type: "timepicker",
+                  type: "static_select",
                   action_id: "value",
-                  initial_time: currentStart?.slice(11, 16) ?? "19:00",
+                  initial_option:
+                    hourOptions.find((option) => option.value === initialHour) ?? hourOptions[19],
+                  options: hourOptions,
+                },
+              },
+              {
+                type: "input",
+                block_id: "event_minute",
+                label: { type: "plain_text", text: "시작 분 (15분 단위)" },
+                element: {
+                  type: "static_select",
+                  action_id: "value",
+                  initial_option:
+                    minuteOptions.find((option) => option.value === initialMinute) ??
+                    minuteOptions[0],
+                  options: minuteOptions,
                 },
               },
               {
