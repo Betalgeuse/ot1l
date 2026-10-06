@@ -195,10 +195,15 @@ try {
     "community_event_demand_open",
     "community_event_host_request_open",
   ]);
-  const open = action("community_event_open_poll", "UMEMBER", {
-    ownerId: "actor",
-    key: "new-townhall-event",
-  });
+  const launcherPollButton = launcher.blocks[1].elements.find(
+    (item) => item.action_id === "community_event_open_poll",
+  );
+  assert.equal(launcherPollButton.text.text, "시간 미정 이벤트 열기");
+  const open = action(
+    launcherPollButton.action_id,
+    "UMEMBER",
+    JSON.parse(launcherPollButton.value),
+  );
   assert.equal((await communityInteraction(open, env, () => {})).status, 200);
   const createModal = calls.find((call) => call.method === "views.open").body.view;
   assert.deepEqual(
@@ -255,9 +260,26 @@ try {
   );
   assert.deepEqual(
     post.body.blocks[1].elements.slice(-2).map((item) => item.text.text),
-    ["나도 일정 정해서 열기", "나도 시간 같이 정하기"],
+    ["나도 일정 정해서 열기", "시간 미정 이벤트 열기"],
   );
   assert.doesNotMatch(post.body.text, /관심 \d+명/);
+
+  calls.length = 0;
+  const cardPollButton = post.body.blocks[1].elements.find(
+    (item) => item.action_id === "community_event_open_poll",
+  );
+  assert.equal(cardPollButton.text.text, "시간 미정 이벤트 열기");
+  const cardOpen = action(
+    cardPollButton.action_id,
+    "UOTHER",
+    JSON.parse(cardPollButton.value),
+    "trigger-card-poll",
+  );
+  assert.equal((await communityInteraction(cardOpen, env, () => {})).status, 200);
+  assert.equal(
+    calls.find((call) => call.method === "views.open").body.trigger_id,
+    "trigger-card-poll",
+  );
 
   calls.length = 0;
   const availability = action("community_event_availability", "UOTHER", {
