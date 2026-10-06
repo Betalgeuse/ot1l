@@ -102,10 +102,14 @@ async function deliverPublishedGuide(
     ]),
   );
   const identity = { ...scope, version: guide.version, hash: guide.hash, reason };
-  const claimed = await store.queryJson(`SELECT ${executeFunction}($1,$2::jsonb)`, [
+  let claimed = await store.queryJson(`SELECT ${executeFunction}($1,$2::jsonb)`, [
     claimOperation,
     JSON.stringify(identity),
   ]);
+  if (claimed !== true && !admin)
+    claimed = await store.queryJson("SELECT otl.guide_runtime_retry_failed($1::jsonb)", [
+      JSON.stringify(identity),
+    ]);
   if (claimed !== true)
     return { delivered: false, version: guide.version, contentHash: guide.hash };
   let sent: Record<string, unknown>;

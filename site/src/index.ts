@@ -342,40 +342,41 @@ function message(messageText: string, status: number): Response {
 }
 
 type MaintainerStatusItem = {
-  readonly key: string;
   readonly title: string;
-  readonly stage: string;
-  readonly identifier: string | null;
-  readonly sourceChannel: string;
-  readonly sourceThread: string;
+  readonly lane: "proposed" | "doing" | "review_release" | "needs_help" | "done";
+  readonly statusLabel: string;
+  readonly hasDri: boolean;
+  readonly sourceLabel: string;
+  readonly progressSummary: string;
+  readonly nextActionLabel: string;
   readonly slackUrl: string;
   readonly updatedAt: string;
 };
 
-function stageClass(stage: string): string {
-  if (stage === "운영 반영 완료") return "is-done";
-  if (/확인 필요|종료/.test(stage)) return "is-paused";
-  if (/작업|검토|배포/.test(stage)) return "is-active";
-  return "is-new";
-}
+const MAINTAINER_LANES = [
+  { key: "proposed", label: "제안됨", className: "is-new" },
+  { key: "doing", label: "진행 중", className: "is-active" },
+  { key: "review_release", label: "검토·반영", className: "is-review" },
+  { key: "needs_help", label: "도움 필요", className: "is-paused" },
+  { key: "done", label: "완료", className: "is-done" },
+] as const;
 
 function maintainerBoard(items: readonly MaintainerStatusItem[]): string {
-  const order = ["접수됨", "담당자 지정됨", "방향 논의 중", "작업 중", "검토·승인 중", "배포 확인 중", "운영자 배포 필요", "운영 확인 대기", "운영 반영 완료", "확인 필요", "종료"];
-  const stages = [...new Set([...order, ...items.map((item) => item.stage)])]
-    .filter((stage) => items.some((item) => item.stage === stage));
-  const columns = stages.map((stage) => {
-    const cards = items.filter((item) => item.stage === stage).map((item) => {
+  return MAINTAINER_LANES.map((lane) => {
+    const laneItems = items.filter((item) => item.lane === lane.key);
+    const cards = laneItems.map((item) => {
       const url = item.slackUrl;
       const date = new Intl.DateTimeFormat("ko-KR", { month: "short", day: "numeric", timeZone: "Asia/Seoul" }).format(new Date(item.updatedAt));
-      return `<article class="work-card"><div class="work-card__meta"><span>${escapeHtml(item.identifier ?? "OT1L")}</span><time datetime="${escapeHtml(item.updatedAt)}">${escapeHtml(date)}</time></div><h3>${escapeHtml(item.title)}</h3><a href="${escapeHtml(url)}" rel="noreferrer">Slack에서 보기 <span aria-hidden="true">↗</span></a></article>`;
+      return `<article class="work-card"><div class="work-card__meta"><span>${escapeHtml(item.sourceLabel)}</span><time datetime="${escapeHtml(item.updatedAt)}"><span class="sr-only">마지막 업데이트 </span>${escapeHtml(date)}</time></div><h3>${escapeHtml(item.title)}</h3><dl class="work-card__details"><div><dt>상태</dt><dd>${escapeHtml(item.statusLabel)}</dd></div><div><dt>DRI</dt><dd>${item.hasDri ? "지정됨" : "정하는 중"}</dd></div></dl><p class="work-card__progress">${escapeHtml(item.progressSummary)}</p><p class="work-card__next"><span>다음</span> ${escapeHtml(item.nextActionLabel)}</p><a href="${escapeHtml(url)}" rel="noreferrer" aria-label="${escapeHtml(item.title)} Slack에서 보기">Slack에서 보기 <span aria-hidden="true">↗</span></a></article>`;
     }).join("");
-    return `<section class="work-column ${stageClass(stage)}" aria-labelledby="stage-${encodeURIComponent(stage)}"><header><h2 id="stage-${encodeURIComponent(stage)}">${escapeHtml(stage)}</h2><span>${items.filter((item) => item.stage === stage).length}</span></header>${cards}</section>`;
+    const empty = cards ? "" : '<p class="work-column__empty">현재 작업이 없어요.</p>';
+    return `<section class="work-column ${lane.className}" aria-labelledby="stage-${lane.key}"><header><h2 id="stage-${lane.key}">${lane.label}</h2><span aria-label="${laneItems.length}개">${laneItems.length}</span></header>${cards}${empty}</section>`;
   }).join("");
-  return columns || '<p class="work-empty">아직 공개된 Maintainer 작업이 없습니다.</p>';
 }
 
 async function maintainerStatusPage(env: SiteEnv): Promise<Response> {
   let items: MaintainerStatusItem[] = [];
+  let unavailable = false;
   try {
     const response = await coreRequest(env, MAINTAINER_STATUS_PATH, {});
     if (!response.ok) throw new Error("status unavailable");
@@ -385,22 +386,29 @@ async function maintainerStatusPage(env: SiteEnv): Promise<Response> {
     items = value.items.flatMap((entry) => {
       if (typeof entry !== "object" || entry === null) return [];
       const item = entry as Record<string, unknown>;
-      return typeof item.key === "string" && typeof item.title === "string" &&
-        typeof item.stage === "string" && typeof item.sourceChannel === "string" &&
-        typeof item.sourceThread === "string" && typeof item.slackUrl === "string" &&
+      return typeof item.title === "string" &&
+        ["proposed", "doing", "review_release", "needs_help", "done"].includes(String(item.lane)) &&
+        typeof item.statusLabel === "string" && typeof item.hasDri === "boolean" &&
+        typeof item.sourceLabel === "string" && typeof item.progressSummary === "string" &&
+        typeof item.nextActionLabel === "string" && typeof item.slackUrl === "string" &&
         /^https:\/\/app[.]slack[.]com\/client\/[A-Z0-9]+\/[A-Z0-9]+\/thread\/[A-Z0-9]+-\d+[.]\d+$/.test(item.slackUrl) &&
         typeof item.updatedAt === "string"
-        ? [{ key: item.key, title: item.title, stage: item.stage,
-            identifier: typeof item.identifier === "string" ? item.identifier : null,
-            sourceChannel: item.sourceChannel, sourceThread: item.sourceThread,
-            slackUrl: item.slackUrl, updatedAt: item.updatedAt }]
+        ? [{ title: item.title, lane: item.lane as MaintainerStatusItem["lane"],
+            statusLabel: item.statusLabel, hasDri: item.hasDri,
+            sourceLabel: item.sourceLabel, progressSummary: item.progressSummary,
+            nextActionLabel: item.nextActionLabel, slackUrl: item.slackUrl,
+            updatedAt: item.updatedAt }]
         : [];
     });
   } catch (error) {
     if (!(error instanceof Error)) throw error;
+    unavailable = true;
   }
-  const html = `<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><meta name="description" content="OT1L 회원 피드백이 실제 기능으로 반영되는 과정을 확인합니다."><title>OT1L · 함께 만드는 중</title><link rel="stylesheet" href="/styles.css"></head><body class="work-page"><a class="skip-link" href="#work-main">본문으로 건너뛰기</a><header class="work-header"><a class="wordmark" href="/"><img src="/assets/otl1-avatar.jpg" width="40" height="40" alt=""><span>ONE THING 1 LINE</span></a><a href="/">모임 소개</a></header><main id="work-main"><div class="work-intro"><p class="eyebrow">함께 만드는 OT1L</p><h1>회원의 의견이<br>어디까지 왔는지 보여드려요.</h1><p>피드백과 대화는 Slack에서 이어집니다. 이 화면은 공개 가능한 작업의 현재 단계만 보여줍니다.</p></div><div class="work-board" aria-label="Maintainer 작업 현황">${maintainerBoard(items)}</div></main></body></html>`;
-  return new Response(html, { headers: { "content-type": "text/html;charset=UTF-8" } });
+  const board = unavailable
+    ? '<div class="work-unavailable" role="status"><h2>작업 현황을 잠시 불러오지 못했어요.</h2><p>진행 중인 작업이 없다는 뜻은 아닙니다. 잠시 뒤 다시 확인하거나 Slack에서 이어가 주세요.</p></div>'
+    : maintainerBoard(items);
+  const html = `<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><meta name="description" content="OT1L 회원 피드백이 실제 기능으로 반영되는 과정을 확인합니다."><title>OT1L · 함께 만드는 중</title><link rel="stylesheet" href="/styles.css"></head><body class="work-page"><a class="skip-link" href="#work-main">본문으로 건너뛰기</a><header class="work-header"><a class="wordmark" href="/"><img src="/assets/otl1-avatar.jpg" width="40" height="40" alt=""><span>ONE THING 1 LINE</span></a><a href="/">모임 소개</a></header><main id="work-main"><div class="work-intro"><p class="eyebrow">함께 만드는 OT1L</p><h1>회원의 의견이<br>어디까지 왔는지 보여드려요.</h1><p>피드백과 대화는 Slack에서 이어집니다. 제안부터 완료까지, 지금 필요한 다음 행동을 한눈에 볼 수 있어요.</p></div><div class="work-board" aria-label="Maintainer 작업 현황">${board}</div></main></body></html>`;
+  return new Response(html, { status: unavailable ? 503 : 200, headers: { "content-type": "text/html;charset=UTF-8" } });
 }
 async function referralPage(request: Request, env: SiteEnv, token: string): Promise<Response> {
   const lookupKey = request.headers.get("cf-connecting-ip") ?? token;

@@ -27,7 +27,7 @@ try {
   started = true;
   await run(join(pgBin, "createdb"), ["linear_ops"]);
   const files = (await readdir(join(root, "migrations")))
-    .filter((name) => /^\d{3}_.*\.sql$/.test(name) && Number(name.slice(0, 3)) <= 83)
+    .filter((name) => /^\d{3}_.*\.sql$/.test(name) && Number(name.slice(0, 3)) <= 84)
     .sort();
   for (const file of files.filter((name) => Number(name.slice(0, 3)) <= 5))
     await run(join(pgBin, "psql"), ["-X", "-v", "ON_ERROR_STOP=1", "-f", `migrations/${file}`]);
@@ -51,6 +51,24 @@ try {
   const members = await call("members", base);
   assert.deepEqual(members.map((member) => [member.userId, member.linearState]), [["UA", "linked"], ["UB", "not_connected"]]);
 
+  const native = await call("work_put", { ...base, workKey: "BUG-NATIVE", reporterId: "UA",
+    desiredDri: "UA", title: "Slack 작업", actual: "현재", expected: "원하는 상태",
+    workKind: "feedback", sourceChannel: "CMAIN", sourceThread: "1.000000" });
+  assert.equal(native.linear_team_id, null);
+  assert.equal(native.linear_issue_id, null);
+  assert.equal(native.dri_user_id, "UA");
+  assert.equal(native.stage, "inbox");
+  const reassigned = await call("work_assignment", { ...base, workKey: "BUG-NATIVE", driUserId: "UB" });
+  assert.equal(reassigned.dri_user_id, "UB");
+  await assert.rejects(
+    call("work_assignment", { ...base, workKey: "BUG-NATIVE", driUserId: "UNOTMAINTAINER" }),
+  );
+  assert.equal((await call("work_stage", { ...base, workKey: "BUG-NATIVE", stage: "in_progress" })).stage, "in_progress");
+  const publicWorks = await call("public_work_list", base);
+  assert.deepEqual(publicWorks.map((item) => [item.title, item.stage, item.hasDri]), [
+    ["Slack 작업", "in_progress", true],
+  ]);
+
   const work = await call("work_put", { ...base, workKey: "BUG-QA", reporterId: "UA", desiredDri: "UA",
     linearTeamId, title: "피드백", actual: "현재", expected: "원하는 상태", workKind: "feedback",
     sourceChannel: "CFEEDBACK", sourceThread: "1.000001" });
@@ -69,7 +87,7 @@ try {
   assert.equal(await call("surface_get", { ...base, workKey: "BUG-QA", channelId: "CMAIN" }), "2.000002");
   assert.equal(await call("receipt_claim", { ...base, receiptKey: "linear:one" }), true);
   assert.equal(await call("receipt_claim", { ...base, receiptKey: "linear:one" }), false);
-  console.log("PASS maintainer Linear store: opt-in seats, idempotent issue identity, stale update guard and receipts");
+  console.log("PASS Maintainer store: Slack-native DRI/stage/public work plus optional Linear mirror and receipts");
 } finally {
   if (started) await run(join(pgBin, "pg_ctl"), ["-D", data, "-m", "fast", "-w", "stop"]).catch(() => {});
   await rm(temp, { recursive: true, force: true });

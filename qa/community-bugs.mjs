@@ -34,6 +34,8 @@ const answerClaims = new Map();
 const bugRows = new Map();
 const recordClaims = new Set();
 const communityRecords = new Map();
+const maintainerWorkRows = new Map();
+const maintainerSurfaces = new Map();
 const transitions = new Map();
 const deliveries = new Map();
 let deliverySequence = 0;
@@ -174,6 +176,38 @@ globalThis.fetch = async (url, options) => {
   });
   if (target.endsWith("/sql")) {
     const query = body.query;
+    if (query.includes("community_maintainer_execute"))
+      return Response.json({ rows: [[JSON.stringify(null)]] });
+    if (query.includes("maintainer_ops_execute")) {
+      const operation = body.params[0];
+      const input = JSON.parse(body.params[1]);
+      let value;
+      if (operation === "work_put") {
+        value = maintainerWorkRows.get(input.workKey) ?? {
+          work_key: input.workKey,
+          reporter_id: input.reporterId,
+          desired_dri: input.desiredDri,
+          dri_user_id: input.desiredDri,
+          title: input.title,
+          actual: input.actual,
+          expected: input.expected,
+          source_channel: input.sourceChannel,
+          source_thread: input.sourceThread,
+          stage: "inbox",
+          linear_identifier: null,
+          linear_url: null,
+        };
+        maintainerWorkRows.set(input.workKey, value);
+      } else if (operation === "work_get") value = maintainerWorkRows.get(input.workKey) ?? null;
+      else if (operation === "members") value = [];
+      else if (operation === "surface_get")
+        value = maintainerSurfaces.get(`${input.workKey}:${input.channelId}`) ?? null;
+      else if (operation === "surface_put") {
+        maintainerSurfaces.set(`${input.workKey}:${input.channelId}`, input.messageTs);
+        value = input.messageTs;
+      } else throw new Error(`unexpected Maintainer operation: ${operation}`);
+      return Response.json({ rows: [[JSON.stringify(value)]] });
+    }
     if (query.includes("community_execute")) {
       const operation = body.params[0];
       const input = JSON.parse(body.params[1]);

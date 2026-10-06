@@ -27,7 +27,7 @@ import {
   fallbackFeedbackAnalysis,
   startCodexFeedbackAutomatically,
 } from "./community-feedback";
-import { syncFeedbackToLinear } from "./community-maintainer-work";
+import { syncFeedbackToMaintainerWork } from "./community-maintainer-work";
 import { type CommunityContext, ephemeral } from "./community-runtime";
 import { InputError } from "./input";
 import { NeonStore } from "./store";
@@ -113,7 +113,7 @@ export async function continueBugReport(
         reporterId: active.reporterId,
         fromState: "needs_info",
       });
-      await syncFeedbackToLinear(context, {
+      await syncFeedbackToMaintainerWork(context, {
         feedbackId: active.bugId,
         reporterId: active.reporterId,
         actual,

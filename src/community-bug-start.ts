@@ -18,7 +18,7 @@ import {
   startCodexFeedbackAutomatically,
 } from "./community-feedback";
 import { canonicalFeedbackContext, feedbackBugIdentity } from "./community-feedback-route";
-import { syncFeedbackToLinear } from "./community-maintainer-work";
+import { syncFeedbackToMaintainerWork } from "./community-maintainer-work";
 import type { CommunityContext } from "./community-runtime";
 import { InputError } from "./input";
 import { NeonStore, StoreError } from "./store";
@@ -131,7 +131,7 @@ export async function startBugReport(
       const actual = parsed.messages.find((message) => message.id === "form:actual")?.text ?? "";
       const expected =
         parsed.messages.find((message) => message.id === "form:expected")?.text ?? "";
-      await syncFeedbackToLinear(deliveryContext, {
+      await syncFeedbackToMaintainerWork(deliveryContext, {
         feedbackId: draft.bugId,
         reporterId: context.scope.userId,
         actual,

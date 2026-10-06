@@ -14,7 +14,9 @@ import { claimMaintainerHelp, openMaintainerHelpModal } from "./community-mainta
 import {
   assignMaintainerWork,
   connectMaintainerToLinear,
+  exportMaintainerWorkToLinear,
   pauseMaintainerLinear,
+  setMaintainerWorkStage,
   showMaintainerLinearMembers,
 } from "./community-maintainer-work";
 import { activateMaintainer, deactivateMaintainer } from "./community-maintainers";
@@ -210,6 +212,44 @@ export async function handleCommunityAction(input: ActionInteraction): Promise<R
             error instanceof InputError
               ? error.message
               : "DRI 변경을 확인하지 못했어요. 잠시 후 다시 시도해 주세요.",
+        });
+      }),
+    );
+    return new Response(null, { status: 200 });
+  }
+  if (input.id === "community_feedback_stage_select") {
+    input.waitUntil(
+      setMaintainerWorkStage(context, key, string(value.stage)).catch(async (error: unknown) => {
+        console.error(
+          JSON.stringify({
+            event: "community.maintainer.stage_change_failed",
+            errorType: error instanceof Error ? error.name : "Unknown",
+          }),
+        );
+        await ephemeral(context, {
+          text:
+            error instanceof InputError
+              ? error.message
+              : "상태 변경을 확인하지 못했어요. 잠시 후 다시 시도해 주세요.",
+        });
+      }),
+    );
+    return new Response(null, { status: 200 });
+  }
+  if (input.id === "community_work_linear_export") {
+    input.waitUntil(
+      exportMaintainerWorkToLinear(context, key).catch(async (error: unknown) => {
+        console.error(
+          JSON.stringify({
+            event: "community.maintainer.linear_export_failed",
+            errorType: error instanceof Error ? error.name : "Unknown",
+          }),
+        );
+        await ephemeral(context, {
+          text:
+            error instanceof InputError
+              ? error.message
+              : "Linear 미러를 만들지 못했어요. Slack 작업은 그대로 유지됩니다.",
         });
       }),
     );

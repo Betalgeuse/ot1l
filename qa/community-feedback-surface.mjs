@@ -28,7 +28,9 @@ assert.deepEqual(withFeedbackAction("chat.postMessage", { channel: "DQA", text: 
 assert.equal(feedbackPromptDue("17:59"), false);
 assert.equal(feedbackPromptDue("18:00"), true);
 assert.equal(feedbackPromptDue("18:05"), true);
-assert.equal(feedbackPromptDue("18:06"), false);
+assert.equal(feedbackPromptDue("18:06"), true);
+assert.equal(feedbackPromptDue("21:59"), true);
+assert.equal(feedbackPromptDue("22:00"), false);
 assert.deepEqual(
   parseFeedbackAnalysis({
     kind: "defect",
@@ -100,6 +102,7 @@ const calls = [];
 let queueAccepted = true;
 let approvalChangeClass = "core";
 let historyMessages = [];
+let persistedSurface = null;
 const originalFetch = globalThis.fetch;
 globalThis.fetch = async (url, options = {}) => {
   const parsedUrl = new URL(url);
@@ -112,7 +115,7 @@ globalThis.fetch = async (url, options = {}) => {
   if (method === "conversations.history")
     return Response.json({ ok: true, messages: historyMessages });
   if (method === "sql" && body.params?.[0] === "surface_get")
-    return Response.json({ rows: [[JSON.stringify("123.789")]] });
+    return Response.json({ rows: [[JSON.stringify(persistedSurface)]] });
   if (method === "sql")
     return Response.json({
       rows: [
@@ -180,7 +183,15 @@ try {
   const maintainerPrompt = calls.find(
     (call) => call.method === "chat.postMessage" && call.body.channel === "CMAINTAIN",
   );
-  assert.equal(maintainerPrompt.body.blocks.at(-1).elements[0].text.text, "피드백·작업 제안");
+  assert.deepEqual(
+    maintainerPrompt.body.blocks.at(-1).elements.map((element) => element.action_id),
+    [
+      "community_bug_open",
+      "community_maintainer_help_open_question",
+      "community_maintainer_help_open_qna",
+      "community_event_demand_open",
+    ],
+  );
   const dailyPrompt = calls.find(
     (call) => call.method === "chat.postMessage" && call.body.channel === "CFEEDBACK",
   );
@@ -243,7 +254,14 @@ try {
   assert.equal(
     await publishMaintainerFeedbackCard(
       {
-        env: { SLACK_BOT_TOKEN: "fake", COMMUNITY_MAINTAINERS_CHANNEL_ID: "CMAINTAIN" },
+        env: {
+          DATABASE_URL:
+            "postgresql://runtime:secret@ep-example-pooler.c-3.ap-southeast-1.aws.neon.tech/neondb?sslmode=require",
+          SLACK_TEAM_ID: "TQA",
+          SLACK_BOT_TOKEN: "fake",
+          COMMUNITY_ADMIN_ID: "UADMIN",
+          COMMUNITY_MAINTAINERS_CHANNEL_ID: "CMAINTAIN",
+        },
         scope: { teamId: "TQA", channelId: "CFEEDBACK", userId: "UADMIN" },
         thread: "123.100",
       },
@@ -263,6 +281,7 @@ try {
   const postsBeforeStoredSurface = calls.filter(
     (call) => call.method === "chat.postMessage" && call.body.channel === "CMAINTAIN",
   ).length;
+  persistedSurface = "123.789";
   assert.equal(
     await publishMaintainerFeedbackCard(
       {

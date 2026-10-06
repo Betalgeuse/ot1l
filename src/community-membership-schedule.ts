@@ -6,6 +6,11 @@ import { deliverLifecycleNotices } from "./community-lifecycle-delivery";
 import { runLifecycleMaintenance } from "./community-lifecycle-runtime";
 import { CommunityLifecycleRuntimeStore } from "./community-lifecycle-runtime-store";
 import { nextMembershipDue } from "./community-membership-due";
+import {
+  MemberOnboardingStore,
+  reconcileMemberOnboarding,
+  runMemberOnboardingDeliveries,
+} from "./community-onboarding";
 import { deliverReferralNotifications } from "./community-referral-notifications";
 import { reconcileInvitePrivateIntake } from "./community-referral-reconcile";
 import { referralSlackPort } from "./community-referral-slack";
@@ -57,6 +62,17 @@ export async function runMembershipDue(
       );
     }
   }
+  const onboarding = new MemberOnboardingStore(db, env.SLACK_TEAM_ID);
+  if (Math.floor(now / 60_000) % 15 === 0)
+    await attempt("onboarding_reconcile", async () => {
+      const enqueued = await reconcileMemberOnboarding(env, onboarding, now);
+      possiblyMore ||= enqueued >= BATCH;
+    });
+  await attempt("onboarding_delivery", async () => {
+    const result = await runMemberOnboardingDeliveries(env, onboarding, now, BATCH);
+    possiblyMore ||= result.possiblyMore;
+    failed ||= result.failed > 0;
+  });
   if (env.LIFECYCLE_MODE === "shadow" || env.LIFECYCLE_MODE === "enforce") {
     await attempt("lifecycle", async () => {
       if (env.LIFECYCLE_MODE === "enforce" && !env.LIFECYCLE_ACTION_SECRET)

@@ -87,6 +87,8 @@ const memberActions = new Set([
   "community_feedback_admin_start",
   "community_feedback_merge_approve",
   "community_feedback_dri_select",
+  "community_feedback_stage_select",
+  "community_work_linear_export",
   "community_maintainer_linear_connect",
   "community_maintainer_linear_members",
   "community_maintainer_help_open_question",

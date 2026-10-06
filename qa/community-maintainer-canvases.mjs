@@ -21,17 +21,35 @@ assert.match(definitions[2].markdown, /포트폴리오/);
 assert.match(definitions[3].markdown, /retention 숫자를 관리하는 곳이 아니라/);
 
 const calls = [];
+const names = {
+  CMAIN: "maintainers",
+  CBUILD: "maintainers-dev",
+  CDESIGN: "maintainers-design",
+  CCOMMUNITY: "maintainers-retention",
+};
+const canvases = new Map();
 const originalFetch = globalThis.fetch;
 globalThis.fetch = async (url, options = {}) => {
-  const method = new URL(url).pathname.split("/").at(-1);
+  const parsed = new URL(url);
+  const method = parsed.pathname.split("/").at(-1);
   const body = options.body ? JSON.parse(options.body) : {};
+  if (method === "conversations.info") body.channel = parsed.searchParams.get("channel");
   calls.push({ method, body });
-  if (method === "conversations.info")
-    return Response.json({ ok: true, channel: { properties: {} } });
+  if (method === "conversations.info") {
+    const canvas = canvases.get(body.channel);
+    return Response.json({ ok: true, channel: {
+      name: names[body.channel],
+      properties: canvas ? { tabs: [{ type: "canvas", data: { file_id: canvas } }] } : {},
+    } });
+  }
   if (method === "conversations.setTopic" || method === "conversations.setPurpose")
     return Response.json({ ok: true });
-  if (method === "conversations.canvases.create")
-    return Response.json({ ok: true, canvas_id: `F${body.channel_id}` });
+  if (method === "conversations.canvases.create") {
+    const canvasId = `F${body.channel_id}`;
+    canvases.set(body.channel_id, canvasId);
+    return Response.json({ ok: true, canvas_id: canvasId });
+  }
+  if (method === "canvases.edit") return Response.json({ ok: true });
   throw new Error(`unexpected ${method}`);
 };
 try {
@@ -46,7 +64,13 @@ try {
   );
   assert.equal(creates.every((call) => call.body.document_content.type === "markdown"), true);
   assert.equal(creates.every((call) => call.body.document_content.markdown.length > 300), true);
-  console.log("PASS Maintainer canvases lead with member value and publish one channel canvas each");
+  assert.equal(creates.every((call) => !call.body.document_content.markdown.startsWith("# ")), true);
+  const repeated = await publishMaintainerCanvases(env);
+  assert.deepEqual(repeated, receipts);
+  assert.equal(calls.filter((call) => call.method === "conversations.canvases.create").length, 4);
+  assert.equal(calls.filter((call) => call.method === "canvases.edit").length, 4);
+  assert.equal(calls.filter((call) => call.method === "conversations.info").length, 16);
+  console.log("PASS Maintainer canvases preflight exact channels and update idempotently with readback");
 } finally {
   globalThis.fetch = originalFetch;
 }

@@ -249,7 +249,7 @@ export async function publishFeedbackAnalysis(
 }
 
 export function feedbackPromptDue(minute: string): boolean {
-  return /^18:0[0-5]$/.test(minute);
+  return /^((18|19|20|21):[0-5][0-9])$/.test(minute);
 }
 
 export function dailyFeedbackPromptText(date: string): string {
@@ -270,13 +270,11 @@ export async function publishMaintainerFeedbackCard(
 ): Promise<string | null> {
   const channelId = context.env.COMMUNITY_MAINTAINERS_CHANNEL_ID;
   if (!channelId) return null;
-  if (context.env.MAINTAINER_LINEAR_ENABLED === "true") {
-    const stored = await new MaintainerOpsStore(context.env).execute("surface_get", {
-      workKey: input.feedbackId,
-      channelId,
-    });
-    if (typeof stored === "string") return stored;
-  }
+  const stored = await new MaintainerOpsStore(context.env).execute("surface_get", {
+    workKey: input.feedbackId,
+    channelId,
+  });
+  if (typeof stored === "string") return stored;
   const history = await callSlack(context.env.SLACK_BOT_TOKEN, "conversations.history", {
     channel: channelId,
     limit: 200,
@@ -286,7 +284,9 @@ export async function publishMaintainerFeedbackCard(
     if (
       (message.thread_ts === undefined || message.thread_ts === message.ts) &&
       typeof message.text === "string" &&
-      message.text.includes(`버그 키: ${input.feedbackId}`)
+      (message.text.includes(`버그 키: ${input.feedbackId}`) ||
+        message.text.includes(`버그 키  ${input.feedbackId}`) ||
+        message.text.includes(`버그 키 ${input.feedbackId}`))
     )
       return string(message.ts);
   }
@@ -380,8 +380,26 @@ export async function sendDailyMaintainerPrompt(
           elements: [
             {
               type: "button",
-              text: { type: "plain_text", text: "피드백·작업 제안" },
+              text: { type: "plain_text", text: "개선 제안" },
               action_id: "community_bug_open",
+              value: JSON.stringify({ ownerId: "actor", key: "new" }),
+            },
+            {
+              type: "button",
+              text: { type: "plain_text", text: "질문·도움" },
+              action_id: "community_maintainer_help_open_question",
+              value: JSON.stringify({ ownerId: "actor", key: "new", mode: "question" }),
+            },
+            {
+              type: "button",
+              text: { type: "plain_text", text: "Q&A 허들" },
+              action_id: "community_maintainer_help_open_qna",
+              value: JSON.stringify({ ownerId: "actor", key: "new", mode: "qna" }),
+            },
+            {
+              type: "button",
+              text: { type: "plain_text", text: "활동 수요" },
+              action_id: "community_event_demand_open",
               value: JSON.stringify({ ownerId: "actor", key: "new" }),
             },
           ],

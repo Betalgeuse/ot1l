@@ -16,6 +16,14 @@ mock.module("../src/store.ts", () => ({
   NeonStore: class {
     async queryJson(_sql, params) {
       if (_sql.includes("community_chapter_list")) return [];
+      if (_sql.includes("guide_runtime_retry_failed")) {
+        const payload = JSON.parse(params[0]);
+        const key = `${payload.userId}:${payload.version}:${payload.hash}`;
+        const current = deliveries.get(key);
+        if (current?.status !== "failed") return false;
+        deliveries.set(key, { status: "claimed" });
+        return true;
+      }
       const op = params[0];
       const payload = JSON.parse(params[1]);
       if (op === "publish") {
@@ -111,7 +119,7 @@ globalThis.fetch = async (url, options) => {
 };
 
 const inspected = await inspectWelcomeGuideSource(env);
-assert.equal(inspected.version, "v0.0.79");
+assert.equal(inspected.version, "v0.0.80");
 assert.match(inspected.body, /수요 먼저 확인하기/);
 assert.match(inspected.body, /내가 주최할래요/);
 assert.match(inspected.body, /최소 성사 인원.*최대 인원.*무제한/);
@@ -188,8 +196,9 @@ failPosts = false;
 await deliverWelcomeGuide({ ...event, user: "UFAIL" }, env);
 assert.equal(
   posts.some((post) => post.text.includes("<@UFAIL>")),
-  false,
+  true,
 );
+assert.equal(deliveries.get(`UFAIL:${latest.version}:${latest.hash}`).status, "sent");
 postAuthor = "UADMIN";
 await assert.rejects(
   replaceWelcomeGuideForUser("UWRONG", env),

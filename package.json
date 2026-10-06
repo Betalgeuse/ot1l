@@ -18,5 +18,8 @@
     "typescript": "7.1.0-dev.20260809.1",
     "wrangler": "4.62.0",
     "zod": "4.4.3"
+  },
+  "dependencies": {
+    "@neondatabase/serverless": "1.2.0"
   }
 }

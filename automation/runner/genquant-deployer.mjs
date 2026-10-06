@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { join, resolve } from "node:path";
 import { classifyChangePaths } from "./change-policy.mjs";
 import { githubRepositorySlug, sha256 } from "./contract.mjs";
+import { applyApprovedMigrations } from "./migration-deployer.mjs";
 
 const SHA = /^[a-f0-9]{40}$/;
 const SAFE_ERROR = /^[a-z0-9_]{1,120}$/;
@@ -63,7 +64,7 @@ function deployOpenEvents(checkout, config) {
   return { version, health };
 }
 
-function deployCoreWorker(checkout, config) {
+function deployCoreWorker(checkout, config, prepared = false) {
   for (const name of [
     "CLOUDFLARE_API_TOKEN",
     "OTL1_PRODUCTION_WRANGLER_CONFIG",
@@ -72,8 +73,10 @@ function deployCoreWorker(checkout, config) {
     if (typeof config[name] !== "string" || !config[name].trim())
       throw new Error("core_worker_deployer_unconfigured");
   const productionConfig = resolve(config.OTL1_PRODUCTION_WRANGLER_CONFIG);
-  command("bun", ["install", "--frozen-lockfile"], { cwd: checkout, timeout: 180_000 });
-  command("bun", ["run", "check"], { cwd: checkout, timeout: 20 * 60_000 });
+  if (!prepared) {
+    command("bun", ["install", "--frozen-lockfile"], { cwd: checkout, timeout: 180_000 });
+    command("bun", ["run", "check"], { cwd: checkout, timeout: 20 * 60_000 });
+  }
   command("node", ["scripts/deploy-production-worker.mjs"], {
     cwd: checkout,
     timeout: 10 * 60_000,
@@ -99,6 +102,62 @@ function deployCoreWorker(checkout, config) {
   if (health.status !== "ok" || health.configured !== true)
     throw new Error("core_worker_health_failed");
   return { version, health };
+}
+
+function deploySite(checkout, config, prepared = false) {
+  for (const name of [
+    "CLOUDFLARE_API_TOKEN",
+    "OTL1_PRODUCTION_SITE_WRANGLER_CONFIG",
+    "BUG_DEPLOY_SITE_HEALTH_URL",
+  ])
+    if (typeof config[name] !== "string" || !config[name].trim())
+      throw new Error("site_deployer_unconfigured");
+  const productionConfig = resolve(config.OTL1_PRODUCTION_SITE_WRANGLER_CONFIG);
+  if (productionConfig !== resolve(checkout, "site/.wrangler.production.json"))
+    throw new Error("site_config_outside_checkout");
+  if (!prepared) {
+    command("bun", ["install", "--frozen-lockfile"], { cwd: checkout, timeout: 180_000 });
+    command("bun", ["run", "check"], { cwd: checkout, timeout: 20 * 60_000 });
+  }
+  command("node", ["scripts/deploy-production-site.mjs", "--apply"], {
+    cwd: checkout,
+    timeout: 10 * 60_000,
+    env: { ...process.env, CLOUDFLARE_API_TOKEN: config.CLOUDFLARE_API_TOKEN },
+  });
+  const deployments = JSON.parse(
+    command(
+      join(checkout, "node_modules/.bin/wrangler"),
+      ["deployments", "list", "--config", productionConfig, "--json"],
+      {
+        cwd: resolve(checkout, "site"),
+        timeout: 60_000,
+        env: { ...process.env, CLOUDFLARE_API_TOKEN: config.CLOUDFLARE_API_TOKEN },
+      },
+    ),
+  );
+  const version = deployments.at(-1)?.versions?.find((item) => item.percentage === 100)?.version_id;
+  if (typeof version !== "string" || !/^[0-9a-f-]{36}$/.test(version))
+    throw new Error("site_worker_version_missing");
+  command("curl", ["-fsS", "-o", "/dev/null", config.BUG_DEPLOY_SITE_HEALTH_URL], {
+    timeout: 30_000,
+  });
+  return { version, health: "ok" };
+}
+
+async function deployCoreStack(checkout, config, paths) {
+  command("bun", ["install", "--frozen-lockfile"], { cwd: checkout, timeout: 180_000 });
+  command("bun", ["run", "check"], { cwd: checkout, timeout: 20 * 60_000 });
+  const migrationPaths = paths.filter((path) => path.startsWith("migrations/"));
+  if (migrationPaths.length && typeof config.OTL1_MIGRATION_DATABASE_URL !== "string")
+    throw new Error("migration_deployer_unconfigured");
+  const migrations = migrationPaths.length
+    ? await applyApprovedMigrations(checkout, paths, config.OTL1_MIGRATION_DATABASE_URL)
+    : [];
+  const core = deployCoreWorker(checkout, config, true);
+  const site = paths.some((path) => path.startsWith("site/"))
+    ? deploySite(checkout, config, true)
+    : null;
+  return { migrations, core, site };
 }
 
 export function classifyRunnerDeploymentPaths(paths) {
@@ -174,6 +233,28 @@ function deploymentRange(checkout, mergeSha, baseBranch) {
   return { current, paths };
 }
 
+export function approvedDeploymentPaths(claim) {
+  if (
+    !Array.isArray(claim.changedPaths) ||
+    claim.changedPaths.length < 1 ||
+    claim.changedPaths.length > 50 ||
+    !claim.changedPaths.every(
+      (path) => typeof path === "string" && path.length > 0 && path.length <= 500,
+    ) ||
+    typeof claim.classificationDigest !== "string" ||
+    !/^[a-f0-9]{64}$/.test(claim.classificationDigest)
+  )
+    throw new Error("invalid_approved_deployment_paths");
+  const paths = [...new Set(claim.changedPaths)].sort();
+  const policy = classifyChangePaths(paths);
+  const expectedDigest = sha256(
+    JSON.stringify({ version: 1, changeClass: policy.changeClass, paths: policy.paths }),
+  );
+  if (expectedDigest !== claim.classificationDigest)
+    throw new Error("approved_deployment_digest_mismatch");
+  return paths;
+}
+
 export async function deployOnce(environment = process.env) {
   const config = validateDeployerConfig(environment);
   const db = sqlClient(config.BUG_RUNNER_DATABASE_URL);
@@ -194,7 +275,18 @@ export async function deployOnce(environment = process.env) {
   const checkout = resolve(config.BUG_DEPLOY_CHECKOUT);
   try {
     const range = deploymentRange(checkout, mergeSha, config.CODEX_BASE_BRANCH);
-    const policy = classifyRunnerDeploymentPaths(range.paths);
+    const legacyClaim = claim.changedPaths === undefined && claim.classificationDigest === undefined;
+    const approvedPaths = legacyClaim
+      ? [...new Set(range.paths)].sort()
+      : approvedDeploymentPaths(claim);
+    if (legacyClaim && approvedPaths.length === 0)
+      throw new Error("legacy_deployment_paths_missing");
+    if (
+      range.paths.length &&
+      JSON.stringify([...range.paths].sort()) !== JSON.stringify(approvedPaths)
+    )
+      throw new Error("deployment_paths_mismatch");
+    const policy = classifyRunnerDeploymentPaths(approvedPaths);
     if (!policy.automatic) {
       await db("bug_runner_fail_deployment", {
         teamId: config.SLACK_TEAM_ID,
@@ -219,10 +311,17 @@ export async function deployOnce(environment = process.env) {
     let workerVersion;
     let environmentEvidence;
     let observationEvidence;
-    if (policy.adapter === "open-events" || policy.adapter === "core-worker") {
-      const worker = policy.adapter === "open-events"
-        ? deployOpenEvents(checkout, config)
-        : deployCoreWorker(checkout, config);
+    if (["open-events", "core-worker", "site", "core-stack"].includes(policy.adapter)) {
+      const stack =
+        policy.adapter === "core-stack" ? await deployCoreStack(checkout, config, policy.paths) : null;
+      const worker =
+        policy.adapter === "open-events"
+          ? deployOpenEvents(checkout, config)
+          : policy.adapter === "core-worker"
+            ? deployCoreWorker(checkout, config)
+            : policy.adapter === "site"
+              ? deploySite(checkout, config)
+              : stack.core;
       workerVersion = worker.version;
       environmentEvidence = {
         host: "genquant",
@@ -231,8 +330,23 @@ export async function deployOnce(environment = process.env) {
         deployedSha,
         adapter: policy.adapter,
         workerVersion,
+        ...(stack
+          ? {
+              migrationVersions: stack.migrations.map((item) => item.version),
+              siteVersion: stack.site?.version ?? null,
+            }
+          : {}),
       };
-      observationEvidence = { health: worker.health.status, configured: worker.health.configured };
+      observationEvidence =
+        policy.adapter === "site"
+          ? { siteHealth: worker.health }
+          : stack
+            ? {
+                coreHealth: stack.core.health.status,
+                configured: stack.core.health.configured,
+                siteHealth: stack.site?.health ?? null,
+              }
+            : { health: worker.health.status, configured: worker.health.configured };
     } else {
       command("bun", ["qa/genquant-runner-contract.mjs"], { cwd: checkout, timeout: 180_000 });
       command("systemctl", ["--user", "restart", config.BUG_DEPLOY_SERVICE], { timeout: 30_000 });
@@ -275,8 +389,8 @@ export async function deployOnce(environment = process.env) {
       observationReceipt: sha256(JSON.stringify(observationEvidence)),
       liveArtifacts: JSON.stringify({ environmentEvidence, observationEvidence }),
       summary:
-        policy.adapter === "open-events" || policy.adapter === "core-worker"
-          ? `승인한 ${policy.adapter === "open-events" ? "Open" : "Core"} 변경 ${mergeSha.slice(0, 7)}을 Worker에 자동 배포하고 health를 확인했습니다.`
+        ["open-events", "core-worker", "site", "core-stack"].includes(policy.adapter)
+          ? `승인한 ${policy.adapter === "open-events" ? "Open" : "Core"} 변경 ${mergeSha.slice(0, 7)}을 ${policy.adapter === "core-stack" ? "migration·Core·site 순서로 " : ""}자동 배포하고 health를 확인했습니다.`
           : `GenQuant runner를 ${mergeSha.slice(0, 7)}로 자동 배포하고 계약 테스트·서비스 active·OT1 브랜치 규칙을 확인했습니다.`,
     });
     log("bug.deployer.deployed", { bugId: claim.bugId, changeId, mergeSha, workerVersion });

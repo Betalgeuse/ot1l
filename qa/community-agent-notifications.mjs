@@ -54,6 +54,22 @@ globalThis.fetch = async (url, options = {}) => {
       });
     if (body.query.includes("bug_runner_finish_notification"))
       return Response.json({ rows: [[JSON.stringify({ status: "sent" })]] });
+    if (body.query.includes("maintainer_ops_execute")) {
+      const op = body.params[0];
+      const payload = JSON.parse(body.params[1]);
+      const work = {
+        work_key: "BUG-ABCDEF123456", reporter_id: "UREPORTER", dri_user_id: "UREPORTER",
+        desired_dri: "UREPORTER", title: "입력 경계 수정", actual: "현재", expected: "원하는 상태",
+        stage: notificationKind === "change_deployed" ? "done" : "review",
+        source_channel: "CFEEDBACK", source_thread: "1790252981.933479",
+        linear_identifier: null, linear_url: null,
+      };
+      const value = op === "surface_get" ? "1790252999.000001"
+        : op === "members" ? []
+        : op === "surface_put" ? payload.messageTs
+        : work;
+      return Response.json({ rows: [[JSON.stringify(value)]] });
+    }
   }
   if (parsed.pathname.endsWith("/conversations.history"))
     return Response.json({
@@ -68,6 +84,8 @@ globalThis.fetch = async (url, options = {}) => {
     return Response.json({ ok: true, channel: { id: "DFOUNDER" } });
   if (parsed.pathname.endsWith("/chat.postMessage"))
     return Response.json({ ok: true, ts: "1790253000.000001" });
+  if (parsed.pathname.endsWith("/chat.update"))
+    return Response.json({ ok: true, ts: body.ts });
   if (parsed.pathname.endsWith("/reactions.remove") || parsed.pathname.endsWith("/reactions.add"))
     return Response.json({ ok: true });
   throw new Error(`unexpected request ${parsed.pathname}`);
@@ -91,6 +109,7 @@ try {
   assert.match(readyPost.body.blocks[0].text.text, /변경 내용 보기/);
   assert.match(readyPost.body.blocks[0].text.text, /Open/);
   assert.equal(readyPost.body.thread_ts, "1790252999.000001");
+  assert.equal(calls.some((call) => call.url.includes("conversations.history")), false);
   assert.equal(readyPost.body.blocks[1].elements[0].text.text, "Maintainer 병합·배포 승인");
   assert.equal(readyPost.body.blocks[1].elements[0].action_id, "community_feedback_merge_approve");
   assert.equal(JSON.parse(readyPost.body.blocks[1].elements[0].value).headSha, "a".repeat(40));
@@ -162,7 +181,7 @@ try {
   const manual = await sendAgentNotifications(env, new Date("2026-09-24T13:02:00Z"));
   assert.deepEqual(manual, { claimed: 1, sent: 1, failed: 0 });
   const manualPost = calls.find((call) => call.url.includes("chat.postMessage"));
-  assert.match(manualPost.body.text, /안전한 순서로 운영 반영하고 있어요/);
+  assert.match(manualPost.body.text, /운영자 배포가 필요합니다/);
   const manualReactionMethods = calls
     .filter((call) => call.url.includes("reactions."))
     .map((call) => new URL(call.url).pathname.split("/").at(-1));

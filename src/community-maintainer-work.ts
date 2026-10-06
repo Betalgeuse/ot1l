@@ -24,6 +24,7 @@ type WorkEnv = Pick<
   | "COMMUNITY_FEEDBACK_CHANNEL_ID"
   | "COMMUNITY_MAINTAINERS_CHANNEL_ID"
   | "MAINTAINER_LINEAR_ENABLED"
+  | "MAINTAINER_LINEAR_EXPORT_ENABLED"
   | "LINEAR_API_KEY"
   | "LINEAR_ADMIN_API_KEY"
   | "LINEAR_TEAM_ID"
@@ -38,8 +39,29 @@ const nullable = (value: Record<string, unknown>, snake: string, camel = snake):
   return field === null || field === undefined ? null : string(field);
 };
 
-function configured(env: WorkEnv): boolean {
+function linearConfigured(env: WorkEnv): boolean {
   return env.MAINTAINER_LINEAR_ENABLED === "true";
+}
+
+function linearExportEnabled(env: WorkEnv): boolean {
+  return linearConfigured(env) && env.MAINTAINER_LINEAR_EXPORT_ENABLED === "true";
+}
+
+const WORK_STAGE_LABELS = {
+  inbox: "제안됨",
+  in_progress: "진행 중",
+  review: "검토 중",
+  blocked: "도움 필요",
+  deploying: "반영 중",
+  done: "완료",
+} as const;
+
+type WorkStage = keyof typeof WORK_STAGE_LABELS;
+
+function workStage(value: unknown): WorkStage {
+  return typeof value === "string" && Object.hasOwn(WORK_STAGE_LABELS, value)
+    ? (value as WorkStage)
+    : "inbox";
 }
 
 function issueStage(type: unknown, name: unknown): string {
@@ -61,6 +83,7 @@ async function activeMaintainers(env: WorkEnv): Promise<readonly Record<string, 
 }
 
 function workCard(
+  env: WorkEnv,
   work: Record<string, unknown>,
   maintainers: readonly Record<string, unknown>[],
   surface: "member" | "maintainer",
@@ -70,29 +93,22 @@ function workCard(
   const reporterId = text(work, "reporter_id", "reporterId");
   const driId =
     nullable(work, "dri_user_id", "driUserId") ?? nullable(work, "desired_dri", "desiredDri");
-  const syncState = text(work, "sync_state", "syncState");
-  const stage =
-    syncState === "failed"
-      ? "Linear 동기화 확인 필요"
-      : (nullable(work, "release_stage", "releaseStage") ??
-        text(work, "issue_state", "issueState"));
+  const stage = workStage(work.stage);
+  const stageLabel = WORK_STAGE_LABELS[stage];
   const identifier = nullable(work, "linear_identifier", "linearIdentifier");
   const url = nullable(work, "linear_url", "linearUrl");
   const actual = text(work, "actual");
   const expected = text(work, "expected");
-  const dri = driId
-    ? `<@${driId}>${nullable(work, "dri_user_id", "driUserId") ? "" : " · Linear 연결 대기"}`
-    : "아직 정해지지 않음";
-  const summary = `*${escapeSlackText(title)}*\n\n*As-Is*\n${escapeSlackText(actual)}\n\n*To-Be*\n${escapeSlackText(expected)}\n\n현재 단계  *${escapeSlackText(stage)}*\nDRI  ${dri}\n제안  <@${reporterId}>${identifier ? `\n작업  ${identifier}` : ""}\n버그 키  ${escapeSlackText(key)}`;
+  const dri = driId ? `<@${driId}>` : "아직 정해지지 않음";
+  const summary = `*${escapeSlackText(title)}*\n\n*As-Is*\n${escapeSlackText(actual)}\n\n*To-Be*\n${escapeSlackText(expected)}\n\n현재 단계  *${escapeSlackText(stageLabel)}*\nDRI  ${dri}\n제안  <@${reporterId}>${identifier ? `\n외부 미러  ${identifier}` : ""}\n버그 키  ${escapeSlackText(key)}`;
   const blocks: Json[] = [{ type: "section", text: { type: "mrkdwn", text: summary } }];
   if (surface === "maintainer") {
     const options = maintainers.slice(0, 100).map((member) => {
       const userId = string(member.userId);
-      const connected = member.linearState === "linked";
       return {
         text: {
           type: "plain_text",
-          text: `${string(member.displayName).slice(0, 55)}${connected ? "" : " · 연결 필요"}`,
+          text: string(member.displayName).slice(0, 75),
         },
         value: JSON.stringify({ ownerId: "actor", key, driUserId: userId }),
       };
@@ -106,15 +122,25 @@ function workCard(
         options,
       });
     elements.push({
-      type: "button",
-      text: { type: "plain_text", text: "Linear 연결" },
-      action_id: "community_maintainer_linear_connect",
-      value: JSON.stringify({ ownerId: "actor", key: "linear-connect" }),
+      type: "static_select",
+      action_id: "community_feedback_stage_select",
+      placeholder: { type: "plain_text", text: "상태 변경" },
+      options: (["inbox", "in_progress", "review", "blocked"] as const).map((value) => ({
+        text: { type: "plain_text", text: WORK_STAGE_LABELS[value] },
+        value: JSON.stringify({ ownerId: "actor", key, stage: value }),
+      })),
     });
+    if (linearExportEnabled(env) && !url)
+      elements.push({
+        type: "button",
+        text: { type: "plain_text", text: "Linear로 내보내기" },
+        action_id: "community_work_linear_export",
+        value: JSON.stringify({ ownerId: "actor", key }),
+      });
     if (url)
       elements.push({
         type: "button",
-        text: { type: "plain_text", text: "Linear에서 보기" },
+        text: { type: "plain_text", text: "Linear 미러 보기" },
         action_id: "community_linear_open",
         value: JSON.stringify({ ownerId: "actor", key }),
         url,
@@ -123,7 +149,7 @@ function workCard(
   } else {
     blocks.push({ type: "actions", elements: [maintainerButton("Maintainer가 되어 직접 고치기")] });
   }
-  return { text: `${title} · ${stage} · DRI ${dri} · 버그 키 ${key}`, blocks };
+  return { text: `${title} · ${stageLabel} · DRI ${dri} · 버그 키 ${key}`, blocks };
 }
 
 async function upsertSurface(
@@ -138,7 +164,7 @@ async function upsertSurface(
   const workKey = text(work, "work_key", "workKey");
   const stored = await store.execute("surface_get", { workKey, channelId });
   const messageTs = typeof stored === "string" ? stored : preferredTs;
-  const payload = { channel: channelId, ...workCard(work, maintainers, surface) };
+  const payload = { channel: channelId, ...workCard(env, work, maintainers, surface) };
   if (messageTs) {
     await callSlack(env.SLACK_BOT_TOKEN, "chat.update", { ...payload, ts: messageTs });
     await store.execute("surface_put", { workKey, channelId, messageTs });
@@ -152,20 +178,35 @@ async function upsertSurface(
 export async function refreshMaintainerWorkSurfaces(
   env: WorkEnv,
   workKey: string,
-  preferredMemberTs: string | null = null,
+  preferredSurface: { readonly channelId: string; readonly messageTs: string } | null = null,
 ): Promise<void> {
-  if (!configured(env)) return;
   const store = new MaintainerOpsStore(env);
   const work = await store.getWork(workKey);
   if (!work) return;
   const maintainers = await activeMaintainers(env);
   const feedback = env.COMMUNITY_FEEDBACK_CHANNEL_ID;
   const maintainer = env.COMMUNITY_MAINTAINERS_CHANNEL_ID;
-  if (feedback) await upsertSurface(env, work, feedback, preferredMemberTs, "member", maintainers);
-  if (maintainer) await upsertSurface(env, work, maintainer, null, "maintainer", maintainers);
+  if (feedback)
+    await upsertSurface(
+      env,
+      work,
+      feedback,
+      preferredSurface?.channelId === feedback ? preferredSurface.messageTs : null,
+      "member",
+      maintainers,
+    );
+  if (maintainer)
+    await upsertSurface(
+      env,
+      work,
+      maintainer,
+      preferredSurface?.channelId === maintainer ? preferredSurface.messageTs : null,
+      "maintainer",
+      maintainers,
+    );
 }
 
-export async function syncFeedbackToLinear(
+export async function syncFeedbackToMaintainerWork(
   context: CommunityContext,
   input: {
     readonly feedbackId: string;
@@ -177,73 +218,76 @@ export async function syncFeedbackToLinear(
   },
 ): Promise<void> {
   const env = context.env;
-  if (!configured(env)) return;
-  const linearTeamId = configuredLinearTeam(env);
   const maintainer = await context.store.maintainerStatus(context.scope.teamId, input.reporterId);
   const desiredDri = maintainer?.state === "active" ? input.reporterId : null;
   const title =
     (input.expected || input.actual).split(/\r?\n/, 1)[0]?.trim().slice(0, 120) || "OT1L 피드백";
   const store = new MaintainerOpsStore(env);
-  let work = object(
-    await store.execute("work_put", {
-      workKey: input.feedbackId,
-      reporterId: input.reporterId,
-      desiredDri,
-      linearTeamId,
-      title,
-      actual: input.actual.slice(0, 2000),
-      expected: input.expected.slice(0, 2000),
-      workKind: "feedback",
-      sourceChannel: input.sourceChannel,
-      sourceThread: input.sourceThread,
-    }),
-  );
-  const member = desiredDri ? await store.execute("member_get", { userId: desiredDri }) : null;
+  await store.execute("work_put", {
+    workKey: input.feedbackId,
+    reporterId: input.reporterId,
+    desiredDri,
+    title,
+    actual: input.actual.slice(0, 2000),
+    expected: input.expected.slice(0, 2000),
+    workKind: "feedback",
+    sourceChannel: input.sourceChannel,
+    sourceThread: input.sourceThread,
+  });
+  await refreshMaintainerWorkSurfaces(env, input.feedbackId, {
+    channelId: input.sourceChannel,
+    messageTs: input.sourceThread,
+  });
+}
+
+export async function exportMaintainerWorkToLinear(
+  context: CommunityContext,
+  workKey: string,
+): Promise<void> {
+  const env = context.env;
+  if (!linearExportEnabled(env)) throw new InputError("Linear 미러는 현재 사용하지 않아요.");
+  if (
+    (await context.store.maintainerStatus(context.scope.teamId, context.scope.userId))?.state !==
+      "active" &&
+    context.scope.userId !== env.COMMUNITY_ADMIN_ID
+  )
+    throw new InputError("활성 Maintainer만 외부 도구로 내보낼 수 있어요.");
+  const store = new MaintainerOpsStore(env);
+  const linearTeamId = configuredLinearTeam(env);
+  const prepared = object(await store.execute("work_linear_prepare", { workKey, linearTeamId }));
+  const driId = nullable(prepared, "dri_user_id", "driUserId");
+  const member = driId ? await store.execute("member_get", { userId: driId }) : null;
   const linearAssignee =
     member && typeof member === "object" && !Array.isArray(member)
       ? nullable(object(member), "linear_user_id", "linearUserId")
       : null;
   try {
     const issue = await createLinearIssue(env, {
-      id: text(work, "linear_issue_id", "linearIssueId"),
-      title,
-      description: `## As-Is\n${input.actual}\n\n## To-Be\n${input.expected}\n\n[Slack에서 처음 남긴 위치](${slackUrl(env, input.sourceChannel, input.sourceThread)})\n\n${input.feedbackId}`,
+      id: text(prepared, "linear_issue_id", "linearIssueId"),
+      title: text(prepared, "title"),
+      description: `## As-Is\n${text(prepared, "actual")}\n\n## To-Be\n${text(prepared, "expected")}\n\n[Slack에서 처음 남긴 위치](${slackUrl(env, text(prepared, "source_channel", "sourceChannel"), text(prepared, "source_thread", "sourceThread"))})\n\n${workKey}`,
       assigneeId: linearAssignee,
     });
-    const assignee = issue.assignee ? object(issue.assignee) : null;
-    const linkedDri = assignee
-      ? activeMaintainers(env).then((members) => {
-          const value = members.find((candidate) => candidate.linearUserId === assignee.id)?.userId;
-          return typeof value === "string" ? value : null;
-        })
-      : Promise.resolve(null);
-    work = object(
-      await store.execute("work_sync", {
-        workKey: input.feedbackId,
-        linearTeamId,
-        identifier: string(issue.identifier),
-        url: string(issue.url),
-        issueState: issueStage(object(issue.state).type, object(issue.state).name),
-        driUserId: (await linkedDri) ?? null,
-        linearUpdatedAt: string(issue.updatedAt),
-      }),
-    );
+    await store.execute("work_sync", {
+      workKey,
+      linearTeamId,
+      identifier: string(issue.identifier),
+      url: string(issue.url),
+      issueState: issueStage(object(issue.state).type, object(issue.state).name),
+      linearUpdatedAt: string(issue.updatedAt),
+    });
+    await refreshMaintainerWorkSurfaces(env, workKey);
+    await ephemeral(context, { text: "이 작업을 Linear에 선택적으로 연결했어요." });
   } catch (error) {
-    await store.execute("work_failed", { workKey: input.feedbackId });
-    console.error(
-      JSON.stringify({
-        event: "community.linear.feedback_sync_failed",
-        errorType: error instanceof Error ? error.name : "Unknown",
-      }),
-    );
+    await store.execute("work_failed", { workKey });
+    await refreshMaintainerWorkSurfaces(env, workKey);
+    throw error;
   }
-  await refreshMaintainerWorkSurfaces(env, input.feedbackId, context.thread);
-  void work;
 }
 
 export async function connectMaintainerToLinear(context: CommunityContext): Promise<void> {
   const env = context.env;
-  if (!configured(env)) throw new InputError("Linear 연결은 아직 준비 중이에요.");
+  if (!linearConfigured(env)) throw new InputError("Linear 미러는 현재 사용하지 않아요.");
   if (
     (await context.store.maintainerStatus(context.scope.teamId, context.scope.userId))?.state !==
     "active"
@@ -307,7 +351,7 @@ export async function connectMaintainerToLinear(context: CommunityContext): Prom
 
 export async function pauseMaintainerLinear(context: CommunityContext): Promise<void> {
   const env = context.env;
-  if (!configured(env)) return;
+  if (!linearConfigured(env)) return;
   const store = new MaintainerOpsStore(env);
   const value = await store.execute("member_get", { userId: context.scope.userId });
   if (value === null) return;
@@ -369,39 +413,76 @@ export async function assignMaintainerWork(
     { workKey, driUserId: targetUserId },
     context.scope.userId,
   );
-  if (target.linearState !== "linked" || typeof target.linearUserId !== "string") {
-    await refreshMaintainerWorkSurfaces(env, workKey);
-    await ephemeral(context, {
-      text: `<@${targetUserId}>님이 Linear를 연결하면 DRI 배정을 마무리할게요.`,
-    });
-    return;
-  }
+  await refreshMaintainerWorkSurfaces(env, workKey);
   const work = await store.getWork(workKey);
   if (!work) throw new InputError("작업을 찾을 수 없어요.");
-  const issue = await assignLinearIssue(
-    env,
-    text(work, "linear_issue_id", "linearIssueId"),
-    target.linearUserId,
+  const issueId = nullable(work, "linear_issue_id", "linearIssueId");
+  const canMirror =
+    linearConfigured(env) &&
+    issueId !== null &&
+    target.linearState === "linked" &&
+    typeof target.linearUserId === "string";
+  if (!canMirror) {
+    await ephemeral(context, { text: `<@${targetUserId}>님을 DRI로 지정했어요.` });
+    return;
+  }
+  try {
+    const issue = await assignLinearIssue(env, issueId, target.linearUserId as string);
+    await store.execute("work_sync", {
+      workKey,
+      linearTeamId: configuredLinearTeam(env),
+      identifier: string(issue.identifier),
+      url: string(issue.url),
+      issueState: issueStage(object(issue.state).type, object(issue.state).name),
+      driUserId: targetUserId,
+      linearUpdatedAt: string(issue.updatedAt),
+    });
+    await refreshMaintainerWorkSurfaces(env, workKey);
+    await ephemeral(context, {
+      text: `<@${targetUserId}>님을 DRI로 지정하고 Linear 미러에도 반영했어요.`,
+    });
+  } catch (error) {
+    console.error(
+      JSON.stringify({
+        event: "community.maintainer.linear_assignment_mirror_failed",
+        workKey,
+        errorType: error instanceof Error ? error.name : "Unknown",
+      }),
+    );
+    await ephemeral(context, {
+      text: `<@${targetUserId}>님을 DRI로 지정했어요. Linear 미러 반영은 실패했지만 Slack 작업에는 영향이 없습니다.`,
+    });
+  }
+}
+
+export async function setMaintainerWorkStage(
+  context: CommunityContext,
+  workKey: string,
+  stage: string,
+): Promise<void> {
+  if (!Object.hasOwn(WORK_STAGE_LABELS, stage) || stage === "deploying" || stage === "done")
+    throw new InputError("선택할 수 없는 상태예요.");
+  if (
+    (await context.store.maintainerStatus(context.scope.teamId, context.scope.userId))?.state !==
+      "active" &&
+    context.scope.userId !== context.env.COMMUNITY_ADMIN_ID
+  )
+    throw new InputError("활성 Maintainer만 상태를 변경할 수 있어요.");
+  await new MaintainerOpsStore(context.env).execute(
+    "work_stage",
+    { workKey, stage },
+    context.scope.userId,
   );
-  await store.execute("work_sync", {
-    workKey,
-    linearTeamId: configuredLinearTeam(env),
-    identifier: string(issue.identifier),
-    url: string(issue.url),
-    issueState: issueStage(object(issue.state).type, object(issue.state).name),
-    driUserId: targetUserId,
-    linearUpdatedAt: string(issue.updatedAt),
-  });
-  await refreshMaintainerWorkSurfaces(env, workKey);
+  await refreshMaintainerWorkSurfaces(context.env, workKey);
   await ephemeral(context, {
-    text: `<@${targetUserId}>님에게 DRI를 넘겼어요. Linear와 Slack에 반영했습니다.`,
+    text: `상태를 '${WORK_STAGE_LABELS[stage as WorkStage]}'으로 바꿨어요.`,
   });
 }
 
 export async function reconcileMaintainerLinear(
   env: WorkEnv,
 ): Promise<{ readonly linked: number; readonly assigned: number }> {
-  if (!configured(env)) return { linked: 0, assigned: 0 };
+  if (!linearConfigured(env)) return { linked: 0, assigned: 0 };
   const store = new MaintainerOpsStore(env);
   const maintainers = await activeMaintainers(env);
   const linearMembers = await linearTeamMembers(env);
@@ -434,16 +515,13 @@ export async function reconcileMaintainerLinear(
   for (const work of workItems) {
     const desiredDri = nullable(work, "desired_dri", "desiredDri");
     const currentDri = nullable(work, "dri_user_id", "driUserId");
-    if (!desiredDri || desiredDri === currentDri) continue;
+    const issueId = nullable(work, "linear_issue_id", "linearIssueId");
+    if (!desiredDri || desiredDri === currentDri || !issueId) continue;
     const target = refreshedMaintainers.find(
       (candidate) => candidate.userId === desiredDri && candidate.linearState === "linked",
     );
     if (!target || typeof target.linearUserId !== "string") continue;
-    const issue = await assignLinearIssue(
-      env,
-      text(work, "linear_issue_id", "linearIssueId"),
-      target.linearUserId,
-    );
+    const issue = await assignLinearIssue(env, issueId, target.linearUserId);
     await store.execute("work_sync", {
       workKey: text(work, "work_key", "workKey"),
       linearTeamId: configuredLinearTeam(env),
@@ -464,7 +542,6 @@ export async function setMaintainerWorkReleaseStage(
   workKey: string,
   releaseStage: string,
 ): Promise<void> {
-  if (!configured(env)) return;
   await new MaintainerOpsStore(env).execute("work_release", { workKey, releaseStage });
   await refreshMaintainerWorkSurfaces(env, workKey);
 }

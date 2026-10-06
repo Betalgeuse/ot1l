@@ -15,6 +15,9 @@ const intros = [
   },
 ];
 class FakeStore {
+  async retryFailedRecord() {
+    return false;
+  }
   async putRecord(input) {
     const key = `${input.userId}:${input.key}`;
     if (!records.has(key)) records.set(key, { ...input, status: "pending" });

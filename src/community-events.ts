@@ -6,13 +6,15 @@ import { enrollReminderMember } from "./community-enrollment";
 import { messageDate } from "./community-followup";
 import { deliverWelcomeGuide } from "./community-guide";
 import { incomingMessageBody } from "./community-intake";
-import {
-  handleIntroductionChannelMessage,
-  welcomeIntroductionMember,
-} from "./community-introduction-channel";
+import { handleIntroductionChannelMessage } from "./community-introduction-channel";
 import { handleLifecycleAdminMessage } from "./community-lifecycle-admin";
 import { lifecycleAdminStore } from "./community-lifecycle-runtime-store";
 import { dispatchCommunityMessage, dispatchFeedbackBugMessage } from "./community-message-router";
+import {
+  enqueueTeamJoinOnboarding,
+  MemberOnboardingStore,
+  runMemberOnboardingDeliveries,
+} from "./community-onboarding";
 import {
   handleReferralCapacityAdminMessage,
   referralCapacityAdminStore,
@@ -45,34 +47,41 @@ export async function handleCommunityEvent(
   if (rawEvent.type === "team_join") {
     const joined = object(rawEvent.user);
     const userId = string(joined.id);
+    const onboarding = new MemberOnboardingStore(
+      new NeonStore(env.DATABASE_URL),
+      env.SLACK_TEAM_ID,
+    );
+    await enqueueTeamJoinOnboarding(data, env, onboarding);
     if (env.REFERRALS_ENABLED === "true") {
-      const referral = new CommunityReferralStore(new NeonStore(env.DATABASE_URL), {
-        teamId: env.SLACK_TEAM_ID,
-        channelId: env.COMMUNITY_PUBLIC_CHANNEL_ID ?? "",
-        userId: env.COMMUNITY_ADMIN_ID ?? "",
-      });
-      await handleReferralTeamJoin(
-        { teamId: env.SLACK_TEAM_ID, eventId: string(data.event_id), userId },
-        env,
-        referral,
-        referralSlackPort(env),
-      );
+      try {
+        const referral = new CommunityReferralStore(new NeonStore(env.DATABASE_URL), {
+          teamId: env.SLACK_TEAM_ID,
+          channelId: env.COMMUNITY_PUBLIC_CHANNEL_ID ?? "",
+          userId: env.COMMUNITY_ADMIN_ID ?? "",
+        });
+        await handleReferralTeamJoin(
+          { teamId: env.SLACK_TEAM_ID, eventId: string(data.event_id), userId },
+          env,
+          referral,
+          referralSlackPort(env),
+        );
+      } catch (error) {
+        console.error(
+          JSON.stringify({
+            event: "community.team_join.referral_failed",
+            errorType: error instanceof Error ? error.name : "Unknown",
+          }),
+        );
+      }
     }
-    const eventTs = String(rawEvent.event_ts ?? data.event_time ?? "");
-    const joinedChannel = (channel: string) => ({
-      type: "member_joined_channel",
-      channel,
-      user: userId,
-      event_ts: eventTs,
-    });
-    if (env.COMMUNITY_WELCOME_CHANNEL_ID && env.COMMUNITY_BOT_USER_ID && env.GUIDE_DATABASE_URL)
-      await deliverWelcomeGuide(joinedChannel(env.COMMUNITY_WELCOME_CHANNEL_ID), env);
-    if (env.COMMUNITY_INTRO_CHANNEL_ID && env.COMMUNITY_BOT_USER_ID)
-      await welcomeIntroductionMember(joinedChannel(env.COMMUNITY_INTRO_CHANNEL_ID), env);
-    if (env.COMMUNITY_PUBLIC_CHANNEL_ID)
-      await enrollReminderMember(joinedChannel(env.COMMUNITY_PUBLIC_CHANNEL_ID), env);
-    if (env.COMMUNITY_RELEASE_CHANNEL_ID)
-      await welcomeTownhallMember(joinedChannel(env.COMMUNITY_RELEASE_CHANNEL_ID), env);
+    const processed = await runMemberOnboardingDeliveries(env, onboarding, Date.now(), 4);
+    if (processed.failed > 0)
+      console.error(
+        JSON.stringify({
+          event: "community.team_join.delivery_failed",
+          failed: processed.failed,
+        }),
+      );
     return true;
   }
   if (rawEvent.type !== "message" && rawEvent.type !== "app_mention") return false;

@@ -69,7 +69,11 @@ psql -X --single-transaction -v ON_ERROR_STOP=1 -f migrations/028_welcome_guide_
 
 GenQuant 자동 개선 실행기를 활성화하려면 048 뒤에 `049_bug_runner_handoff.sql`부터 `064_verified_operator_recovery.sql`까지 번호 순서대로 적용합니다. 063은 수정 결과 검증이 실패하면 새 Codex 작업으로 최대 세 번 재시도하고, 마지막 실패는 `fix_failed`와 Slack 알림으로 끝내 접수 스레드가 `fixing`에 멈추지 않게 합니다. 064는 자동 경로가 이미 소진된 뒤 운영자가 같은 변경을 main 병합·배포·검증한 경우에만 감사 근거와 Slack 완료 알림을 묶어 `resolved`로 복구합니다. DB 소유자 연결은 migration과 `bootstrap-bug-runner-db-role.mjs`에서만 사용합니다. 부트스트랩은 무작위 비밀번호의 `otl_bug_runner_login`을 만들고, 완성된 URL을 `BUG_RUNNER_SECRET_SINK`의 표준입력으로만 전달합니다. URL을 명령 인자·로그·Git에 쓰지 않습니다. 실행기 로그인은 runner 함수만 호출할 수 있고 bug·member·agent table을 직접 읽을 수 없습니다.
 
+Founder가 승인한 migration을 Broker가 적용할 때는 `scripts/bootstrap-migration-db-role.mjs`로 `otl_migration_login`과 NOLOGIN `otl_migration_owner`를 만듭니다. 로그인은 `NOINHERIT`이고 평소에는 otl schema를 직접 읽거나 쓸 수 없습니다. Broker는 승인 digest에 묶인 migration 파일, 선행 버전과 파일 계약을 확인한 뒤 같은 DB 세션에서만 `SET ROLE otl_migration_owner`를 실행합니다. 생성된 URL은 `MIGRATION_SECRET_SINK`의 표준입력으로 GenQuant mode-0600 환경 파일에 설치하며 로그·Git·명령 인자에 넣지 않습니다.
+
 회원 생성 Chapter를 열려면 078 뒤에 `079_self_service_chapters.sql`을 적용하고 Slack 앱에 `channels:manage`를 추가한 뒤 다시 설치합니다. 이 scope는 공개 `chapter-*` 생성·설명 설정·보관에만 사용합니다. 운영 채널 ID를 코드나 공개 config에 새로 박지 않습니다. 활성 동적 Chapter는 DB registry로 인식하고 15분 reconciliation에 자동 포함합니다.
+
+신규 회원 안내는 운영 Slack 앱의 Bot Events에 `team_join`이 실제로 저장되어 있어야 합니다. 저장소 manifest만 확인하지 말고 Slack 앱 관리 화면을 재조회합니다. Migration 086부터 `team_join`은 회원별 guide·자기소개·reminder·Townhall outbox를 먼저 만들고 각 항목을 독립적으로 재시도합니다. 15분 회원 목록 대조가 이벤트 자체 누락도 찾아내되, migration 적용 당시 이미 활동 중인 회원은 legacy snapshot으로 제외해 과거 회원 전체에 환영 메시지를 재발송하지 않습니다.
 
 `ops/genquant/otl1-bug-runner.service`를 설치하기 전에 `runner.env.example`을 사용자 전용 `~/.config/otl1-bug-runner/env`로 옮기고 mode 0600을 확인합니다. `BUG_RUNNER_ROOT`도 실행 사용자만 접근 가능한 디렉터리여야 합니다. 서비스는 Cloudflare나 Slack의 inbound 포트를 열지 않으며 Neon과 Codex Cloud로 outbound 요청만 보냅니다. 최초 운영 검증은 확정된 비공개 QA bug 하나로 실행하고, `task_started`와 `task_ready`가 같은 feedback 스레드에 한 번씩 돌아오는지 확인합니다.
 
@@ -158,6 +162,6 @@ cd /tmp/otl1-public-review && bun run check
 - `event-site/**`와 이벤트 시간표 allowlist는 `open-events` adapter로 `otl1-time`을 배포합니다.
 - `src/**`, 루트 Worker 설정·검사 경로는 `core-worker` adapter로 분류하며 Founder 승인 뒤 `otl1-onething-garden`을 배포합니다.
 - runner·운영 파일만 바뀐 경우 runner 계약 검사와 systemd 서비스 재시작을 수행합니다.
-- migration, 일반 site, 서로 다른 경계가 섞인 변경은 `manual_required`로 남기고 자동 배포하지 않습니다.
+- migration과 일반 site가 섞인 Core 변경은 Founder가 정확한 SHA를 승인한 경우에만 GenQuant Broker가 전용 migration 역할로 forward migration을 적용한 뒤 Core Worker와 site를 순서대로 배포하고 각각 readback합니다. 승인 범위 밖의 migration 파일, 끊긴 선행 migration, 전용 역할·대상 config가 없는 경우에는 fail-closed합니다.
 
 각 adapter는 전체 `bun run check`, exact HEAD, Worker version과 `/health`를 확인한 뒤에만 `bug_runner_finish_deployment` 영수증을 기록합니다. 진행 중인 leased job이 있으면 deployment claim 자체를 보류합니다. 공개 fork에서 직접 연 PR은 자동 큐에 들어오지 않으며, 현재는 `#maintainers`에서 Founder가 피드백 항목과 head SHA에 연결해야 합니다.

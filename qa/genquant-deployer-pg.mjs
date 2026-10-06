@@ -16,6 +16,23 @@ try{
  for(const file of files.filter(x=>Number(x.slice(0,3))>=8))await run(join(pg,"psql"),["-X","-v","ON_ERROR_STOP=1","-f",`migrations/${file}`]);
  const claim=(await run(join(pg,"psql"),["-XAtq","-v","ON_ERROR_STOP=1","-c",`SELECT otl.bug_runner_claim_deployment('{"teamId":"TQA","workerId":"deploy","leaseToken":"lease","now":"2026-09-29T00:00:00Z"}'::jsonb)`])).stdout.trim();
  assert.equal(claim,"null");
+ await run(join(pg,"psql"),["-XAtq","-v","ON_ERROR_STOP=1","-c",`
+   INSERT INTO otl.bug_reports(bug_id,team_id,state,public_alias,reporter_id,source,source_opaque_ref,source_channel_id,source_thread,title)
+   VALUES('BUG-DEPLOYPATH001','TQA','merged','B-DEPLOYPATH001','UREPORTER','slack','slack:TQA:CFEEDBACK:3','CFEEDBACK','3.3','deploy paths fixture');
+   WITH job AS (
+     INSERT INTO otl.bug_jobs(bug_id,kind,status,payload,payload_digest,attempt,finished_at)
+     VALUES('BUG-DEPLOYPATH001','fix','succeeded','{}','${"1".repeat(64)}',1,clock_timestamp()) RETURNING job_id
+   ) INSERT INTO otl.agent_runs(run_id,bug_id,job_id,account_alias,base_sha,prompt_digest,exit_class,provider,provider_task_id,provider_task_url)
+   SELECT 'run-deploy-paths','BUG-DEPLOYPATH001',job_id,'primary','${"2".repeat(40)}','${"3".repeat(64)}','checks_green','codex_cloud_cli',
+     'task_e_${"4".repeat(32)}','https://chatgpt.com/codex/tasks/task_e_${"4".repeat(32)}' FROM job;
+   INSERT INTO otl.git_changes(bug_id,branch,commit_sha,pr_number,merged_sha,merge_status,approved_by,approved_at,
+     deployment_status,change_class,changed_paths,classification_digest,classified_at)
+   VALUES('BUG-DEPLOYPATH001','feedback/ot1-1-deploy','${"5".repeat(40)}',104,'${"6".repeat(40)}','merged','UADMIN',clock_timestamp(),
+     'pending','core','["migrations/085_deployment_approved_paths.sql","src/community-maintainer-work.ts"]','${"7".repeat(64)}',clock_timestamp());
+ `]);
+ const pathClaim=JSON.parse((await run(join(pg,"psql"),["-XAtq","-v","ON_ERROR_STOP=1","-c",`SELECT otl.bug_runner_claim_deployment('{"teamId":"TQA","workerId":"deploy","leaseToken":"path-lease","now":"2026-09-29T00:00:01Z"}'::jsonb)`])).stdout.trim());
+ assert.deepEqual(pathClaim.changedPaths,["migrations/085_deployment_approved_paths.sql","src/community-maintainer-work.ts"]);
+ assert.equal(pathClaim.classificationDigest,"7".repeat(64));
  const grants=(await run(join(pg,"psql"),["-XAtq","-c",`SELECT has_function_privilege('otl_bug_runner','otl.bug_runner_claim_deployment(jsonb)','EXECUTE') AND NOT has_function_privilege('public','otl.bug_runner_claim_deployment(jsonb)','EXECUTE')`])).stdout.trim();
  assert.equal(grants,"t");
  const repositoryContract=(await run(join(pg,"psql"),["-XAtq","-c",`SELECT position('p->>''prUrl''' in pg_get_functiondef('otl.bug_runner_finish_fix(jsonb)'::regprocedure))>0 AND position('Betalgeuse/otl1' in pg_get_functiondef('otl.bug_runner_finish_fix(jsonb)'::regprocedure))=0 AND EXISTS(SELECT 1 FROM otl.schema_migrations WHERE version='061-repository-identity')`])).stdout.trim();
@@ -59,5 +76,5 @@ try{
    AND EXISTS(SELECT 1 FROM otl.bug_runner_notifications WHERE bug_id='BUG-FIXFAILED001' AND kind='change_deployed')
    AND EXISTS(SELECT 1 FROM otl.bug_events WHERE bug_id='BUG-FIXFAILED001' AND variant='verified_operator_recovery')`])).stdout.trim();
  assert.equal(operatorRecoveryContract,"t");
- console.log("PASS migrations 060-064 repository, progress, failure recovery, and operator recovery contracts");
+ console.log("PASS deployment migrations preserve recovery contracts and return exact approved paths");
 }finally{if(started)await run(join(pg,"pg_ctl"),["-D",data,"-m","fast","-w","stop"]).catch(()=>{});await rm(temp,{recursive:true,force:true});}

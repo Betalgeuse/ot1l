@@ -1,8 +1,8 @@
 import type { CommunityEnv } from "./community-runtime";
-import { callSlack } from "./community-social";
+import { CommunitySlackError, callSlack } from "./community-social";
 import { InputError, object, string } from "./input";
 
-export const MAINTAINER_CANVAS_VERSION = "v0.1.0";
+export const MAINTAINER_CANVAS_VERSION = "v0.2.0";
 
 type CanvasEnv = Pick<
   CommunityEnv,
@@ -32,7 +32,7 @@ export function maintainerCanvasDefinitions(env: CanvasEnv): readonly Maintainer
   const workstreams = env.COMMUNITY_MAINTAINER_WORKSTREAM_CHANNEL_IDS?.split(",")
     .map((value) => value.trim())
     .filter(Boolean);
-  if (!main || !workstreams || workstreams.length < 3)
+  if (!main || !workstreams || workstreams.length !== 3)
     throw new InputError("Maintainer Canvas 채널을 확인해 주세요.");
   const [build, design, community] = workstreams;
   if (!build || !design || !community)
@@ -180,7 +180,17 @@ function channelCanvasId(info: Record<string, unknown>): string | null {
   const properties = channel.properties;
   if (typeof properties !== "object" || properties === null || Array.isArray(properties))
     return null;
-  const canvas = object(properties).canvas;
+  const values = object(properties);
+  if (Array.isArray(values.tabs)) {
+    for (const tab of values.tabs) {
+      if (typeof tab !== "object" || tab === null || Array.isArray(tab)) continue;
+      const data = object(tab).data;
+      if (typeof data !== "object" || data === null || Array.isArray(data)) continue;
+      const fileId = object(data).file_id;
+      if (typeof fileId === "string" && fileId) return fileId;
+    }
+  }
+  const canvas = values.canvas;
   if (typeof canvas !== "object" || canvas === null || Array.isArray(canvas)) return null;
   const value = object(canvas).file_id ?? object(canvas).id;
   return typeof value === "string" && value ? value : null;
@@ -191,8 +201,27 @@ export async function publishMaintainerCanvases(
 ): Promise<
   readonly { readonly key: string; readonly channelId: string; readonly canvasId: string }[]
 > {
+  const definitions = maintainerCanvasDefinitions(env);
+  const expectedNames: Record<MaintainerCanvasDefinition["key"], string> = {
+    main: "maintainers",
+    build: "maintainers-dev",
+    design: "maintainers-design",
+    community: "maintainers-retention",
+  };
+  const preflight = new Map<string, Record<string, unknown>>();
+  for (const definition of definitions) {
+    const info = await callSlack(env.SLACK_BOT_TOKEN, "conversations.info", {
+      channel: definition.channelId,
+    });
+    const name = string(object(info.channel).name);
+    if (name !== expectedNames[definition.key])
+      throw new InputError(
+        `${definition.key} Canvas 채널이 #${expectedNames[definition.key]}인지 확인해 주세요.`,
+      );
+    preflight.set(definition.channelId, info);
+  }
   const receipts = [];
-  for (const definition of maintainerCanvasDefinitions(env)) {
+  for (const definition of definitions) {
     await callSlack(env.SLACK_BOT_TOKEN, "conversations.setTopic", {
       channel: definition.channelId,
       topic: definition.topic,
@@ -201,11 +230,13 @@ export async function publishMaintainerCanvases(
       channel: definition.channelId,
       purpose: definition.purpose,
     });
-    const info = await callSlack(env.SLACK_BOT_TOKEN, "conversations.info", {
-      channel: definition.channelId,
-    });
+    const info = preflight.get(definition.channelId);
+    if (!info) throw new TypeError("missing Maintainer Canvas preflight");
     const existing = channelCanvasId(info);
-    const documentContent = { type: "markdown", markdown: definition.markdown } as const;
+    const documentContent = {
+      type: "markdown",
+      markdown: definition.markdown.replace(/^# [^\n]+\n/, ""),
+    } as const;
     let canvasId: string;
     if (existing) {
       canvasId = existing;
@@ -214,13 +245,36 @@ export async function publishMaintainerCanvases(
         changes: [{ operation: "replace", document_content: documentContent }],
       });
     } else {
-      const created = await callSlack(env.SLACK_BOT_TOKEN, "conversations.canvases.create", {
-        channel_id: definition.channelId,
-        title: definition.title,
-        document_content: documentContent,
-      });
-      canvasId = string(created.canvas_id);
+      try {
+        const created = await callSlack(env.SLACK_BOT_TOKEN, "conversations.canvases.create", {
+          channel_id: definition.channelId,
+          title: definition.title,
+          document_content: documentContent,
+        });
+        canvasId = string(created.canvas_id);
+      } catch (error) {
+        if (
+          !(error instanceof CommunitySlackError) ||
+          error.code !== "channel_canvas_already_exists"
+        )
+          throw error;
+        const reconciled = await callSlack(env.SLACK_BOT_TOKEN, "conversations.info", {
+          channel: definition.channelId,
+        });
+        const reconciledId = channelCanvasId(reconciled);
+        if (!reconciledId) throw error;
+        canvasId = reconciledId;
+        await callSlack(env.SLACK_BOT_TOKEN, "canvases.edit", {
+          canvas_id: canvasId,
+          changes: [{ operation: "replace", document_content: documentContent }],
+        });
+      }
     }
+    const verified = await callSlack(env.SLACK_BOT_TOKEN, "conversations.info", {
+      channel: definition.channelId,
+    });
+    if (channelCanvasId(verified) !== canvasId)
+      throw new TypeError(`Maintainer Canvas 확인 실패: ${definition.key}`);
     receipts.push({ key: definition.key, channelId: definition.channelId, canvasId });
   }
   return receipts;

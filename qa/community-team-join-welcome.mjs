@@ -28,6 +28,20 @@ mock.module("../src/community-enrollment.ts", () => ({
     return true;
   },
 }));
+mock.module("../src/community-onboarding.ts", () => ({
+  MemberOnboardingStore: class {},
+  async enqueueTeamJoinOnboarding(data) {
+    calls.push(["onboarding-enqueue", { channel: "CDAILY", user: data.event.user.id }]);
+    return 4;
+  },
+  async runMemberOnboardingDeliveries() {
+    calls.push(["onboarding-deliver", { channel: "CDAILY", user: "UNEW" }]);
+    return { processed: 4, failed: 0, possiblyMore: false };
+  },
+  async reconcileMemberOnboarding() {
+    return 0;
+  },
+}));
 mock.module("../src/community-welcome.ts", () => ({
   async welcomeTownhallMember(event) {
     calls.push(["townhall", event]);
@@ -63,11 +77,9 @@ await handleCommunityEvent(
 assert.deepEqual(
   calls.map(([kind, event]) => [kind, event.channel, event.user]),
   [
-    ["guide", "CWELCOME", "UNEW"],
-    ["introduction", "CINTRO", "UNEW"],
-    ["reminder", "CDAILY", "UNEW"],
-    ["townhall", "CTOWN", "UNEW"],
+    ["onboarding-enqueue", "CDAILY", "UNEW"],
+    ["onboarding-deliver", "CDAILY", "UNEW"],
   ],
-  "team_join must fan out to every new-member consumer even when channel_join events are absent",
+  "team_join must persist onboarding before delivery even when channel_join events are absent",
 );
-console.log("PASS team_join fans out welcome, introduction, reminder, and townhall surfaces");
+console.log("PASS team_join persists durable onboarding before attempting delivery");

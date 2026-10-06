@@ -56,6 +56,7 @@ export type CommunityEnv = {
   readonly COMMUNITY_SYS_ALERT_CHANNEL_ID?: string;
   readonly COMMUNITY_RETENTION_CHANNEL_ID?: string;
   readonly MAINTAINER_LINEAR_ENABLED?: string;
+  readonly MAINTAINER_LINEAR_EXPORT_ENABLED?: string;
   readonly LINEAR_API_KEY?: string;
   readonly LINEAR_ADMIN_API_KEY?: string;
   readonly LINEAR_APP_CLIENT_ID?: string;
@@ -114,6 +115,8 @@ export function actionIdentity(data: Record<string, unknown>, env: CommunityEnv,
     "community_feedback_admin_start",
     "community_feedback_merge_approve",
     "community_feedback_dri_select",
+    "community_feedback_stage_select",
+    "community_work_linear_export",
     "community_maintainer_linear_connect",
     "community_maintainer_linear_members",
     "community_maintainer_help_open_question",

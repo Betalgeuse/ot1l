@@ -116,8 +116,22 @@ export async function runCommunitySchedule(
   const local = new Date(nowDate.getTime() + 9 * 60 * 60 * 1000).toISOString();
   const date = local.slice(0, 10);
   const minute = local.slice(11, 16);
-  await sendDailyFeedbackPrompt(env, store, date, minute);
-  await sendDailyMaintainerPrompt(env, store, date, minute);
+  await sendDailyFeedbackPrompt(env, store, date, minute).catch((error: unknown) =>
+    console.error(
+      JSON.stringify({
+        event: "community.feedback_prompt.failed",
+        errorType: error instanceof Error ? error.name : "Unknown",
+      }),
+    ),
+  );
+  await sendDailyMaintainerPrompt(env, store, date, minute).catch((error: unknown) =>
+    console.error(
+      JSON.stringify({
+        event: "community.maintainer_prompt.failed",
+        errorType: error instanceof Error ? error.name : "Unknown",
+      }),
+    ),
+  );
   if (
     env.COMMUNITY_INTRO_CHANNEL_ID &&
     env.COMMUNITY_PUBLIC_CHANNEL_ID === env.COMMUNITY_CHANNEL_ID

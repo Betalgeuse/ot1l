@@ -41,6 +41,7 @@ export async function welcomeTownhallMember(
     kind: "welcome",
     body: { source: string(event.ts ?? event.event_ts ?? ""), text },
   });
+  await store.retryFailedRecord(scope);
   if (!(await store.claimRecord(scope))) return true;
   const renderedText = await customBotEmoji(env.SLACK_BOT_TOKEN, text);
   const sent = await callSlack(env.SLACK_BOT_TOKEN, "chat.postMessage", {

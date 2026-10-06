@@ -51,6 +51,7 @@ export const PUBLIC_COPY_PATHS = [
   "scripts/bootstrap-lifecycle-admin-db-role.mjs",
   "scripts/bootstrap-referral-admin-db-role.mjs",
   "scripts/bootstrap-bug-runner-db-role.mjs",
+  "scripts/bootstrap-migration-db-role.mjs",
   "scripts/deploy-production-worker.mjs",
   "scripts/schedule-private-house-reminders.mjs",
   "scripts/publish-townhall-event-launcher.mjs",
@@ -103,6 +104,12 @@ export const PUBLIC_RUNTIME_MIGRATION_PATHS = [
   "migrations/078_idempotent_maintainer_activation.sql",
   "migrations/079_self_service_chapters.sql",
   "migrations/080_event_demands.sql",
+  "migrations/081_founder_open_approval.sql",
+  "migrations/082_maintainer_verified_profile.sql",
+  "migrations/083_maintainer_linear_ops.sql",
+  "migrations/084_slack_native_maintainer_work.sql",
+  "migrations/085_deployment_approved_paths.sql",
+  "migrations/086_durable_member_onboarding.sql",
 ];
 
 // `src` and `site` are copied as directories, but these paths keep the membership
@@ -166,6 +173,9 @@ export const PUBLIC_QA_NAMES = [
   "community-agent-notifications.mjs",
   "genquant-runner-contract.mjs",
   "genquant-deployer-contract.mjs",
+  "genquant-migration-deployer.mjs",
+  "migration-broker-pg.mjs",
+  "community-onboarding-pg.mjs",
   "maintainer-deployment-policy.mjs",
   "open-maintainers-pg.mjs",
   "genquant-deployer-pg.mjs",

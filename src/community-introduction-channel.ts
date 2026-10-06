@@ -55,6 +55,7 @@ export async function welcomeIntroductionMember(
     kind: "introduction_welcome",
     body: { source: string(event.ts ?? event.event_ts ?? "") },
   });
+  await store.retryFailedRecord(scope);
   if (!(await store.claimRecord(scope))) return true;
   const existing = await store.introduction(env.SLACK_TEAM_ID, userId);
   const text = existing

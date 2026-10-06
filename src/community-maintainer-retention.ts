@@ -43,21 +43,7 @@ export function maintainerWorkGuide() {
       { type: "section", text: { type: "mrkdwn", text } },
       {
         type: "actions",
-        elements: [
-          feedbackButton("피드백·작업 제안"),
-          {
-            type: "button",
-            text: { type: "plain_text", text: "Linear 연결" },
-            action_id: "community_maintainer_linear_connect",
-            value: JSON.stringify({ ownerId: "actor", key: "linear-connect" }),
-          },
-          {
-            type: "button",
-            text: { type: "plain_text", text: "연결 현황" },
-            action_id: "community_maintainer_linear_members",
-            value: JSON.stringify({ ownerId: "actor", key: "linear-members" }),
-          },
-        ],
+        elements: [feedbackButton("피드백·작업 제안")],
       },
     ],
   } as const;

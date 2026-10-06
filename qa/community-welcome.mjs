@@ -6,6 +6,9 @@ const records = new Map();
 const posts = [];
 mock.module("../src/community-store.ts", () => ({
   CommunityStore: class {
+    async retryFailedRecord() {
+      return false;
+    }
     async putRecord(x) {
       if (!records.has(x.userId)) records.set(x.userId, { ...x, status: "pending" });
       return records.get(x.userId);

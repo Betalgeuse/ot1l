@@ -307,6 +307,13 @@ function townhallEventDemand(value: Json): TownhallEventDemand | null {
 }
 
 export class CommunityStore extends CommunityScheduleStore {
+  async retryFailedRecord(input: CommunityScope & { readonly key: string }): Promise<boolean> {
+    return (
+      (await this.db.queryJson("SELECT otl.community_retry_failed_record($1::jsonb)", [
+        JSON.stringify(input),
+      ])) === true
+    );
+  }
   async townhallEventDemand(
     operation: "create" | "get" | "bind" | "edit" | "close" | "link_event",
     input: Json,
