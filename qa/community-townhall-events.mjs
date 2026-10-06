@@ -330,14 +330,19 @@ try {
   const fixedModal = calls.find((call) => call.method === "views.open").body.view;
   assert.deepEqual(
     fixedModal.blocks.filter((block) => block.type === "input").map((block) => block.block_id),
-    ["activity", "location", "event_date", "event_time", "duration", "minimum", "capacity"],
+    ["activity", "location", "event_date", "event_hour", "event_minute", "duration", "minimum", "capacity"],
+  );
+  assert.deepEqual(
+    fixedModal.blocks.find((block) => block.block_id === "event_minute").element.options.map((option) => option.value),
+    ["00", "15", "30", "45"],
   );
   const fixedPending = [];
   const fixedSubmit = submission("VFIXED", "community_event_submit", fixedModal.private_metadata, {
     activity: { value: { value: "정해진 저녁 모임" } },
     location: { value: { value: "서울숲" } },
     event_date: { value: { selected_date: "2026-10-10" } },
-    event_time: { value: { selected_time: "19:00" } },
+    event_hour: { value: { selected_option: { value: "19" } } },
+    event_minute: { value: { selected_option: { value: "15" } } },
     duration: { value: { selected_option: { value: "120" } } },
     minimum: { value: { value: "3" } },
     capacity: { value: { value: "6" } },
@@ -346,6 +351,7 @@ try {
   await Promise.all(fixedPending);
   const fixedUpdate = calls.filter((call) => call.method === "chat.update").at(-1).body;
   assert.match(fixedUpdate.text, /최종 일정:/);
+  assert.match(fixedUpdate.text, /2026-10-10 19:15 KST/);
   assert.match(fixedUpdate.text, /참가 확정 1명 · 성사 기준 3명 · 최대 인원 6명/);
   assert.deepEqual(
     fixedUpdate.blocks[1].elements.map((item) => item.action_id),
@@ -413,17 +419,19 @@ try {
   const fixedEditModal = calls.find((call) => call.method === "views.open").body.view;
   assert.deepEqual(
     fixedEditModal.blocks.filter((block) => block.type === "input").map((block) => block.block_id),
-    ["activity", "location", "event_date", "event_time", "duration", "minimum", "capacity"],
+    ["activity", "location", "event_date", "event_hour", "event_minute", "duration", "minimum", "capacity"],
   );
   assert.equal(fixedEditModal.blocks.find((block) => block.block_id === "event_date").element.initial_date, "2026-10-10");
-  assert.equal(fixedEditModal.blocks.find((block) => block.block_id === "event_time").element.initial_time, "19:00");
+  assert.equal(fixedEditModal.blocks.find((block) => block.block_id === "event_hour").element.initial_option.value, "19");
+  assert.equal(fixedEditModal.blocks.find((block) => block.block_id === "event_minute").element.initial_option.value, "15");
   assert.equal(fixedEditModal.blocks.find((block) => block.block_id === "capacity").element.initial_value, "6");
   const fixedEditPending = [];
   const fixedEditSubmit = submission("VFIXED-EDIT", "community_event_submit", fixedEditModal.private_metadata, {
     activity: { value: { value: "정해진 저녁 모임" } },
     location: { value: { value: "서울숲" } },
     event_date: { value: { selected_date: "2026-10-11" } },
-    event_time: { value: { selected_time: "18:00" } },
+    event_hour: { value: { selected_option: { value: "18" } } },
+    event_minute: { value: { selected_option: { value: "45" } } },
     duration: { value: { selected_option: { value: "90" } } },
     minimum: { value: { value: "4" } },
     capacity: { value: { value: "" } },
@@ -432,7 +440,7 @@ try {
   await Promise.all(fixedEditPending);
   const changedFixed = calls.filter((call) => call.method === "chat.update").at(-1).body.text;
   assert.match(changedFixed, /참가 확정 1명 · 성사 기준 4명 · 최대 인원 무제한/);
-  assert.match(changedFixed, /2026-10-11 18:00 KST/);
+  assert.match(changedFixed, /2026-10-11 18:45 KST/);
 
   console.log(
     "PASS townhall event: fixed events stay in Slack, polls use one web commitment, and edits preserve state",
