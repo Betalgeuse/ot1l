@@ -49,7 +49,7 @@ export function townhallPollButton(): Json {
     text: { type: "plain_text", text: "시간 미정 이벤트 열기" },
     action_id: "community_event_open_poll",
     value: JSON.stringify({ ownerId: "actor", key: "new-townhall-event-poll" }),
-    accessibility_label: "Townhall에서 가능한 시간 함께 정하기",
+    accessibility_label: "Townhall에서 시간 미정 이벤트 열기",
   };
 }
 

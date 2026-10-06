@@ -199,6 +199,7 @@ try {
     (item) => item.action_id === "community_event_open_poll",
   );
   assert.equal(launcherPollButton.text.text, "시간 미정 이벤트 열기");
+  assert.equal(launcherPollButton.accessibility_label, "Townhall에서 시간 미정 이벤트 열기");
   const open = action(
     launcherPollButton.action_id,
     "UMEMBER",
@@ -269,6 +270,7 @@ try {
     (item) => item.action_id === "community_event_open_poll",
   );
   assert.equal(cardPollButton.text.text, "시간 미정 이벤트 열기");
+  assert.equal(cardPollButton.accessibility_label, "Townhall에서 시간 미정 이벤트 열기");
   const cardOpen = action(
     cardPollButton.action_id,
     "UOTHER",
@@ -279,6 +281,10 @@ try {
   assert.equal(
     calls.find((call) => call.method === "views.open").body.trigger_id,
     "trigger-card-poll",
+  );
+  assert.equal(
+    calls.find((call) => call.method === "views.open").body.view.callback_id,
+    "community_event_submit",
   );
 
   calls.length = 0;
