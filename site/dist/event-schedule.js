@@ -28,6 +28,7 @@ const dayKey = (iso) =>
     month: "2-digit",
     day: "2-digit",
   }).format(new Date(iso));
+const isHalfHour = (value) => /^(?:[01]\d|2[0-3]):(?:00|30)$/.test(value);
 const viewer = () => {
   const data = token.split(".")[0];
   return JSON.parse(
@@ -142,6 +143,12 @@ document.addEventListener("pointerup", () => {
 });
 $("[data-configure]").addEventListener("click", async () => {
   const status = $("[data-status]");
+  const dayStart = $("[data-day-start]").value;
+  const dayEnd = $("[data-day-end]").value;
+  if (!isHalfHour(dayStart) || !isHalfHour(dayEnd)) {
+    status.textContent = "시작과 종료 시각은 30분 단위로 선택해 주세요.";
+    return;
+  }
   status.textContent = "시간표를 여는 중…";
   try {
     const deadline = $("[data-deadline]").value;
@@ -149,8 +156,8 @@ $("[data-configure]").addEventListener("click", async () => {
       await api("configure", {
         startDate: $("[data-start-date]").value,
         endDate: $("[data-end-date]").value,
-        dayStart: $("[data-day-start]").value,
-        dayEnd: $("[data-day-end]").value,
+        dayStart,
+        dayEnd,
         stepMinutes: Number($("[data-step]").value),
         eventKind: $("[data-kind]").value,
         recurrenceEveryWeeks: Number($("[data-recurrence]").value),
