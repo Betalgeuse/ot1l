@@ -13,6 +13,8 @@ Accepted 2026-10-05. Implementation and live acceptance are tracked separately.
 - Bot-managed membership may only affect the configured OT1 team. Never change DEV, workspace roles, or expose credentials. Paid invitation capacity is explicitly configured; default denies new seats.
 - `maintainers-retention` retains the old welcome workstream channel ID/history. It contains the versioned contributor start guide, questions, Q&A huddle requests and first-contribution OT requests. Public `welcome-start-here` stays separate.
 - Personal/security reports are not copied to public cards or Linear.
+- Every Maintainer channel has a value-first channel Canvas: what members gain, how to make a first contribution, examples, and where to ask for help. `maintainers-dev` is a human build studio, not a bot-status archive.
+- At 18:00 KST, the Maintainer channel asks for ideas, learning interests, activities and help requests with the same work-proposal entry point. This is distinct from the general member feedback prompt.
 
 ## Acceptance
 
@@ -21,6 +23,7 @@ Required: an ordinary operator account clicks real signed Slack buttons in both 
 ## Current implementation status
 
 - Live channel is `maintainers-retention`, preserving the previous channel ID and history.
+- Live workstreams are `maintainers-dev`, `maintainers-design`, and `maintainers-retention`. Their channel Canvases and the pinned retention guide are source-owned and must be published and read back after changes.
 - The Core implementation now contains OT1-only issue creation, human DRI assignment and handoff, Guest enrollment with a configured seat cap, signed Linear webhooks, two Slack status surfaces, channel-based Founder approval, retention requests, and a read-only public projection.
 - A private OT1L OAuth application exists with Issue/User/Agent Session/Permission Change webhooks. App-actor credentials still need to replace the temporary founder-attributed issue credential before app identity can be called live.
-- Migration, deployment, Slack/Linear connection, guide publication, real operator/browser acceptance and website deployment remain required before the feature is called complete.
+- A new real work item is still required to live-verify the post-deployment DRI selector and two-card Linear synchronization; synthetic block checks do not close that acceptance item.

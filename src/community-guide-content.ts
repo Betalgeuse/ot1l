@@ -35,10 +35,10 @@ const GUIDE_CHANNEL_LABELS = [
   "all-freetalk-qna-feedback",
   "townhall",
   "maintainers",
-  "maintainers-events",
-  "maintainers-website",
+  "maintainers-dev",
+  "maintainers-design",
   "maintainers-retention",
-  "sys-alert",
+  "maintainers-sys-alert",
   "chapter-developers",
   "chapter-english",
   "chapter-scientist",
@@ -73,7 +73,7 @@ export function renderGuideChannels(
   );
   const seen = new Set<string>();
   const rendered = body.replace(
-    /^([ \t]*(?:▪︎|◦)[ \t]*(?:Slack 사용이 어려우면 )?)#(daily-scrum|all-freetalk-qna-feedback|townhall|maintainers|maintainers-events|maintainers-website|maintainers-retention|sys-alert|chapter-developers|chapter-english|chapter-scientist)(?=[:에])/gm,
+    /^([ \t]*(?:▪︎|◦)[ \t]*(?:Slack 사용이 어려우면 )?)#(daily-scrum|all-freetalk-qna-feedback|townhall|maintainers|maintainers-dev|maintainers-design|maintainers-retention|maintainers-sys-alert|chapter-developers|chapter-english|chapter-scientist)(?=[:에])/gm,
     (_match, prefix: string, label: string) => {
       const id = channels.get(label);
       if (!id) throw new InputError("환영 안내 채널 설정을 확인해 주세요.");

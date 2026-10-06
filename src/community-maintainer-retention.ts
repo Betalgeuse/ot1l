@@ -4,7 +4,7 @@ import type { CommunityContext, CommunityEnv } from "./community-runtime";
 import { callSlack } from "./community-social";
 import { InputError, type Json, object, string } from "./input";
 
-export const MAINTAINER_RETENTION_VERSION = "v0.1.0";
+export const MAINTAINER_RETENTION_VERSION = "v0.2.0";
 
 function requestButton(label: string, mode: "question" | "qna" | "ot"): Json {
   return {
@@ -17,7 +17,7 @@ function requestButton(label: string, mode: "question" | "qna" | "ot"): Json {
 
 export function maintainerRetentionGuide(maintainersChannelId?: string) {
   const workChannel = maintainersChannelId ? `<#${maintainersChannelId}>` : "#maintainers";
-  const text = `*OT1L Maintainer 시작 안내* · ${MAINTAINER_RETENTION_VERSION}\n\n1. 피드백이나 작업 제안은 ${workChannel}에서 시작하고, 작성한 Maintainer가 기본 DRI가 됩니다.\n2. DRI는 Slack 작업 카드에서 서로 넘길 수 있고 Linear Assignee와 동기화됩니다.\n3. AI는 Delegate로 구현을 돕고 사람 DRI가 결과를 확인합니다.\n4. Open 변경은 Maintainer 또는 Founder, Core 변경은 Founder만 승인합니다.\n5. 질문이나 첫 기여가 막히면 아래에서 도움을 요청하세요. 허들은 담당자가 정해진 뒤 이 채널에서 시작합니다.\n\n<https://github.com/Betalgeuse/ot1l/blob/main/CONTRIBUTING.md|개발 시작 안내> · <https://github.com/Betalgeuse/ot1l/blob/main/docs/MAINTAINER_LINEAR.md|작업 흐름>`;
+  const text = `*OT1L Maintainer 시작 안내* · ${MAINTAINER_RETENTION_VERSION}\n\nMaintainer는 코드를 잘 알아야 얻는 역할이 아닙니다. 실제 회원의 문제를 더 쉽게 만들고, 질문에 답하고, 모임을 열고, AI와 함께 작은 변화를 끝내며 배울 수 있어요.\n\n• 궁금한 점은 *질문 남기기*로 바로 물어보세요.\n• 같이 배우거나 살펴보고 싶다면 *Q&A 허들 요청*을 남겨주세요.\n• 첫 기여를 혼자 시작하기 어렵다면 *첫 기여 OT 요청*으로 동료를 찾으세요.\n• 바꾸고 싶은 것이 생기면 *작업 제안하기*로 ${workChannel}의 DRI·진행 카드에 연결합니다.\n\nAI는 실행을 도울 수 있지만 결과를 확인하고 서로 설명하는 사람 DRI는 남습니다. 허들은 도움을 맡은 Maintainer가 정해진 뒤 이 채널에서 시작합니다.\n\n<https://github.com/Betalgeuse/ot1l/blob/main/CONTRIBUTING.md|직접 만들어 보고 싶을 때> · <https://github.com/Betalgeuse/ot1l/blob/main/docs/MAINTAINER_LINEAR.md|작업이 반영되는 흐름>`;
   return {
     text,
     blocks: [
@@ -36,7 +36,7 @@ export function maintainerRetentionGuide(maintainersChannelId?: string) {
 }
 
 export function maintainerWorkGuide() {
-  const text = `*OT1L Maintainer 작업 시작* · ${MAINTAINER_RETENTION_VERSION}\n\n피드백이나 개선 제안을 남기면 같은 내용을 일반 피드백 채널에도 공유하고 Linear ot1l 이슈 하나로 연결합니다. Maintainer가 작성한 제안은 본인이 기본 DRI가 되며 카드에서 다른 Maintainer에게 넘길 수 있습니다.\n\n<https://ot1l.hyuk.me/maintainers|공개 가능한 작업 단계 보기>`;
+  const text = `*OT1L Maintainer 작업 시작* · ${MAINTAINER_RETENTION_VERSION}\n\n불편했던 점, 해보고 싶은 변화, 같이 배우고 싶은 일, 열어보고 싶은 활동을 아래에서 시작하세요. 코딩하지 않아도 재현·QA·문구·디자인·질문 정리·모임 진행으로 참여할 수 있습니다. 직접 맡으면 기본 DRI가 되고, 같이할 사람을 찾거나 다른 Maintainer에게 넘길 수도 있어요. AI는 구현을 돕고 사람 DRI가 실제 결과를 확인합니다.\n\n<https://ot1l.hyuk.me/maintainers|지금 함께 만드는 일 보기>`;
   return {
     text,
     blocks: [
