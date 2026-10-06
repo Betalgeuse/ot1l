@@ -135,7 +135,7 @@ export function parseTownhallEvent(
     if (
       !/^\d{4}-\d{2}-\d{2}$/.test(selectedDate) ||
       !/^(?:[01]\d|2[0-3])$/.test(selectedHour) ||
-      !/^(?:00|15|30|45)$/.test(selectedMinute)
+      !/^(?:00|30)$/.test(selectedMinute)
     )
       errors.event_date = "날짜와 시작 시각을 확인해 주세요.";
     else if (!Number.isFinite(timestamp) || timestamp <= Date.now())
@@ -194,7 +194,7 @@ export async function openTownhallEventModal(
     const value = String(hour).padStart(2, "0");
     return { text: { type: "plain_text", text: value }, value };
   });
-  const minuteOptions = ["00", "15", "30", "45"].map((value) => ({
+  const minuteOptions = ["00", "30"].map((value) => ({
     text: { type: "plain_text", text: value },
     value,
   }));
@@ -275,7 +275,7 @@ export async function openTownhallEventModal(
               {
                 type: "input",
                 block_id: "event_minute",
-                label: { type: "plain_text", text: "시작 분 (15분 단위)" },
+                label: { type: "plain_text", text: "시작 분 (30분 단위)" },
                 element: {
                   type: "static_select",
                   action_id: "value",
