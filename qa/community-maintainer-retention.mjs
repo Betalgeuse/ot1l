@@ -30,6 +30,7 @@ try {
   assert.match(JSON.stringify(guide.blocks), /Q&A 허들/);
   assert.match(guide.text, /<#CMAIN>/);
   assert.deepEqual(guide.blocks[1].elements.map((item) => item.text.text), ["질문 남기기", "Q&A 허들 요청", "첫 기여 OT 요청", "작업 제안하기"]);
+  assert.equal(new Set(guide.blocks[1].elements.map((item) => item.action_id)).size, 4);
   await publishMaintainerRetentionGuide({ SLACK_BOT_TOKEN: "fake", COMMUNITY_RETENTION_CHANNEL_ID: "CRETENTION", COMMUNITY_MAINTAINERS_CHANNEL_ID: "CMAIN" });
   assert.equal(calls.filter((call) => call.method === "pins.add").length, 2);
   assert.equal(calls.some((call) => call.method === "chat.postMessage" && call.body.channel === "CMAIN" && call.body.text.includes("Maintainer 작업 시작")), true);

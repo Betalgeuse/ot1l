@@ -40,7 +40,7 @@ async function existingFeedbackThread(
   for (const value of list(history.messages)) {
     const message = object(value);
     if (
-      message.thread_ts === undefined &&
+      (message.thread_ts === undefined || message.thread_ts === message.ts) &&
       typeof message.text === "string" &&
       message.text.includes(`버그 키: ${bugId}`)
     )

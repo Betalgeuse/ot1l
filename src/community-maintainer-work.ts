@@ -83,7 +83,7 @@ function workCard(
   const dri = driId
     ? `<@${driId}>${nullable(work, "dri_user_id", "driUserId") ? "" : " · Linear 연결 대기"}`
     : "아직 정해지지 않음";
-  const summary = `*${escapeSlackText(title)}*\n\n*As-Is*\n${escapeSlackText(actual)}\n\n*To-Be*\n${escapeSlackText(expected)}\n\n현재 단계  *${escapeSlackText(stage)}*\nDRI  ${dri}\n제안  <@${reporterId}>${identifier ? `\n작업  ${identifier}` : ""}`;
+  const summary = `*${escapeSlackText(title)}*\n\n*As-Is*\n${escapeSlackText(actual)}\n\n*To-Be*\n${escapeSlackText(expected)}\n\n현재 단계  *${escapeSlackText(stage)}*\nDRI  ${dri}\n제안  <@${reporterId}>${identifier ? `\n작업  ${identifier}` : ""}\n버그 키  ${escapeSlackText(key)}`;
   const blocks: Json[] = [{ type: "section", text: { type: "mrkdwn", text: summary } }];
   if (surface === "maintainer") {
     const options = maintainers.slice(0, 100).map((member) => {
@@ -123,7 +123,7 @@ function workCard(
   } else {
     blocks.push({ type: "actions", elements: [maintainerButton("Maintainer가 되어 직접 고치기")] });
   }
-  return { text: `${title} · ${stage} · DRI ${dri}`, blocks };
+  return { text: `${title} · ${stage} · DRI ${dri} · 버그 키 ${key}`, blocks };
 }
 
 async function upsertSurface(

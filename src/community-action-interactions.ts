@@ -215,7 +215,7 @@ export async function handleCommunityAction(input: ActionInteraction): Promise<R
     );
     return new Response(null, { status: 200 });
   }
-  if (input.id === "community_maintainer_help_open") {
+  if (input.id.startsWith("community_maintainer_help_open_")) {
     const mode = value.mode;
     if (mode !== "question" && mode !== "qna" && mode !== "ot")
       throw new InputError("도움 요청 종류를 확인할 수 없어요.");

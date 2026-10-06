@@ -5,6 +5,7 @@ const calls = [];
 let notificationKind = "merge_ready";
 let changeClass = "open";
 let includeTaskUrl = true;
+let notificationChannel = "CFEEDBACK";
 const originalFetch = globalThis.fetch;
 globalThis.fetch = async (url, options = {}) => {
   const parsed = new URL(url);
@@ -19,7 +20,7 @@ globalThis.fetch = async (url, options = {}) => {
               {
                 notification_id: 7,
                 bug_id: "BUG-ABCDEF123456",
-                channel_id: "CFEEDBACK",
+                channel_id: notificationChannel,
                 thread_ts: "1790252981.933479",
                 kind: notificationKind,
                 payload: {
@@ -57,7 +58,11 @@ globalThis.fetch = async (url, options = {}) => {
   if (parsed.pathname.endsWith("/conversations.history"))
     return Response.json({
       ok: true,
-      messages: [{ ts: "1790252999.000001", text: "Maintainer 작업\n버그 키: BUG-ABCDEF123456" }],
+      messages: [{
+        ts: "1790252999.000001",
+        thread_ts: "1790252999.000001",
+        text: "Maintainer 작업\n버그 키: BUG-ABCDEF123456",
+      }],
     });
   if (parsed.pathname.endsWith("/conversations.open"))
     return Response.json({ ok: true, channel: { id: "DFOUNDER" } });
@@ -122,12 +127,7 @@ try {
   includeTaskUrl = false;
   const result = await sendAgentNotifications(env, new Date("2026-09-24T13:00:00Z"));
   assert.deepEqual(result, { claimed: 1, sent: 1, failed: 0 });
-  const post = calls.find((call) => call.url.includes("chat.postMessage"));
-  assert.equal(post.body.thread_ts, "1790252981.933479");
-  assert.match(post.body.text, /<@UADMIN> <@UREPORTER>/);
-  assert.match(post.body.text, /운영 배포와 실제 동작 확인을 기다리고 있습니다/);
-  assert.doesNotMatch(post.body.text, /github[.]com/);
-  assert.doesNotMatch(post.body.text, /chatgpt[.]com/);
+  assert.equal(calls.some((call) => call.url.includes("chat.postMessage")), false);
   const reactionMethods = calls
     .filter((call) => call.url.includes("reactions."))
     .map((call) => new URL(call.url).pathname.split("/").at(-1));
@@ -145,15 +145,28 @@ try {
     .map((call) => new URL(call.url).pathname.split("/").at(-1));
   assert.deepEqual(deployedReactionMethods, ["reactions.remove", "reactions.add"]);
   calls.length = 0;
+  notificationChannel = "CMAINTAIN";
+  const directMaintainerDeployment = await sendAgentNotifications(
+    env,
+    new Date("2026-09-24T13:01:30Z"),
+  );
+  assert.deepEqual(directMaintainerDeployment, { claimed: 1, sent: 1, failed: 0 });
+  assert.equal(calls.some((call) => call.url.includes("conversations.history")), false);
+  const directMaintainerPost = calls.find((call) => call.url.includes("chat.postMessage"));
+  assert.equal(directMaintainerPost.body.channel, "CMAINTAIN");
+  assert.equal(directMaintainerPost.body.thread_ts, "1790252981.933479");
+  assert.match(directMaintainerPost.body.text, /운영 배포와 실제 동작 확인을 완료했어요/);
+  calls.length = 0;
+  notificationChannel = "CFEEDBACK";
   notificationKind = "deployment_manual";
   const manual = await sendAgentNotifications(env, new Date("2026-09-24T13:02:00Z"));
   assert.deepEqual(manual, { claimed: 1, sent: 1, failed: 0 });
   const manualPost = calls.find((call) => call.url.includes("chat.postMessage"));
-  assert.match(manualPost.body.text, /운영자 배포가 필요해요/);
+  assert.match(manualPost.body.text, /안전한 순서로 운영 반영하고 있어요/);
   const manualReactionMethods = calls
     .filter((call) => call.url.includes("reactions."))
     .map((call) => new URL(call.url).pathname.split("/").at(-1));
-  assert.deepEqual(manualReactionMethods, ["reactions.remove", "reactions.add"]);
+  assert.deepEqual(manualReactionMethods, []);
   calls.length = 0;
   notificationKind = "invalid_kind";
   const malformed = await sendAgentNotifications(env, new Date("2026-09-24T13:03:00Z"));
@@ -163,7 +176,7 @@ try {
   );
   assert.match(malformedFinish.body.params[0], /"status":"failed"/);
   console.log(
-    "PASS agent notifications: review, merge, deployment, and final check remain distinct",
+    "PASS agent notifications: approval card carries progress and only terminal deployment posts",
   );
 } finally {
   globalThis.fetch = originalFetch;

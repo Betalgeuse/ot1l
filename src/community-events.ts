@@ -151,20 +151,26 @@ export async function handleCommunityEvent(
   if (await handleIntroductionChannelMessage(event, env)) return true;
   await enrollReminderMember(event, env);
   if (await welcomeTownhallMember(event, env)) return true;
-  const shareContext = {
-    env,
-    store: new CommunityStore(new NeonStore(env.DATABASE_URL)),
-    scope: {
-      teamId: env.SLACK_TEAM_ID,
-      channelId: string(event.channel),
-      userId: string(event.user),
-    },
-    thread: string(event.thread_ts ?? event.ts),
-    source: string(event.ts),
-    date: koreaDate(Number(event.ts)),
-    key: `share-info:${string(event.ts)}`,
-  };
-  if (await handleShareInfoMessage(event, shareContext)) return true;
+  if (
+    typeof event.channel === "string" &&
+    typeof event.user === "string" &&
+    typeof event.ts === "string"
+  ) {
+    const shareContext = {
+      env,
+      store: new CommunityStore(new NeonStore(env.DATABASE_URL)),
+      scope: {
+        teamId: env.SLACK_TEAM_ID,
+        channelId: event.channel,
+        userId: event.user,
+      },
+      thread: string(event.thread_ts ?? event.ts),
+      source: event.ts,
+      date: koreaDate(Number(event.ts)),
+      key: `share-info:${event.ts}`,
+    };
+    if (await handleShareInfoMessage(event, shareContext)) return true;
+  }
   if (
     ![
       env.COMMUNITY_CHANNEL_ID,

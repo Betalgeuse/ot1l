@@ -76,6 +76,16 @@ try {
     { ...event, team_id: "TOTHER" },
     { ...event, event: { ...event.event, channel: "COTHER" } },
     { ...event, event: { ...event.event, user: "UBOT" } },
+    {
+      ...event,
+      event: {
+        type: "message",
+        channel: "CTOWN",
+        bot_id: "BOT1",
+        text: "OT1L 봇 상태 메시지",
+        ts: "1791256386.222319",
+      },
+    },
   ])
     await handleCommunityEvent(e, env);
   assert.equal(posts.length, 1);
