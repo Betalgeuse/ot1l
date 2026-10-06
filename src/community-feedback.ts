@@ -256,6 +256,10 @@ export function dailyFeedbackPromptText(date: string): string {
   return `${date} 오늘 OT1L을 쓰면서 불편했거나 바랐던 점이 있었나요? 작은 의견도 괜찮아요. 아래 버튼으로 편하게 남겨주세요. 피드백을 남겨주시면 봇이 자동으로 수정안을 만들고, Maintainer가 확인한 뒤 배포해요!`;
 }
 
+export function dailyMaintainerPromptText(date: string): string {
+  return `${date} 오늘 OT1L을 함께 만들며 불편했던 점, 해보고 싶은 변화, 같이 배우거나 열어보고 싶은 활동이 있었나요? 작은 아이디어·질문·도움 요청도 괜찮아요. 아래 버튼으로 남기면 함께할 사람을 찾고 AI의 도움을 받아 실제 변화로 이어갈 수 있어요.`;
+}
+
 function maintainerFeedbackSourceUrl(context: CommunityContext): string {
   return `https://app.slack.com/client/${context.scope.teamId}/${context.scope.channelId}/thread/${context.scope.channelId}-${context.thread}`;
 }
@@ -336,6 +340,50 @@ export async function sendDailyFeedbackPrompt(
               value: JSON.stringify({ ownerId: "actor", key: "new" }),
             },
             maintainerButton(),
+          ],
+        },
+      ],
+    });
+    await store.finishRecord({ ...scope, key }, "sent");
+    return true;
+  } catch (error) {
+    await store.finishRecord({ ...scope, key }, "failed");
+    throw error;
+  }
+}
+
+export async function sendDailyMaintainerPrompt(
+  env: Pick<
+    CommunityEnv,
+    "SLACK_TEAM_ID" | "SLACK_BOT_TOKEN" | "COMMUNITY_ADMIN_ID" | "COMMUNITY_MAINTAINERS_CHANNEL_ID"
+  >,
+  store: Pick<CommunityStore, "putRecord" | "claimRecord" | "finishRecord">,
+  date: string,
+  minute: string,
+): Promise<boolean> {
+  const channelId = env.COMMUNITY_MAINTAINERS_CHANNEL_ID;
+  const userId = env.COMMUNITY_ADMIN_ID;
+  if (!channelId || !userId || !feedbackPromptDue(minute)) return false;
+  const scope = { teamId: env.SLACK_TEAM_ID, channelId, userId };
+  const key = `maintainer-feedback-prompt:${date}`;
+  await store.putRecord({ ...scope, key, kind: "feedback_prompt", body: { date } });
+  if (!(await store.claimRecord({ ...scope, key }))) return false;
+  try {
+    const text = dailyMaintainerPromptText(date);
+    await callSlack(env.SLACK_BOT_TOKEN, "chat.postMessage", {
+      channel: channelId,
+      text,
+      blocks: [
+        { type: "section", text: { type: "mrkdwn", text } },
+        {
+          type: "actions",
+          elements: [
+            {
+              type: "button",
+              text: { type: "plain_text", text: "피드백·작업 제안" },
+              action_id: "community_bug_open",
+              value: JSON.stringify({ ownerId: "actor", key: "new" }),
+            },
           ],
         },
       ],

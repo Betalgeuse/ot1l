@@ -56,10 +56,11 @@ OT1L (*ONE THING* 1 Line)에 오신 것을 환영합니다! Slack 채널 구조�
   ◦ Maintainer가 제안한 작업은 본인이 기본 DRI가 됩니다. #maintainers 카드에서 다른 Maintainer에게 넘길 수 있고 Linear 담당자와 동기화됩니다.
   ◦ Open 변경과 Core 변경의 승인 버튼은 모두 #maintainers 작업 스레드에 나타납니다. Open은 활성 Maintainer 또는 Founder, Core는 Founder 본인만 승인할 수 있습니다.
   ◦ #maintainers에서 기능 제안, 담당자, 진행 단계, 검증 결과, 승인과 병합·배포 영수증을 확인합니다. <https://ot1l.hyuk.me/maintainers|함께 만드는 중>에서는 공개 가능한 작업의 단계만 선택해서 볼 수 있습니다.
-  ◦ #maintainers-events: 이벤트 기능과 실제 모임 운영을 함께 개선합니다.
-  ◦ #maintainers-website: 홈페이지 디자인·콘텐츠·접근성을 함께 개선합니다.
-  ◦ #maintainers-retention: Maintainer 시작 안내, Q&A 허들과 첫 기여 OT를 함께 운영하고 회원이 편하게 참여를 이어가도록 돕습니다.
-  ◦ #sys-alert: GitHub, 홈페이지와 Worker의 배포·장애 알림을 확인합니다. 원본 로그나 비밀 값은 올리지 않습니다.
+  ◦ #maintainers-dev: 개발환경 없이도 AI·동료와 실제 기능을 만들고 QA하며 배울 수 있는 빌드 스튜디오입니다.
+  ◦ #maintainers-design: 코딩 없이도 화면·콘텐츠·접근성을 만들고 실제 제품에 반영하는 디자인 스튜디오입니다.
+  ◦ #maintainers-retention: 질문, Q&A 허들, 첫 기여 OT와 모임을 통해 사람을 돕고 커뮤니티 운영을 경험합니다.
+  ◦ 각 Maintainer 채널의 Canvas에서 얻을 수 있는 경험, 첫 참여 방법과 예시를 확인합니다.
+  ◦ #maintainers-sys-alert: GitHub, 홈페이지와 Worker의 배포·장애 알림을 확인합니다. 원본 로그나 비밀 값은 올리지 않습니다.
   ◦ 가입·개인정보·보안·Core Worker 변경은 Founder 승인 한 번 뒤 병합과 운영 배포가 연속 실행됩니다. 개인 컴퓨터에서 운영 Worker를 직접 배포하지 않습니다.
   ◦ SSH·Slack token·DB 소유자 자격증명은 Maintainer에게 공개하지 않고 제한된 Deployment Broker가 정확한 승인 SHA만 실행합니다.
 

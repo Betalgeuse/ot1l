@@ -1,7 +1,7 @@
 import { isOptionalDay, isWeekend } from "./calendar";
 import { enqueueCommonDelivery, sendCommonDeliveries } from "./community-common-delivery";
 import { customBotEmoji } from "./community-emoji";
-import { sendDailyFeedbackPrompt } from "./community-feedback";
+import { sendDailyFeedbackPrompt, sendDailyMaintainerPrompt } from "./community-feedback";
 import { sendDailyIntroductionReminders } from "./community-introduction-channel";
 import { sendReminderBatches } from "./community-reminder-batch";
 import type { CommunityStore } from "./community-store";
@@ -16,6 +16,7 @@ export type CommunityScheduleEnv = {
   readonly COMMUNITY_PUBLIC_CHANNEL_ID?: string;
   readonly COMMUNITY_BOT_USER_ID?: string;
   readonly COMMUNITY_FEEDBACK_CHANNEL_ID?: string;
+  readonly COMMUNITY_MAINTAINERS_CHANNEL_ID?: string;
   readonly REVIEW_THREAD_V2?: string;
   readonly COMMUNITY_GUIDE_CANVAS_URL?: string;
   readonly COMMUNITY_INTRO_CANVAS_URL?: string;
@@ -116,6 +117,7 @@ export async function runCommunitySchedule(
   const date = local.slice(0, 10);
   const minute = local.slice(11, 16);
   await sendDailyFeedbackPrompt(env, store, date, minute);
+  await sendDailyMaintainerPrompt(env, store, date, minute);
   if (
     env.COMMUNITY_INTRO_CHANNEL_ID &&
     env.COMMUNITY_PUBLIC_CHANNEL_ID === env.COMMUNITY_CHANNEL_ID

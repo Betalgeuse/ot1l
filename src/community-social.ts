@@ -97,10 +97,14 @@ export async function callSlack(
   method: string,
   payload: Json,
 ): Promise<Record<string, unknown>> {
-  if (!/^[a-z]+\.[a-zA-Z]+$/.test(method)) throw new CommunitySlackError("invalid_method");
+  if (!/^[a-z]+(?:\.[a-zA-Z]+)+$/.test(method)) throw new CommunitySlackError("invalid_method");
   let response: Response;
   try {
-    const queryLookup = ["conversations.members", "conversations.replies"].includes(method);
+    const queryLookup = [
+      "conversations.info",
+      "conversations.members",
+      "conversations.replies",
+    ].includes(method);
     const lookup = ["users.info", "emoji.list"].includes(method) || queryLookup;
     const url = new URL(`https://slack.com/api/${method}`);
     if (method === "users.info") {
