@@ -40,13 +40,13 @@ assert.match(readFileSync("site/dist/event-schedule.html", "utf8"), /data-durati
 assert.match(readFileSync("site/dist/event-schedule.js", "utf8"), /durationMinutes/);
 assert.doesNotMatch(readFileSync("site/dist/event-schedule.js", "utf8"), /api\/events\/schedule/);
 assert.match(readFileSync("site/dist/event-schedule.js", "utf8"), /\[title, [.]?[.]?[.]description\] = event[.]activity[.]split/);
-assert.match(readFileSync("site/dist/event-schedule.html", "utf8"), /event-schedule[.]js[?]v=20261006-1/);
+assert.match(readFileSync("site/dist/event-schedule.html", "utf8"), /event-schedule[.]js[?]v=20261006-2/);
 assert.match(readFileSync("site/dist/event-schedule.html", "utf8"), /data-participants/);
 assert.match(readFileSync("site/dist/event-schedule.html", "utf8"), /data-event-people/);
 assert.match(readFileSync("site/dist/event-schedule.html", "utf8"), /최대 인원/);
 assert.match(readFileSync("site/dist/event-schedule.html", "utf8"), /비워 두면 무제한/);
-assert.match(readFileSync("site/dist/event-schedule.html", "utf8"), /step="1800" data-day-start/);
-assert.match(readFileSync("site/dist/event-schedule.html", "utf8"), /step="1800" data-day-end/);
+assert.match(readFileSync("site/dist/event-schedule.html", "utf8"), /<select data-day-start><\/select>/);
+assert.match(readFileSync("site/dist/event-schedule.html", "utf8"), /<select data-day-end><\/select>/);
 assert.match(readFileSync("site/dist/event-schedule.js", "utf8"), /최대 인원.*무제한/);
 assert.doesNotMatch(readFileSync("site/dist/event-schedule.js", "utf8"), /app[.]slack[.]com\/team/);
 
@@ -87,8 +87,6 @@ const selectors = [
   "[data-save]",
 ];
 const elements = Object.fromEntries(selectors.map((selector) => [selector, new FakeElement()]));
-Object.assign(elements["[data-day-start]"], { value: "09:30" });
-Object.assign(elements["[data-day-end]"], { value: "11:30" });
 Object.assign(elements["[data-step]"], { value: "30" });
 Object.assign(elements["[data-kind]"], { value: "gathering" });
 Object.assign(elements["[data-recurrence]"], { value: "1" });
@@ -135,6 +133,12 @@ runInNewContext(readFileSync("site/dist/event-schedule.js", "utf8"), {
   document, fetch: browserFetch, Response, Intl, Date, JSON, Set, Number, Error, atob,
 });
 await new Promise((resolve) => setImmediate(resolve));
+assert.equal(elements["[data-day-start]"].children.length, 48);
+assert.equal(elements["[data-day-end]"].children.length, 48);
+assert.equal(elements["[data-day-start]"].children[19].value, "09:30");
+assert.equal(elements["[data-day-start]"].children[19].textContent, "09:30");
+elements["[data-day-start]"].value = "09:30";
+elements["[data-day-end]"].value = "11:30";
 await elements["[data-configure]"].listeners.get("click")();
 const configureCall = browserCalls.find((call) => call.path === "/bridge/configure");
 assert.equal(configureCall.body.dayStart, "09:30");
