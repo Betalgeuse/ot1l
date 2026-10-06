@@ -29,6 +29,22 @@ const dayKey = (iso) =>
     day: "2-digit",
   }).format(new Date(iso));
 const isHalfHour = (value) => /^(?:[01]\d|2[0-3]):(?:00|30)$/.test(value);
+const halfHourTimes = Array.from({ length: 48 }, (_, index) => {
+  const hours = String(Math.floor(index / 2)).padStart(2, "0");
+  return `${hours}:${index % 2 === 0 ? "00" : "30"}`;
+});
+function populateHalfHourSelect(selector, selected) {
+  const select = $(selector);
+  for (const time of halfHourTimes) {
+    const option = document.createElement("option");
+    option.value = time;
+    option.textContent = time;
+    select.append(option);
+  }
+  select.value = selected;
+}
+populateHalfHourSelect("[data-day-start]", "09:00");
+populateHalfHourSelect("[data-day-end]", "22:00");
 const viewer = () => {
   const data = token.split(".")[0];
   return JSON.parse(
