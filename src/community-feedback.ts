@@ -253,7 +253,7 @@ export function feedbackPromptDue(minute: string): boolean {
 }
 
 export function dailyFeedbackPromptText(date: string): string {
-  return `${date} 오늘 OT1L을 쓰면서 불편했거나 바랐던 점이 있었나요? 작은 의견도 괜찮아요. 아래 버튼으로 편하게 남겨주세요. 피드백을 남겨주시면 봇이 자동으로 수정안을 만들고, Maintainer가 확인한 뒤 배포해요!`;
+  return `${date} 오늘 OT1L을 쓰면서 불편했거나 바랐던 점이 있었나요? 작은 의견도 괜찮아요. 아래 버튼으로 편하게 남겨주세요. 피드백을 남겨주시면 봇이 자동으로 수정안을 만들고, Product Owner가 확인한 뒤 배포해요! Product Owner(PO)는 코딩 여부와 관계없이 회원 문제를 발견하고 개선을 끝까지 맡는 역할이에요.`;
 }
 
 export function dailyMaintainerPromptText(date: string): string {
@@ -552,7 +552,7 @@ export async function approveCodexMerge(
     approvalContext.maintainer !== true &&
     context.scope.userId !== context.env.COMMUNITY_ADMIN_ID
   )
-    throw new InputError("활성 Maintainer 또는 Founder만 Open 변경을 승인할 수 있어요.");
+    throw new InputError("활성 Product Owner 또는 Founder만 Open 변경을 승인할 수 있어요.");
   const approved = object(
     await database.queryJson("SELECT otl.bug_actor_approve_merge($1::jsonb)", [
       JSON.stringify({

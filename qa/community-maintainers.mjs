@@ -14,13 +14,14 @@ globalThis.fetch=async(url,options={})=>{const method=new URL(url).pathname.spli
 };
 try{
  assert.equal(JSON.parse(maintainerButton().value).ownerId,'actor');
+ assert.equal(maintainerButton().text.text,'Product Owner 되기');
  await activateMaintainer(context);
  assert.deepEqual(transitions,[['profile','TQA','UMEMBER','Member'],['activate','TQA','UMEMBER']]);
  assert.deepEqual(calls.filter(c=>c.method==='conversations.invite').map(c=>c.body.channel),['CMAIN','CEVENT','CWEB','CWELCOME','CALERT']);
  assert.ok(calls.filter(c=>c.method==='conversations.invite').every(c=>c.body.users==='UMEMBER'));
  await activateMaintainer(context);
  assert.equal(calls.filter(c=>c.method==='chat.postMessage').length,1);
- assert.match(calls.filter(c=>c.method==='chat.postEphemeral').at(-1).body.text,/이미 Maintainer/);
+ assert.match(calls.filter(c=>c.method==='chat.postEphemeral').at(-1).body.text,/이미 Product Owner/);
  failInvite=true; const before=transitions.filter(t=>t[0]==='activate').length;
  await assert.rejects(()=>activateMaintainer(context),/missing_scope/);
  assert.equal(transitions.filter(t=>t[0]==='activate').length,before);
