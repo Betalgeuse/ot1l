@@ -8,6 +8,8 @@ import {
   validateDeployerConfig,
   verifyApprovedPaths,
 } from "../automation/runner/genquant-deployer.mjs";
+import { classifyChangePaths } from "../automation/runner/change-policy.mjs";
+import { sha256 } from "../automation/runner/contract.mjs";
 import {
   applyForwardMigrations,
   migrationConnection,
@@ -24,6 +26,7 @@ assert.deepEqual(classifyRunnerDeploymentPaths([
   "site/dist/event-schedule.js",
 ]), {
   automatic: true,
+  changeClass: "open",
   adapter: "open-events",
   paths: ["event-site/src/index.ts", "site/dist/event-schedule.js"],
 });
@@ -34,7 +37,12 @@ assert.equal(classifyRunnerDeploymentPaths(["site/src/index.ts"]).adapter, "manu
 assert.equal(classifyRunnerDeploymentPaths([
   "migrations/082_forward.sql", "src/index.ts", "site/src/index.ts",
 ]).adapter, "production");
-assert.deepEqual(classifyRunnerDeploymentPaths([]), { automatic: false, adapter: "manual", paths: [] });
+assert.deepEqual(classifyRunnerDeploymentPaths([]), {
+  automatic: false,
+  changeClass: "core",
+  adapter: "manual",
+  paths: [],
+});
 assert.throws(() => validateDeployerConfig({}), /missing deployer config/);
 assert.equal(validateDeployerConfig({
   BUG_RUNNER_DATABASE_URL: "postgresql://u:p@example.neon.tech/db",
@@ -52,6 +60,12 @@ assert.throws(() => migrationConnection("postgresql://postgres:secret@test.neon.
 
 const policy = classifyRunnerDeploymentPaths(["migrations/082_forward.sql", "src/index.ts"]);
 const digest = classificationDigest(policy);
+const runnerPolicy = classifyChangePaths(["migrations/082_forward.sql", "src/index.ts"]);
+assert.equal(digest, sha256(JSON.stringify({
+  version: 1,
+  changeClass: runnerPolicy.changeClass,
+  paths: runnerPolicy.paths,
+})));
 verifyApprovedPaths({ changedPaths: policy.paths, classificationDigest: digest }, policy);
 assert.throws(() => verifyApprovedPaths({ changedPaths: ["src/index.ts"], classificationDigest: digest }, policy),
   /approved_paths_mismatch/);

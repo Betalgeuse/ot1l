@@ -132,7 +132,12 @@ export function verifyApprovedPaths(claim, policy, bootstrapMigration) {
 
 export function classifyRunnerDeploymentPaths(paths) {
   const policy = classifyChangePaths(paths);
-  return { automatic: policy.adapter !== "manual", adapter: policy.adapter, paths: policy.paths };
+  return {
+    automatic: policy.adapter !== "manual",
+    changeClass: policy.changeClass,
+    adapter: policy.adapter,
+    paths: policy.paths,
+  };
 }
 
 export function validateDeployerConfig(env) {
