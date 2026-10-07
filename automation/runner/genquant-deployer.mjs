@@ -1,7 +1,11 @@
 import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { join, resolve } from "node:path";
-import { classifyChangePaths, includesMigration } from "./change-policy.mjs";
+import {
+  classifyChangePaths,
+  includesMigration,
+  verifySlackPresentationBoundary,
+} from "./change-policy.mjs";
 import { githubRepositorySlug, sha256 } from "./contract.mjs";
 import { applyForwardMigrations, migrationConnection } from "./migration-deployer.mjs";
 
@@ -257,6 +261,7 @@ export async function deployOnce(environment = process.env) {
       command("git", ["merge", "--ff-only", mergeSha], { cwd: checkout, timeout: 180_000 });
     const deployedSha = command("git", ["rev-parse", "HEAD"], { cwd: checkout });
     if (deployedSha !== mergeSha) throw new Error("deployed_sha_mismatch");
+    verifySlackPresentationBoundary(checkout, policy.paths);
     let workerVersion;
     let environmentEvidence;
     let observationEvidence;
