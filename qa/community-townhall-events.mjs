@@ -195,10 +195,16 @@ try {
     "community_event_demand_open",
     "community_event_host_request_open",
   ]);
-  const open = action("community_event_open_poll", "UMEMBER", {
-    ownerId: "actor",
-    key: "new-townhall-event",
-  });
+  const launcherPollButton = launcher.blocks[1].elements.find(
+    (item) => item.action_id === "community_event_open_poll",
+  );
+  assert.equal(launcherPollButton.text.text, "시간 미정 이벤트 열기");
+  assert.equal(launcherPollButton.accessibility_label, "Townhall에서 시간 미정 이벤트 열기");
+  const open = action(
+    launcherPollButton.action_id,
+    "UMEMBER",
+    JSON.parse(launcherPollButton.value),
+  );
   assert.equal((await communityInteraction(open, env, () => {})).status, 200);
   const createModal = calls.find((call) => call.method === "views.open").body.view;
   assert.deepEqual(
@@ -255,9 +261,31 @@ try {
   );
   assert.deepEqual(
     post.body.blocks[1].elements.slice(-2).map((item) => item.text.text),
-    ["나도 일정 정해서 열기", "나도 시간 같이 정하기"],
+    ["나도 일정 정해서 열기", "시간 미정 이벤트 열기"],
   );
   assert.doesNotMatch(post.body.text, /관심 \d+명/);
+
+  calls.length = 0;
+  const cardPollButton = post.body.blocks[1].elements.find(
+    (item) => item.action_id === "community_event_open_poll",
+  );
+  assert.equal(cardPollButton.text.text, "시간 미정 이벤트 열기");
+  assert.equal(cardPollButton.accessibility_label, "Townhall에서 시간 미정 이벤트 열기");
+  const cardOpen = action(
+    cardPollButton.action_id,
+    "UOTHER",
+    JSON.parse(cardPollButton.value),
+    "trigger-card-poll",
+  );
+  assert.equal((await communityInteraction(cardOpen, env, () => {})).status, 200);
+  assert.equal(
+    calls.find((call) => call.method === "views.open").body.trigger_id,
+    "trigger-card-poll",
+  );
+  assert.equal(
+    calls.find((call) => call.method === "views.open").body.view.callback_id,
+    "community_event_submit",
+  );
 
   calls.length = 0;
   const availability = action("community_event_availability", "UOTHER", {
@@ -334,15 +362,41 @@ try {
   );
   assert.deepEqual(
     fixedModal.blocks.find((block) => block.block_id === "event_minute").element.options.map((option) => option.value),
-    ["00", "15", "30", "45"],
+    ["00", "30"],
+  );
+  assert.equal(
+    fixedModal.blocks.find((block) => block.block_id === "event_minute").label.text,
+    "시작 분 (30분 단위)",
   );
   const fixedPending = [];
+  const manipulatedQuarterHour = submission(
+    "VFIXED-INVALID-MINUTE",
+    "community_event_submit",
+    fixedModal.private_metadata,
+    {
+      activity: { value: { value: "조작된 시각 검사" } },
+      location: { value: { value: "서울숲" } },
+      event_date: { value: { selected_date: "2026-10-10" } },
+      event_hour: { value: { selected_option: { value: "19" } } },
+      event_minute: { value: { selected_option: { value: "15" } } },
+      duration: { value: { selected_option: { value: "120" } } },
+      minimum: { value: { value: "3" } },
+      capacity: { value: { value: "6" } },
+    },
+  );
+  assert.deepEqual(
+    await (await communityInteraction(manipulatedQuarterHour, env, () => {})).json(),
+    {
+      response_action: "errors",
+      errors: { event_date: "날짜와 시작 시각을 확인해 주세요." },
+    },
+  );
   const fixedSubmit = submission("VFIXED", "community_event_submit", fixedModal.private_metadata, {
     activity: { value: { value: "정해진 저녁 모임" } },
     location: { value: { value: "서울숲" } },
     event_date: { value: { selected_date: "2026-10-10" } },
     event_hour: { value: { selected_option: { value: "19" } } },
-    event_minute: { value: { selected_option: { value: "15" } } },
+    event_minute: { value: { selected_option: { value: "30" } } },
     duration: { value: { selected_option: { value: "120" } } },
     minimum: { value: { value: "3" } },
     capacity: { value: { value: "6" } },
@@ -351,7 +405,7 @@ try {
   await Promise.all(fixedPending);
   const fixedUpdate = calls.filter((call) => call.method === "chat.update").at(-1).body;
   assert.match(fixedUpdate.text, /최종 일정:/);
-  assert.match(fixedUpdate.text, /2026-10-10 19:15 KST/);
+  assert.match(fixedUpdate.text, /2026-10-10 19:30 KST/);
   assert.match(fixedUpdate.text, /참가 확정 1명 · 성사 기준 3명 · 최대 인원 6명/);
   assert.deepEqual(
     fixedUpdate.blocks[1].elements.map((item) => item.action_id),
@@ -423,7 +477,11 @@ try {
   );
   assert.equal(fixedEditModal.blocks.find((block) => block.block_id === "event_date").element.initial_date, "2026-10-10");
   assert.equal(fixedEditModal.blocks.find((block) => block.block_id === "event_hour").element.initial_option.value, "19");
-  assert.equal(fixedEditModal.blocks.find((block) => block.block_id === "event_minute").element.initial_option.value, "15");
+  assert.equal(fixedEditModal.blocks.find((block) => block.block_id === "event_minute").element.initial_option.value, "30");
+  assert.deepEqual(
+    fixedEditModal.blocks.find((block) => block.block_id === "event_minute").element.options.map((option) => option.value),
+    ["00", "30"],
+  );
   assert.equal(fixedEditModal.blocks.find((block) => block.block_id === "capacity").element.initial_value, "6");
   const fixedEditPending = [];
   const fixedEditSubmit = submission("VFIXED-EDIT", "community_event_submit", fixedEditModal.private_metadata, {
@@ -431,7 +489,7 @@ try {
     location: { value: { value: "서울숲" } },
     event_date: { value: { selected_date: "2026-10-11" } },
     event_hour: { value: { selected_option: { value: "18" } } },
-    event_minute: { value: { selected_option: { value: "45" } } },
+    event_minute: { value: { selected_option: { value: "00" } } },
     duration: { value: { selected_option: { value: "90" } } },
     minimum: { value: { value: "4" } },
     capacity: { value: { value: "" } },
@@ -440,7 +498,7 @@ try {
   await Promise.all(fixedEditPending);
   const changedFixed = calls.filter((call) => call.method === "chat.update").at(-1).body.text;
   assert.match(changedFixed, /참가 확정 1명 · 성사 기준 4명 · 최대 인원 무제한/);
-  assert.match(changedFixed, /2026-10-11 18:45 KST/);
+  assert.match(changedFixed, /2026-10-11 18:00 KST/);
 
   console.log(
     "PASS townhall event: fixed events stay in Slack, polls use one web commitment, and edits preserve state",
