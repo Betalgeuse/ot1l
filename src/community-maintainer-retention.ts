@@ -29,7 +29,7 @@ export function maintainerRetentionGuide(maintainersChannelId?: string) {
           requestButton("질문 남기기", "question"),
           requestButton("Q&A 허들 요청", "qna"),
           requestButton("첫 기여 OT 요청", "ot"),
-          feedbackButton("작업 제안하기"),
+          feedbackButton("작업 제안하기", true),
         ],
       },
     ],
@@ -45,7 +45,7 @@ export function maintainerWorkGuide() {
       {
         type: "actions",
         elements: [
-          feedbackButton("피드백·작업 제안"),
+          feedbackButton("피드백·작업 제안", true),
           poSpecialtyButton(),
           summonPoButton(),
           {

@@ -1,15 +1,16 @@
 import { type CommunityContext, ephemeral } from "./community-runtime";
 import { CommunitySlackError, callSlack } from "./community-social";
 import { InputError, type Json, object } from "./input";
+import { PRODUCT_OWNER_BUTTON } from "./slack-presentation/product-owner-actions";
 
-export function maintainerButton(label = "Product Owner 되기"): Json {
+export function maintainerButton(label: string = PRODUCT_OWNER_BUTTON.label): Json {
   return {
     type: "button",
     text: { type: "plain_text", text: label },
-    style: "primary",
+    style: PRODUCT_OWNER_BUTTON.style,
     action_id: "community_maintainer_activate",
     value: JSON.stringify({ ownerId: "actor", key: "maintainer-self-activate" }),
-    accessibility_label: "OT1L Product Owner로 참여하기",
+    accessibility_label: PRODUCT_OWNER_BUTTON.accessibilityLabel,
   };
 }
 

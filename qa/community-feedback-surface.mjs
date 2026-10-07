@@ -11,6 +11,7 @@ import {
   sendDailyMaintainerPrompt,
   startCodexFeedback,
 } from "../src/community-feedback.ts";
+import { memberActionBlocks } from "../src/community-member-actions.ts";
 import { withFeedbackAction } from "../src/community-social.ts";
 
 const augmented = withFeedbackAction("chat.postMessage", {
@@ -25,6 +26,23 @@ assert.deepEqual(withFeedbackAction("chat.postMessage", { channel: "DQA", text: 
   channel: "DQA",
   text: "DM",
 });
+const dailyActions = memberActionBlocks(
+  {
+    guideUrl: "https://example.slack.com/docs/TQA/FGUIDE01",
+    introductionUrl: "https://example.slack.com/docs/TQA/FINTRO01",
+  },
+  "2026-09-23",
+);
+assert.deepEqual(
+  dailyActions.at(-1).elements.map((element) => element.action_id),
+  ["community_bug_open", "community_maintainer_activate"],
+);
+assert.equal(
+  dailyActions
+    .flatMap((block) => block.elements)
+    .some((element) => element.action_id?.includes("introduction")),
+  false,
+);
 assert.equal(feedbackPromptDue("17:59"), false);
 assert.equal(feedbackPromptDue("18:00"), true);
 assert.equal(feedbackPromptDue("18:05"), true);
@@ -166,8 +184,14 @@ try {
   };
   assert.equal(await sendDailyFeedbackPrompt(promptEnv, promptStore, "2026-09-23", "18:02"), true);
   assert.equal(await sendDailyFeedbackPrompt(promptEnv, promptStore, "2026-09-23", "18:03"), false);
-  assert.equal(await sendDailyMaintainerPrompt(promptEnv, promptStore, "2026-09-23", "18:02"), true);
-  assert.equal(await sendDailyMaintainerPrompt(promptEnv, promptStore, "2026-09-23", "18:03"), false);
+  assert.equal(
+    await sendDailyMaintainerPrompt(promptEnv, promptStore, "2026-09-23", "18:02"),
+    true,
+  );
+  assert.equal(
+    await sendDailyMaintainerPrompt(promptEnv, promptStore, "2026-09-23", "18:03"),
+    false,
+  );
   assert.match(
     calls.find((call) => call.method === "chat.postMessage")?.body.text ?? "",
     /피드백을 남겨주시면 봇이 자동으로 수정안을 만들고, Product Owner가 확인한 뒤 배포해요!/,
@@ -181,6 +205,11 @@ try {
     (call) => call.method === "chat.postMessage" && call.body.channel === "CMAINTAIN",
   );
   assert.equal(maintainerPrompt.body.blocks.at(-1).elements[0].text.text, "피드백·작업 제안");
+  assert.equal(maintainerPrompt.body.blocks.at(-1).elements[0].style, "primary");
+  assert.deepEqual(
+    maintainerPrompt.body.blocks.at(-1).elements.map((element) => element.action_id),
+    ["community_bug_open", "community_maintainer_activate"],
+  );
   const dailyPrompt = calls.find(
     (call) => call.method === "chat.postMessage" && call.body.channel === "CFEEDBACK",
   );
@@ -253,9 +282,8 @@ try {
     "123.456",
   );
   assert.equal(
-    calls.filter(
-      (call) => call.method === "chat.postMessage" && call.body.channel === "CMAINTAIN",
-    ).length,
+    calls.filter((call) => call.method === "chat.postMessage" && call.body.channel === "CMAINTAIN")
+      .length,
     maintainerPostsBefore,
     "a root with replies must be reused instead of creating a duplicate placeholder card",
   );
@@ -289,9 +317,8 @@ try {
     "the persisted Maintainer work surface must win over Slack history discovery",
   );
   assert.equal(
-    calls.filter(
-      (call) => call.method === "chat.postMessage" && call.body.channel === "CMAINTAIN",
-    ).length,
+    calls.filter((call) => call.method === "chat.postMessage" && call.body.channel === "CMAINTAIN")
+      .length,
     postsBeforeStoredSurface,
   );
   assert.equal(
