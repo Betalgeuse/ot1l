@@ -1,5 +1,5 @@
 import { slackCanvasUrl } from "./community-canvas";
-import { feedbackActionBlock } from "./community-feedback-button";
+import { feedbackButton, productOwnerButton } from "./community-feedback-button";
 import type { Json } from "./input";
 
 export type MemberNavigation = {
@@ -67,6 +67,6 @@ export function memberActionBlocks(
         inviteButton(),
       ],
     },
-    feedbackActionBlock(),
+    { type: "actions", elements: [feedbackButton(), productOwnerButton()] },
   ];
 }

@@ -4,6 +4,10 @@ import { poSpecialtyButton, summonPoButton } from "./community-po-groups";
 import type { CommunityContext, CommunityEnv } from "./community-runtime";
 import { callSlack } from "./community-social";
 import { InputError, type Json, object, string } from "./input";
+import {
+  PRODUCT_OWNER_FEEDBACK_CONTROL,
+  PRODUCT_OWNER_WORK_CONTROL,
+} from "./slack-presentation/product-owner-controls";
 
 export const MAINTAINER_RETENTION_VERSION = "v0.2.0";
 
@@ -29,7 +33,7 @@ export function maintainerRetentionGuide(maintainersChannelId?: string) {
           requestButton("질문 남기기", "question"),
           requestButton("Q&A 허들 요청", "qna"),
           requestButton("첫 기여 OT 요청", "ot"),
-          feedbackButton("작업 제안하기"),
+          feedbackButton(PRODUCT_OWNER_WORK_CONTROL),
         ],
       },
     ],
@@ -45,7 +49,7 @@ export function maintainerWorkGuide() {
       {
         type: "actions",
         elements: [
-          feedbackButton("피드백·작업 제안"),
+          feedbackButton(PRODUCT_OWNER_FEEDBACK_CONTROL),
           poSpecialtyButton(),
           summonPoButton(),
           {

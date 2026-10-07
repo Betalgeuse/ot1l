@@ -9,8 +9,8 @@ import {
 } from "./community-bug-schema";
 import { CommunityBugStore } from "./community-bug-store";
 import type { BugState } from "./community-bug-types";
+import { feedbackButton, productOwnerButton } from "./community-feedback-button";
 import { MaintainerOpsStore } from "./community-maintainer-store";
-import { maintainerButton } from "./community-maintainers";
 import { escapeSlackText } from "./community-messages";
 import { sha256Hex } from "./community-referral-service-auth";
 import type { CommunityContext, CommunityEnv } from "./community-runtime";
@@ -18,6 +18,7 @@ import { addReactions, callSlack } from "./community-social";
 import type { CommunityStore } from "./community-store";
 import { InputError, list, object, string } from "./input";
 import { INTENT_MODEL, type IntentAI } from "./intent";
+import { PRODUCT_OWNER_FEEDBACK_CONTROL } from "./slack-presentation/product-owner-controls";
 import { NeonStore } from "./store";
 
 export const FEEDBACK_DOC_CONTRACT = {
@@ -332,15 +333,7 @@ export async function sendDailyFeedbackPrompt(
         },
         {
           type: "actions",
-          elements: [
-            {
-              type: "button",
-              text: { type: "plain_text", text: "피드백 남기기" },
-              action_id: "community_bug_open",
-              value: JSON.stringify({ ownerId: "actor", key: "new" }),
-            },
-            maintainerButton(),
-          ],
+          elements: [feedbackButton(), productOwnerButton()],
         },
       ],
     });
@@ -377,14 +370,7 @@ export async function sendDailyMaintainerPrompt(
         { type: "section", text: { type: "mrkdwn", text } },
         {
           type: "actions",
-          elements: [
-            {
-              type: "button",
-              text: { type: "plain_text", text: "피드백·작업 제안" },
-              action_id: "community_bug_open",
-              value: JSON.stringify({ ownerId: "actor", key: "new" }),
-            },
-          ],
+          elements: [feedbackButton(PRODUCT_OWNER_FEEDBACK_CONTROL)],
         },
       ],
     });

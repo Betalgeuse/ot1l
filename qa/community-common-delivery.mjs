@@ -1,5 +1,19 @@
 import assert from "node:assert/strict";
 import { sendCommonDeliveries } from "../src/community-common-delivery.ts";
+import { memberActionBlocks } from "../src/community-member-actions.ts";
+
+const memberActions = memberActionBlocks({}, "2026-09-18");
+assert.deepEqual(
+  memberActions.at(-1).elements.map((element) => element.action_id),
+  ["community_bug_open", "community_maintainer_activate"],
+);
+assert.deepEqual(
+  memberActions.at(-1).elements.map((element) => element.style),
+  ["primary", "primary"],
+);
+assert.ok(
+  memberActions.flatMap((block) => block.elements).every((element) => !element.text.text.includes("자기소개")),
+);
 
 const scope = { teamId: "TQA", channelId: "CPUBLIC", userId: "UADMIN" };
 const text = "stable common payload <@U1>";

@@ -181,6 +181,11 @@ try {
     (call) => call.method === "chat.postMessage" && call.body.channel === "CMAINTAIN",
   );
   assert.equal(maintainerPrompt.body.blocks.at(-1).elements[0].text.text, "피드백·작업 제안");
+  assert.equal(maintainerPrompt.body.blocks.at(-1).elements[0].style, "primary");
+  assert.equal(
+    maintainerPrompt.body.blocks.at(-1).elements[0].accessibility_label,
+    "Product Owner 피드백이나 작업 제안 남기기",
+  );
   const dailyPrompt = calls.find(
     (call) => call.method === "chat.postMessage" && call.body.channel === "CFEEDBACK",
   );
@@ -189,6 +194,14 @@ try {
     ["community_bug_open", "community_maintainer_activate"],
   );
   assert.equal(dailyPrompt.body.blocks.at(-1).elements[1].text.text, "Product Owner 되기");
+  assert.deepEqual(
+    dailyPrompt.body.blocks.at(-1).elements.map((element) => element.style),
+    ["primary", "primary"],
+  );
+  assert.deepEqual(
+    dailyPrompt.body.blocks.at(-1).elements.map((element) => element.accessibility_label),
+    ["불편한 점이나 개선 의견 남기기", "OT1L Product Owner로 참여하기"],
+  );
   await startCodexFeedback(
     {
       env: {

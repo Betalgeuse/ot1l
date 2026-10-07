@@ -41,6 +41,11 @@ try {
     ["질문 남기기", "Q&A 허들 요청", "첫 기여 OT 요청", "작업 제안하기"],
   );
   assert.equal(new Set(guide.blocks[1].elements.map((item) => item.action_id)).size, 4);
+  assert.equal(guide.blocks[1].elements.at(-1).style, "primary");
+  assert.equal(
+    guide.blocks[1].elements.at(-1).accessibility_label,
+    "Product Owner 작업 제안 남기기",
+  );
   await publishMaintainerRetentionGuide({
     SLACK_BOT_TOKEN: "fake",
     COMMUNITY_RETENTION_CHANNEL_ID: "CRETENTION",
@@ -54,6 +59,11 @@ try {
   assert.deepEqual(
     workGuide.body.blocks[1].elements.slice(1, 3).map((item) => item.text.text),
     ["전문 그룹 설정", "@po 부르기"],
+  );
+  assert.equal(workGuide.body.blocks[1].elements[0].style, "primary");
+  assert.equal(
+    workGuide.body.blocks[1].elements[0].accessibility_label,
+    "Product Owner 피드백이나 작업 제안 남기기",
   );
   await openMaintainerHelpModal(context, "trigger", "qna");
   const modal = calls.find((call) => call.method === "views.open").body.view;
