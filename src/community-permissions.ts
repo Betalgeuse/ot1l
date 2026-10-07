@@ -98,6 +98,8 @@ const memberActions = new Set([
   "community_maintainer_help_claim",
   "community_po_specialties_open",
   "community_po_specialties_submit",
+  "community_po_mention_open",
+  "community_po_mention_submit",
   "community_linear_open",
 ]);
 

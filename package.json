@@ -11,8 +11,7 @@
     "deploy:log-alerts": "node scripts/deploy-log-alert-worker.mjs",
     "test:unit": "node scripts/test-unit.mjs",
     "check": "node scripts/check.mjs",
-    "reconcile:garden": "node scripts/reconcile-garden-projections.mjs",
-    "bootstrap:po-groups": "node scripts/bootstrap-product-owner-groups.mjs"
+    "reconcile:garden": "node scripts/reconcile-garden-projections.mjs"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.6",

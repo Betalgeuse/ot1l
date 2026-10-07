@@ -17,8 +17,6 @@ assert.ok(scopes.includes("users:read.email"));
 assert.ok(scopes.includes("im:write"));
 assert.ok(scopes.includes("channels:write.invites"));
 assert.ok(scopes.includes("channels:manage"));
-assert.ok(scopes.includes("usergroups:read"));
-assert.ok(scopes.includes("usergroups:write"));
 assert.equal(scopes.includes("groups:write"), false);
 assert.ok(scopes.includes("reactions:read"));
 for (const scope of [

@@ -44,6 +44,8 @@ try {
     "migrations/081_founder_open_approval.sql"]);
   await run(join(pgBin, "psql"), ["-X", "-v", "ON_ERROR_STOP=1", "-f",
     "migrations/082_maintainer_verified_profile.sql"]);
+  await run(join(pgBin, "psql"), ["-X", "-v", "ON_ERROR_STOP=1", "-f",
+    "migrations/087_product_owner_audiences.sql"]);
 
   await psql(`INSERT INTO otl.workspaces(team_id) VALUES('TQA');
     INSERT INTO otl.workspace_members(team_id,user_id,display_name,is_bot,is_app_user,slack_deleted)
@@ -62,6 +64,21 @@ try {
   await assert.rejects(callOp('community_maintainer_execute','activate',{teamId:'TQA',actorId:'UNEW'}));
   await call('community_maintainer_sync_profile',{teamId:'TQA',actorId:'UNEW',displayName:'New',isBot:false,isAppUser:false,deleted:false});
   assert.equal((await callOp('community_maintainer_execute','activate',{teamId:'TQA',actorId:'UNEW'})).state,'active');
+  assert.deepEqual(await callOp('product_owner_audience_execute','get',{
+    teamId:'TQA',actorId:'UMAIN',founderId:'UADMIN',
+  }),[]);
+  assert.deepEqual(await callOp('product_owner_audience_execute','set',{
+    teamId:'TQA',actorId:'UMAIN',founderId:'UADMIN',specialties:['dev','designer'],
+  }),['designer','dev']);
+  assert.deepEqual(await callOp('product_owner_audience_execute','members',{
+    teamId:'TQA',actorId:'UMAIN',founderId:'UADMIN',audience:'po-dev',
+  }),['UMAIN']);
+  assert.deepEqual(new Set(await callOp('product_owner_audience_execute','members',{
+    teamId:'TQA',actorId:'UMAIN',founderId:'UADMIN',audience:'po',
+  })),new Set(['UMAIN','UNEW']));
+  await assert.rejects(callOp('product_owner_audience_execute','set',{
+    teamId:'TQA',actorId:'UNEW',founderId:'UADMIN',specialties:['security'],
+  }));
   await assert.rejects(call('community_maintainer_sync_profile',{teamId:'TQA',actorId:'UBOT',displayName:'Bot',isBot:true,isAppUser:false,deleted:false}));
   const insertChange = async (bugId, alias, pr, sha) => psql(`
     INSERT INTO otl.bug_reports(bug_id,team_id,state,revision,packet_revision,public_alias,reporter_id,
@@ -104,7 +121,7 @@ try {
     actorId: "UADMIN", founderId: "UADMIN", packetRevision: 1, prNumber: 102, headSha: coreSha,
     classificationDigest: coreDigest, idempotencyKey: "approve-core" });
   assert.equal(coreApproved.approvedRole, "founder");
-  console.log("PASS open maintainers: self-activation, open self-approval, core founder approval, SHA binding");
+  console.log("PASS Product Owners: activation, specialties, audiences, Open approval, Core Founder approval and SHA binding");
 } finally {
   if (started) await run(join(pgBin, "pg_ctl"), ["-D", data, "-m", "fast", "-w", "stop"]).catch(() => {});
   await rm(temp, { recursive: true, force: true });

@@ -26,7 +26,10 @@ import {
   openPastReviewPickerModal,
   pastReviewBinding,
 } from "./community-past-review";
-import { openProductOwnerSpecialties } from "./community-product-owner-groups";
+import {
+  openProductOwnerMention,
+  openProductOwnerSpecialties,
+} from "./community-product-owner-groups";
 import { openQuickEntryModal } from "./community-quick-entry";
 import { processRecordAction } from "./community-record-interactions";
 import { type CommunityContext, ephemeral } from "./community-runtime";
@@ -148,7 +151,7 @@ export async function handleCommunityAction(input: ActionInteraction): Promise<R
           text:
             error instanceof InputError
               ? error.message
-              : "Product Owner 참여를 완료하지 못했어요. 잠시 후 다시 눌러 주세요. 이미 받은 채널 초대와 @po 멘션 그룹은 다시 눌러도 중복되지 않습니다.",
+              : "Product Owner 참여를 완료하지 못했어요. 잠시 후 다시 눌러 주세요. 이미 받은 채널 초대는 다시 눌러도 중복되지 않습니다.",
         });
       }),
     );
@@ -156,6 +159,10 @@ export async function handleCommunityAction(input: ActionInteraction): Promise<R
   }
   if (input.id === "community_po_specialties_open") {
     await openProductOwnerSpecialties(context, string(input.data.trigger_id));
+    return new Response(null, { status: 200 });
+  }
+  if (input.id === "community_po_mention_open") {
+    await openProductOwnerMention(context, string(input.data.trigger_id));
     return new Response(null, { status: 200 });
   }
   if (input.id === "community_maintainer_deactivate") {

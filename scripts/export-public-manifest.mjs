@@ -55,7 +55,6 @@ export const PUBLIC_COPY_PATHS = [
   "scripts/deploy-production-worker.mjs",
   "scripts/schedule-private-house-reminders.mjs",
   "scripts/publish-townhall-event-launcher.mjs",
-  "scripts/bootstrap-product-owner-groups.mjs",
 ];
 
 export const PUBLIC_RUNTIME_MIGRATION_PATHS = [
@@ -111,6 +110,7 @@ export const PUBLIC_RUNTIME_MIGRATION_PATHS = [
   "migrations/084_slack_native_maintainer_work.sql",
   "migrations/085_deployment_approved_paths.sql",
   "migrations/086_durable_member_onboarding.sql",
+  "migrations/087_product_owner_audiences.sql",
 ];
 
 // `src` and `site` are copied as directories, but these paths keep the membership

@@ -4,7 +4,7 @@ import type { CommunityContext, CommunityEnv } from "./community-runtime";
 import { callSlack } from "./community-social";
 import { InputError, type Json, object, string } from "./input";
 
-export const MAINTAINER_RETENTION_VERSION = "v0.3.0";
+export const MAINTAINER_RETENTION_VERSION = "v0.3.1";
 
 function requestButton(label: string, mode: "question" | "qna" | "ot"): Json {
   return {
@@ -21,13 +21,23 @@ function specialtyButton(): Json {
     text: { type: "plain_text", text: "전문 그룹 설정" },
     action_id: "community_po_specialties_open",
     value: JSON.stringify({ ownerId: "actor", key: "po-specialties" }),
-    accessibility_label: "PO Designer와 PO Dev 멘션 그룹 설정",
+    accessibility_label: "PO Designer와 PO Dev 멘션 대상 설정",
+  };
+}
+
+function mentionButton(): Json {
+  return {
+    type: "button",
+    text: { type: "plain_text", text: "@po 부르기" },
+    action_id: "community_po_mention_open",
+    value: JSON.stringify({ ownerId: "actor", key: "po-mention" }),
+    accessibility_label: "PO, PO Designer 또는 PO Dev 멘션하기",
   };
 }
 
 export function maintainerRetentionGuide(maintainersChannelId?: string) {
   const workChannel = maintainersChannelId ? `<#${maintainersChannelId}>` : "#po-work";
-  const text = `*OT1L Product Owner 라운지* · ${MAINTAINER_RETENTION_VERSION}\n\n이곳은 PO끼리 아이디어, 질문, 사용자 경험과 모임을 이야기하는 공간입니다. Product Owner는 코드를 잘 알아야 얻는 역할이 아니라 실제 회원의 문제를 발견하고 더 나은 결과까지 함께 책임지는 참여 방식이에요.\n\n• 궁금한 점은 *질문 남기기*로 바로 물어보세요.\n• 같이 배우거나 살펴보고 싶다면 *Q&A 허들 요청*을 남겨주세요.\n• 첫 기여를 혼자 시작하기 어렵다면 *첫 기여 OT 요청*으로 동료를 찾으세요.\n• 바꾸고 싶은 것은 *작업 제안하기*로 ${workChannel}의 DRI·진행 카드에 연결합니다.\n• 디자인이나 개발 멘션을 받고 싶다면 *전문 그룹 설정*에서 @po-designer 또는 @po-dev를 선택합니다.\n\n대화는 이 채널에서, DRI·단계·승인·병합·배포 영수증은 ${workChannel}에서 관리합니다. AI가 실행해도 결과를 확인하고 설명하는 사람 DRI는 남습니다.\n\n<https://github.com/Betalgeuse/ot1l/blob/main/CONTRIBUTING.md|직접 만들어 보고 싶을 때> · <https://github.com/Betalgeuse/ot1l/blob/main/docs/PRODUCT_OWNER_WORKFLOW.md|작업이 반영되는 흐름>`;
+  const text = `*OT1L Product Owner 라운지* · ${MAINTAINER_RETENTION_VERSION}\n\n이곳은 PO끼리 아이디어, 질문, 사용자 경험과 모임을 이야기하는 공간입니다. Product Owner는 코드를 잘 알아야 얻는 역할이 아니라 실제 회원의 문제를 발견하고 더 나은 결과까지 함께 책임지는 참여 방식이에요.\n\n• 궁금한 점은 *질문 남기기*로 바로 물어보세요.\n• 같이 배우거나 살펴보고 싶다면 *Q&A 허들 요청*을 남겨주세요.\n• 첫 기여를 혼자 시작하기 어렵다면 *첫 기여 OT 요청*으로 동료를 찾으세요.\n• 바꾸고 싶은 것은 *작업 제안하기*로 ${workChannel}의 DRI·진행 카드에 연결합니다.\n• 디자인이나 개발 멘션을 받고 싶다면 *전문 그룹 설정*에서 @po-designer 또는 @po-dev를 선택합니다.\n• 필요한 동료를 실제로 부를 때는 *@po 부르기*에서 대상과 이유를 고릅니다.\n\n대화는 이 채널에서, DRI·단계·승인·병합·배포 영수증은 ${workChannel}에서 관리합니다. AI가 실행해도 결과를 확인하고 설명하는 사람 DRI는 남습니다.\n\n<https://github.com/Betalgeuse/ot1l/blob/main/CONTRIBUTING.md|직접 만들어 보고 싶을 때> · <https://github.com/Betalgeuse/ot1l/blob/main/docs/PRODUCT_OWNER_WORKFLOW.md|작업이 반영되는 흐름>`;
   return {
     text,
     blocks: [
@@ -40,6 +50,7 @@ export function maintainerRetentionGuide(maintainersChannelId?: string) {
           requestButton("첫 기여 OT 요청", "ot"),
           feedbackButton("작업 제안하기"),
           specialtyButton(),
+          mentionButton(),
         ],
       },
     ],

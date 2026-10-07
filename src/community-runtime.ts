@@ -161,6 +161,8 @@ export function actionIdentity(data: Record<string, unknown>, env: CommunityEnv,
     "community_maintainer_help_claim",
     "community_po_specialties_open",
     "community_po_specialties_submit",
+    "community_po_mention_open",
+    "community_po_mention_submit",
   ].includes(actionId);
   const founderApprovalInDm =
     actionId === "community_feedback_merge_approve" &&

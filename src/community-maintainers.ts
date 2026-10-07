@@ -1,7 +1,4 @@
-import {
-  setProductOwnerSpecialties,
-  syncProductOwnerBaseGroup,
-} from "./community-product-owner-groups";
+import { setProductOwnerSpecialties } from "./community-product-owner-groups";
 import { type CommunityContext, ephemeral } from "./community-runtime";
 import { CommunitySlackError, callSlack } from "./community-social";
 import { InputError, type Json, object } from "./input";
@@ -77,15 +74,14 @@ export async function activateMaintainer(context: CommunityContext): Promise<voi
     context.scope.teamId,
     context.scope.userId,
   );
-  await syncProductOwnerBaseGroup(context.env.SLACK_BOT_TOKEN, context.scope.userId, true);
   if (!maintainer.changed) {
     await ephemeral(context, {
-      text: `이미 Product Owner예요. 채널과 @po 멘션 그룹 가입 상태를 다시 확인했습니다.${context.env.COMMUNITY_MAINTAINERS_CHANNEL_ID ? ` <#${context.env.COMMUNITY_MAINTAINERS_CHANNEL_ID}>에서 작업을 이어가 주세요.` : ""}`,
+      text: `이미 Product Owner예요. PO 채널 가입 상태를 다시 확인했습니다.${context.env.COMMUNITY_MAINTAINERS_CHANNEL_ID ? ` <#${context.env.COMMUNITY_MAINTAINERS_CHANNEL_ID}>에서 작업을 이어가 주세요.` : ""}`,
     });
     return;
   }
   await ephemeral(context, {
-    text: `Product Owner가 활성화됐어요. @po 멘션 그룹과 PO 채널 가입을 확인했습니다. 아이디어와 질문은 #po에서, DRI·상태·승인·배포는 ${context.env.COMMUNITY_MAINTAINERS_CHANNEL_ID ? `<#${context.env.COMMUNITY_MAINTAINERS_CHANNEL_ID}>` : "#po-work"}에서 이어가 주세요. 공개 GitHub 저장소를 fork해 직접 개발할 수도 있어요. Open 변경은 Product Owner 또는 Founder, Core 변경은 Founder 승인이 필요합니다. <https://github.com/Betalgeuse/ot1l/blob/main/CONTRIBUTING.md|개발 시작 안내>${context.env.COMMUNITY_SYS_ALERT_CHANNEL_ID ? ` · 운영 알림 <#${context.env.COMMUNITY_SYS_ALERT_CHANNEL_ID}>` : ""}`,
+    text: `Product Owner가 활성화됐어요. PO 채널과 @po 호출 대상에 반영됐습니다. 아이디어와 질문은 #po에서, DRI·상태·승인·배포는 ${context.env.COMMUNITY_MAINTAINERS_CHANNEL_ID ? `<#${context.env.COMMUNITY_MAINTAINERS_CHANNEL_ID}>` : "#po-work"}에서 이어가 주세요. 공개 GitHub 저장소를 fork해 직접 개발할 수도 있어요. Open 변경은 Product Owner 또는 Founder, Core 변경은 Founder 승인이 필요합니다. <https://github.com/Betalgeuse/ot1l/blob/main/CONTRIBUTING.md|개발 시작 안내>${context.env.COMMUNITY_SYS_ALERT_CHANNEL_ID ? ` · 운영 알림 <#${context.env.COMMUNITY_SYS_ALERT_CHANNEL_ID}>` : ""}`,
   });
   if (context.env.COMMUNITY_MAINTAINERS_CHANNEL_ID)
     await callSlack(context.env.SLACK_BOT_TOKEN, "chat.postMessage", {
@@ -95,12 +91,9 @@ export async function activateMaintainer(context: CommunityContext): Promise<voi
 }
 
 export async function deactivateMaintainer(context: CommunityContext): Promise<void> {
+  await setProductOwnerSpecialties(context, []);
   await context.store.deactivateMaintainer(context.scope.teamId, context.scope.userId);
-  await Promise.all([
-    syncProductOwnerBaseGroup(context.env.SLACK_BOT_TOKEN, context.scope.userId, false),
-    setProductOwnerSpecialties(context.env.SLACK_BOT_TOKEN, context.scope.userId, []),
-  ]);
   await ephemeral(context, {
-    text: "Product Owner 승인 권한과 PO 멘션 그룹을 내려놓았어요. 공개 채널은 그대로 볼 수 있고, 언제든 다시 활성화할 수 있어요.",
+    text: "Product Owner 승인 권한과 PO 호출 대상을 내려놓았어요. 공개 채널은 그대로 볼 수 있고, 언제든 다시 활성화할 수 있어요.",
   });
 }
