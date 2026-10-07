@@ -10,6 +10,7 @@ import {
   parseTaskUrl,
   reproductionPath,
 } from "../automation/runner/contract.mjs";
+import { fetchApprovedPullRequestHead } from "../automation/runner/genquant-runner.mjs";
 
 assert.equal(buildFixBranch("public-alias", 42), "feedback/ot1-42-public-alias");
 assert.equal(buildFixBranch("  피드백 / 改善  ", 43), "feedback/ot1-43-feedback");
@@ -161,5 +162,22 @@ assert.equal(inspection.receipt.failureObserved, false);
 assert.throws(
   () => parseTaskUrl("prefix https://chatgpt.com/codex/tasks/task_e_0123456789abcdef0123456789abcdef"),
   /canonical task URL/,
+);
+const approvedHeadSha = "d".repeat(40);
+const fetchCommands = [];
+fetchApprovedPullRequestHead("/runner/repository", 129, approvedHeadSha, (binary, args) => {
+  fetchCommands.push([binary, args]);
+  return args.at(-1) === "FETCH_HEAD" ? approvedHeadSha : "";
+});
+assert.deepEqual(fetchCommands[0], [
+  "git",
+  ["-C", "/runner/repository", "fetch", "--no-tags", "origin", "pull/129/head"],
+]);
+assert.throws(
+  () =>
+    fetchApprovedPullRequestHead("/runner/repository", 129, approvedHeadSha, (_binary, args) =>
+      args.at(-1) === "FETCH_HEAD" ? "e".repeat(40) : "",
+    ),
+  /fetched pull request head differs from approved SHA/,
 );
 console.log("PASS genquant runner contract: lease, prompt boundary, task identity, and reproduction receipt");
