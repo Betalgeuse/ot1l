@@ -7,6 +7,15 @@ import { InputError, type Json, object, string } from "./input";
 
 export const MAINTAINER_RETENTION_VERSION = "v0.2.0";
 
+export function pullRequestBindingButton(): Json {
+  return {
+    type: "button",
+    text: { type: "plain_text", text: "PR 연결하기" },
+    action_id: "community_pull_request_open",
+    value: JSON.stringify({ ownerId: "actor", key: "pull-request-bind" }),
+  };
+}
+
 function requestButton(label: string, mode: "question" | "qna" | "ot"): Json {
   return {
     type: "button",
@@ -46,6 +55,7 @@ export function maintainerWorkGuide() {
         type: "actions",
         elements: [
           feedbackButton("피드백·작업 제안", true),
+          pullRequestBindingButton(),
           poSpecialtyButton(),
           summonPoButton(),
           {

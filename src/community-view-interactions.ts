@@ -9,6 +9,7 @@ import { escapeSlackText } from "./community-messages";
 import { submitCommunityPalette } from "./community-palette";
 import { parsePastReviewSubmission, pastReviewChange } from "./community-past-review";
 import { submitPoSpecialties, submitPoSummon } from "./community-po-groups";
+import { submitPullRequestBinding } from "./community-pull-request";
 import { parseQuickEntrySubmission, submitQuickEntry } from "./community-quick-entry";
 import { applyChange } from "./community-records";
 import { type CommunityContext, type CommunityEnv, ephemeral, post } from "./community-runtime";
@@ -39,6 +40,10 @@ export async function handleCommunityView(input: ViewInteraction): Promise<Respo
   if (bugResponse) return bugResponse;
   if (input.id === "community_po_specialties_submit") {
     input.waitUntil(submitPoSpecialties(input.context, input.view));
+    return Response.json({ response_action: "clear" });
+  }
+  if (input.id === "community_pull_request_submit") {
+    input.waitUntil(submitPullRequestBinding(input.context, input.view));
     return Response.json({ response_action: "clear" });
   }
   if (input.id === "community_po_summon_submit") {

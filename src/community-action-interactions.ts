@@ -25,6 +25,7 @@ import {
   pastReviewBinding,
 } from "./community-past-review";
 import { openPoSpecialties, openPoSummon } from "./community-po-groups";
+import { openPullRequestBindingModal } from "./community-pull-request";
 import { openQuickEntryModal } from "./community-quick-entry";
 import { processRecordAction } from "./community-record-interactions";
 import { type CommunityContext, ephemeral } from "./community-runtime";
@@ -200,6 +201,10 @@ export async function handleCommunityAction(input: ActionInteraction): Promise<R
   }
   if (input.id === "community_maintainer_linear_members") {
     input.waitUntil(showMaintainerLinearMembers(context));
+    return new Response(null, { status: 200 });
+  }
+  if (input.id === "community_pull_request_open") {
+    await openPullRequestBindingModal(context, string(input.data.trigger_id));
     return new Response(null, { status: 200 });
   }
   if (input.id === "community_feedback_dri_select") {

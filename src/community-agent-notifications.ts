@@ -54,7 +54,7 @@ function parseNotification(value: unknown, repository: string): Notification {
       "change_deployed",
       "deployment_manual",
     ].includes(kind) ||
-    (["task_started", "task_ready", "task_failed", "merge_ready"].includes(kind) &&
+    (["task_started", "task_ready", "task_failed"].includes(kind) &&
       (!taskUrl ||
         !/^https:\/\/chatgpt[.]com\/codex\/tasks\/task_[a-z]_[a-f0-9]{32}$/.test(taskUrl))) ||
     (taskUrl !== null &&

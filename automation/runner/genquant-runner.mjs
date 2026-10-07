@@ -78,17 +78,41 @@ export function fetchApprovedPullRequestHead(
   approvedHeadSha,
   runCommand = command,
 ) {
-  runCommand("git", [
-    "-C",
-    repository,
-    "fetch",
-    "--no-tags",
-    "origin",
-    `pull/${prNumber}/head`,
-  ], { timeout: 180_000 });
+  runCommand("git", ["-C", repository, "fetch", "--no-tags", "origin", `pull/${prNumber}/head`], {
+    timeout: 180_000,
+  });
   const fetchedHeadSha = runCommand("git", ["-C", repository, "rev-parse", "FETCH_HEAD"]);
   if (fetchedHeadSha !== approvedHeadSha)
     throw new Error("fetched pull request head differs from approved SHA");
+}
+
+export function verifyBoundPullRequest(repository, repositorySlug, binding, runCommand = command) {
+  if (repositorySlug !== "Betalgeuse/ot1l" || binding.repository !== repositorySlug)
+    throw new Error("bound pull request repository mismatch");
+  const pr = JSON.parse(
+    runCommand("gh", [
+      "pr",
+      "view",
+      String(binding.pr_number),
+      "--repo",
+      repositorySlug,
+      "--json",
+      "state,baseRefName,headRepository,headRefOid,files",
+    ]),
+  );
+  const paths = pr.files?.map(({ path }) => path).sort();
+  const expectedPaths = [...binding.changed_paths].sort();
+  if (pr.state !== "OPEN" || pr.baseRefName !== "main")
+    throw new Error("bound pull request is not open against main");
+  if (pr.headRepository?.nameWithOwner !== repositorySlug)
+    throw new Error("bound pull request head repository mismatch");
+  if (pr.headRefOid !== binding.head_sha) throw new Error("bound pull request head changed");
+  if (!Array.isArray(paths) || JSON.stringify(paths) !== JSON.stringify(expectedPaths))
+    throw new Error("bound pull request paths changed");
+  fetchApprovedPullRequestHead(repository, binding.pr_number, binding.head_sha, runCommand);
+  runCommand("git", ["-C", repository, "checkout", "--detach", binding.head_sha]);
+  runCommand("bun", ["run", "check"], { cwd: repository, timeout: 20 * 60_000 });
+  return classifyChangePaths(paths);
 }
 
 function sqlClient(connectionString) {
@@ -361,15 +385,7 @@ async function fixTaskArtifact(config, lease, taskId, runId) {
     const pr = JSON.parse(
       command(
         "gh",
-        [
-          "pr",
-          "view",
-          prUrl,
-          "--repo",
-          repositorySlug,
-          "--json",
-          "number,url,headRefOid,files",
-        ],
+        ["pr", "view", prUrl, "--repo", repositorySlug, "--json", "number,url,headRefOid,files"],
         { cwd: worktree },
       ),
     );
@@ -462,9 +478,8 @@ async function processApprovedMerge(db, config, workerId) {
     if (
       classification.changeClass !== claim.changeClass ||
       JSON.stringify(paths) !== JSON.stringify([...(claim.changedPaths ?? [])].sort()) ||
-      sha256(
-        JSON.stringify({ version: 1, changeClass: classification.changeClass, paths }),
-      ) !== claim.classificationDigest
+      sha256(JSON.stringify({ version: 1, changeClass: classification.changeClass, paths })) !==
+        claim.classificationDigest
     )
       throw new Error("merge candidate paths differ from approved classification");
     assertOpenPresentationBoundary(paths, (path) =>
@@ -504,6 +519,33 @@ async function processApprovedMerge(db, config, workerId) {
   return true;
 }
 
+async function processBoundPullRequest(db, config, workerId) {
+  const leaseToken = randomUUID();
+  const binding = await db("bug_runner_claim_bound_pull", {
+    teamId: config.SLACK_TEAM_ID,
+    workerId,
+    leaseToken,
+  });
+  if (binding === null) return false;
+  const repository = await ensureRepository(config.BUG_RUNNER_ROOT, config.CODEX_REPOSITORY_URL);
+  const repositorySlug = githubRepositorySlug(config.CODEX_REPOSITORY_URL);
+  const classification = verifyBoundPullRequest(repository, repositorySlug, binding);
+  const classificationDigest = sha256(
+    JSON.stringify({ version: 1, changeClass: classification.changeClass, paths: classification.paths }),
+  );
+  await db("bug_runner_finish_bound_pull", {
+    bindingId: Number(binding.binding_id),
+    workerId,
+    leaseToken,
+    headSha: binding.head_sha,
+    changedPaths: classification.paths,
+    changeClass: classification.changeClass,
+    classificationDigest,
+  });
+  log("bug.runner.bound_pull_verified", { bindingId: Number(binding.binding_id) });
+  return true;
+}
+
 async function processOne(config) {
   const db = sqlClient(config.BUG_RUNNER_DATABASE_URL);
   const workerId = config.BUG_RUNNER_WORKER_ID ?? "genquant-primary";
@@ -522,6 +564,7 @@ async function processOne(config) {
     workerId,
     observedAt: new Date().toISOString(),
   });
+  if (await processBoundPullRequest(db, config, workerId)) return true;
   if (await processApprovedMerge(db, config, workerId)) return true;
   const leaseToken = randomUUID();
   const runnerImageDigest = sha256(
