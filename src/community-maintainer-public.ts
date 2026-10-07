@@ -77,12 +77,12 @@ export async function handleMaintainerPublicRequest(
       const item = object(value);
       const stage = string(item.stage);
       if (!Object.hasOwn(PUBLIC_STAGE, stage))
-        throw new TypeError("invalid public Maintainer stage");
+        throw new TypeError("invalid public Product Owner stage");
       const status = PUBLIC_STAGE[stage as keyof typeof PUBLIC_STAGE];
       const sourceChannel = string(item.sourceChannel);
       const sourceLabel =
         sourceChannel === env.COMMUNITY_MAINTAINERS_CHANNEL_ID
-          ? "Maintainer 제안"
+          ? "PO 제안"
           : sourceChannel === env.COMMUNITY_FEEDBACK_CHANNEL_ID
             ? "회원 피드백"
             : "커뮤니티 제안";

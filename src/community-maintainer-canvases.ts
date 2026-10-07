@@ -2,7 +2,7 @@ import type { CommunityEnv } from "./community-runtime";
 import { CommunitySlackError, callSlack } from "./community-social";
 import { InputError, object, string } from "./input";
 
-export const MAINTAINER_CANVAS_VERSION = "v0.2.0";
+export const MAINTAINER_CANVAS_VERSION = "v0.3.0";
 
 type CanvasEnv = Pick<
   CommunityEnv,
@@ -33,29 +33,28 @@ export function maintainerCanvasDefinitions(env: CanvasEnv): readonly Maintainer
     .map((value) => value.trim())
     .filter(Boolean);
   if (!main || !workstreams || workstreams.length !== 3)
-    throw new InputError("Maintainer Canvas 채널을 확인해 주세요.");
+    throw new InputError("PO Canvas 채널을 확인해 주세요.");
   const [build, design, community] = workstreams;
-  if (!build || !design || !community)
-    throw new InputError("Maintainer Canvas 채널을 확인해 주세요.");
-  const workLink = mention(main, "#maintainers");
+  if (!build || !design || !community) throw new InputError("PO Canvas 채널을 확인해 주세요.");
+  const workLink = mention(main, "#po-work");
   const feedbackLink = mention(env.COMMUNITY_FEEDBACK_CHANNEL_ID, "#all-freetalk-qna-feedback");
   const eventLink = mention(env.COMMUNITY_RELEASE_CHANNEL_ID, "#all-townhall-events");
-  const alertLink = mention(env.COMMUNITY_SYS_ALERT_CHANNEL_ID, "#maintainers-sys-alert");
+  const alertLink = mention(env.COMMUNITY_SYS_ALERT_CHANNEL_ID, "#po-sys-alert");
   return [
     {
       key: "main",
       channelId: main,
-      title: "OT1L Maintainer · 같이 만들며 배우기",
-      topic: "제안·DRI·협업·승인·배포를 한곳에서 보고 같이 만들며 배우기",
+      title: "OT1L PO Work · 작업 정본",
+      topic: "DRI·단계·검증·승인·병합·배포 영수증을 한 스레드에서 관리",
       purpose:
-        "모든 Maintainer 작업의 정본입니다. 아이디어를 제안하고, DRI를 맡거나 넘기고, AI·동료와 만든 결과를 확인합니다.",
-      markdown: `# OT1L Maintainer · 같이 만들며 배우기
-> Maintainer는 운영 권한만 받는 역할이 아닙니다. 내가 불편했던 점이나 해보고 싶은 일을 사람들과 실제 변화로 만들고, 그 과정에서 배우는 참여 방식입니다.
+        "모든 Product Owner 작업의 정본입니다. 대화가 아니라 DRI, 단계, 검증, 승인과 배포 결과를 관리합니다.",
+      markdown: `# OT1L PO Work · 작업 정본
+> 이곳은 대화방이 아니라 Product Owner 작업의 정본입니다. 아이디어와 질문은 #po에서 나누고, 실행하기로 한 일만 카드와 스레드로 관리합니다.
 
 ## 여기서 얻는 것
 - 내 제안이 실제 기능·모임·안내로 반영되는 전 과정을 경험합니다.
 - 개발환경이 없어도 AI와 함께 수정안을 만들고, 원하면 내 환경에서 직접 이어갈 수 있습니다.
-- DRI를 맡아 작은 일을 끝내거나 다른 Maintainer에게 넘기며 협업을 배웁니다.
+- DRI를 맡아 작은 일을 끝내거나 다른 Product Owner에게 넘기며 협업을 배웁니다.
 - QA, 글쓰기, 디자인, 진행, 질문 정리도 기여로 남습니다. 코딩은 필수가 아닙니다.
 - Q&A, 허들, 첫 기여 OT를 요청하거나 직접 열 수 있습니다.
 
@@ -66,9 +65,9 @@ export function maintainerCanvasDefinitions(env: CanvasEnv): readonly Maintainer
 4. 끝나면 무엇이 달라졌고 무엇을 배웠는지 스레드에 한 줄 남깁니다.
 
 ## 공간 고르기
-- ${mention(build, "#maintainers-dev")}: AI와 함께 실제 기능을 만들며 배우는 빌드 스튜디오
-- ${mention(design, "#maintainers-design")}: 화면·콘텐츠·접근성을 함께 만드는 디자인 스튜디오
-- ${mention(community, "#maintainers-retention")}: 사람을 돕고 Q&A·OT·모임을 운영하는 커뮤니티 스튜디오
+- ${mention(community, "#po")}: 아이디어·질문·사용자 경험을 이야기하는 PO 라운지
+- ${mention(build, "#po-dev")}: AI와 함께 실제 기능을 만들며 배우는 개발 스튜디오
+- ${mention(design, "#po-design")}: 화면·콘텐츠·접근성을 함께 만드는 디자인 스튜디오
 - ${feedbackLink}: 모든 회원의 피드백이 시작되는 곳
 - ${eventLink}: 누구나 활동을 제안하고 열 수 있는 곳
 - ${alertLink}: 운영 장애와 배포 실패를 확인하는 곳
@@ -84,12 +83,12 @@ _${MAINTAINER_CANVAS_VERSION}_`,
     {
       key: "build",
       channelId: build,
-      title: "Maintainer Build Studio · 만들면서 배우기",
+      title: "PO Dev Studio · 만들면서 배우기",
       topic: "AI·동료와 만들며 배우기 · 재현·QA·문구·코드·페어 작업",
       purpose:
-        "개발환경이 없어도 실제 OT1L 기능을 함께 만들고 배우는 Maintainer Build Studio입니다. 봇 상태가 아니라 사람의 질문·과정·초안·배움을 나눕니다.",
-      markdown: `# Maintainer Build Studio · 만들면서 배우기
-> 봇 작업 보관함이 아니라, Maintainer가 AI·동료와 실제 기능을 만들어 보며 배우는 공간입니다.
+        "개발환경이 없어도 실제 OT1L 기능을 함께 만들고 배우는 PO Dev Studio입니다. 봇 상태가 아니라 사람의 질문·과정·초안·배움을 나눕니다.",
+      markdown: `# PO Dev Studio · 만들면서 배우기
+> 봇 작업 보관함이 아니라, Product Owner가 AI·동료와 실제 기능을 만들어 보며 배우는 공간입니다.
 
 ## 여기서 얻는 것
 - 개발환경 없이도 재현, 요구사항, QA부터 기여를 시작할 수 있습니다.
@@ -116,11 +115,11 @@ _${MAINTAINER_CANVAS_VERSION}_`,
     {
       key: "design",
       channelId: design,
-      title: "Maintainer Design Studio · 보이는 경험 만들기",
+      title: "PO Design Studio · 보이는 경험 만들기",
       topic: "화면·콘텐츠·정보 구조·접근성을 함께 관찰하고 만들기",
       purpose:
         "코딩 없이도 실제 회원 경험을 관찰하고 시안·카피·접근성·브라우저 QA를 제품에 반영하는 디자인 스튜디오입니다.",
-      markdown: `# Maintainer Design Studio · 보이는 경험 만들기
+      markdown: `# PO Design Studio · 보이는 경험 만들기
 > 코딩하지 않아도 OT1L의 화면, 말투, 정보 구조와 접근성을 바꿀 수 있습니다.
 
 ## 여기서 얻는 것
@@ -146,18 +145,18 @@ _${MAINTAINER_CANVAS_VERSION}_`,
     {
       key: "community",
       channelId: community,
-      title: "Maintainer Community Studio · 사람과 모임 연결하기",
+      title: "OT1L Product Owner · 이야기와 연결",
       topic: "질문·Q&A·첫 기여 OT·모임으로 사람과 참여 연결하기",
       purpose:
-        "회원을 돕고 Q&A·허들·첫 기여 OT를 열며 관심사를 이벤트와 챕터로 연결하는 커뮤니티 스튜디오입니다.",
-      markdown: `# Maintainer Community Studio · 사람과 모임 연결하기
+        "Product Owner가 아이디어·질문·사용자 경험을 이야기하고 Q&A·허들·첫 기여 OT로 연결하는 라운지입니다.",
+      markdown: `# OT1L Product Owner · 이야기와 연결
 > retention 숫자를 관리하는 곳이 아니라, 회원이 환영받고 도움받고 다시 참여하고 싶도록 사람과 경험을 연결하는 공간입니다.
 
 ## 여기서 얻는 것
 - 신규 회원의 첫 경험을 관찰하고 더 편하게 만드는 경험
 - 질문에 답하고, Q&A·허들·첫 기여 OT를 직접 열어 보는 진행 경험
 - 관심사를 발견해 이벤트나 챕터로 연결하는 커뮤니티 빌딩 경험
-- 혼자 하기 어려운 기여를 다른 Maintainer와 함께 시작하는 관계
+- 혼자 하기 어려운 기여를 다른 Product Owner와 함께 시작하는 관계
 
 ## 지금 할 수 있는 것
 - 상단 고정 안내에서 **질문 남기기**, **Q&A 허들 요청**, **첫 기여 OT 요청**을 누릅니다.
@@ -203,10 +202,10 @@ export async function publishMaintainerCanvases(
 > {
   const definitions = maintainerCanvasDefinitions(env);
   const expectedNames: Record<MaintainerCanvasDefinition["key"], string> = {
-    main: "maintainers",
-    build: "maintainers-dev",
-    design: "maintainers-design",
-    community: "maintainers-retention",
+    main: "po-work",
+    build: "po-dev",
+    design: "po-design",
+    community: "po",
   };
   const preflight = new Map<string, Record<string, unknown>>();
   for (const definition of definitions) {
@@ -231,7 +230,7 @@ export async function publishMaintainerCanvases(
       purpose: definition.purpose,
     });
     const info = preflight.get(definition.channelId);
-    if (!info) throw new TypeError("missing Maintainer Canvas preflight");
+    if (!info) throw new TypeError("missing PO Canvas preflight");
     const existing = channelCanvasId(info);
     const documentContent = {
       type: "markdown",
@@ -274,7 +273,7 @@ export async function publishMaintainerCanvases(
       channel: definition.channelId,
     });
     if (channelCanvasId(verified) !== canvasId)
-      throw new TypeError(`Maintainer Canvas 확인 실패: ${definition.key}`);
+      throw new TypeError(`PO Canvas 확인 실패: ${definition.key}`);
     receipts.push({ key: definition.key, channelId: definition.channelId, canvasId });
   }
   return receipts;

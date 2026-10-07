@@ -147,7 +147,10 @@ function workCard(
       });
     blocks.push({ type: "actions", elements });
   } else {
-    blocks.push({ type: "actions", elements: [maintainerButton("Maintainer가 되어 직접 고치기")] });
+    blocks.push({
+      type: "actions",
+      elements: [maintainerButton("Product Owner가 되어 직접 고치기")],
+    });
   }
   return { text: `${title} · ${stageLabel} · DRI ${dri} · 버그 키 ${key}`, blocks };
 }
@@ -251,7 +254,7 @@ export async function exportMaintainerWorkToLinear(
       "active" &&
     context.scope.userId !== env.COMMUNITY_ADMIN_ID
   )
-    throw new InputError("활성 Maintainer만 외부 도구로 내보낼 수 있어요.");
+    throw new InputError("활성 Product Owner만 외부 도구로 내보낼 수 있어요.");
   const store = new MaintainerOpsStore(env);
   const linearTeamId = configuredLinearTeam(env);
   const prepared = object(await store.execute("work_linear_prepare", { workKey, linearTeamId }));
@@ -292,7 +295,7 @@ export async function connectMaintainerToLinear(context: CommunityContext): Prom
     (await context.store.maintainerStatus(context.scope.teamId, context.scope.userId))?.state !==
     "active"
   )
-    throw new InputError("Maintainer를 먼저 활성화해 주세요.");
+    throw new InputError("Product Owner를 먼저 활성화해 주세요.");
   const profile = object(
     (await callSlack(env.SLACK_BOT_TOKEN, "users.info", { user: context.scope.userId })).user,
   );
@@ -374,7 +377,7 @@ export async function showMaintainerLinearMembers(context: CommunityContext): Pr
       "active" &&
     context.scope.userId !== context.env.COMMUNITY_ADMIN_ID
   )
-    throw new InputError("활성 Maintainer만 ot1l 팀 현황을 볼 수 있어요.");
+    throw new InputError("활성 Product Owner만 ot1l 팀 현황을 볼 수 있어요.");
   const members = await activeMaintainers(context.env);
   const labels: Record<string, string> = {
     linked: "연결됨",
@@ -388,7 +391,7 @@ export async function showMaintainerLinearMembers(context: CommunityContext): Pr
       `<@${string(member.userId)}> · ${labels[string(member.linearState)] ?? "확인 필요"}`,
   );
   await ephemeral(context, {
-    text: `*Linear ot1l 팀 연결 현황*\n${rows.join("\n") || "활성 Maintainer가 없습니다."}\n\nLinear 연결은 본인이 버튼을 눌러 시작하며 DEV 팀과 워크스페이스 역할은 변경하지 않습니다.`,
+    text: `*Linear ot1l 팀 연결 현황*\n${rows.join("\n") || "활성 Product Owner가 없습니다."}\n\nLinear 연결은 본인이 버튼을 눌러 시작하며 DEV 팀과 워크스페이스 역할은 변경하지 않습니다.`,
   });
 }
 
@@ -403,11 +406,11 @@ export async function assignMaintainerWork(
       "active" &&
     context.scope.userId !== env.COMMUNITY_ADMIN_ID
   )
-    throw new InputError("활성 Maintainer만 DRI를 변경할 수 있어요.");
+    throw new InputError("활성 Product Owner만 DRI를 변경할 수 있어요.");
   const store = new MaintainerOpsStore(env);
   const candidates = await activeMaintainers(env);
   const target = candidates.find((candidate) => candidate.userId === targetUserId);
-  if (!target) throw new InputError("활성 Maintainer를 골라 주세요.");
+  if (!target) throw new InputError("활성 Product Owner를 골라 주세요.");
   await store.execute(
     "work_assignment",
     { workKey, driUserId: targetUserId },
@@ -467,7 +470,7 @@ export async function setMaintainerWorkStage(
       "active" &&
     context.scope.userId !== context.env.COMMUNITY_ADMIN_ID
   )
-    throw new InputError("활성 Maintainer만 상태를 변경할 수 있어요.");
+    throw new InputError("활성 Product Owner만 상태를 변경할 수 있어요.");
   await new MaintainerOpsStore(context.env).execute(
     "work_stage",
     { workKey, stage },

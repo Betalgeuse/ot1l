@@ -14,7 +14,7 @@ const env = {
 };
 const definitions = maintainerCanvasDefinitions(env);
 assert.equal(definitions.length, 4);
-assert.match(definitions[0].markdown, /여기서 얻는 것/);
+assert.match(definitions[0].markdown, /작업의 정본/);
 assert.match(definitions[0].markdown, /코딩은 필수가 아닙니다/);
 assert.match(definitions[1].markdown, /봇 작업 보관함이 아니라/);
 assert.match(definitions[2].markdown, /포트폴리오/);
@@ -22,10 +22,10 @@ assert.match(definitions[3].markdown, /retention 숫자를 관리하는 곳이 �
 
 const calls = [];
 const names = {
-  CMAIN: "maintainers",
-  CBUILD: "maintainers-dev",
-  CDESIGN: "maintainers-design",
-  CCOMMUNITY: "maintainers-retention",
+  CMAIN: "po-work",
+  CBUILD: "po-dev",
+  CDESIGN: "po-design",
+  CCOMMUNITY: "po",
 };
 const canvases = new Map();
 const originalFetch = globalThis.fetch;
@@ -70,7 +70,7 @@ try {
   assert.equal(calls.filter((call) => call.method === "conversations.canvases.create").length, 4);
   assert.equal(calls.filter((call) => call.method === "canvases.edit").length, 4);
   assert.equal(calls.filter((call) => call.method === "conversations.info").length, 16);
-  console.log("PASS Maintainer canvases preflight exact channels and update idempotently with readback");
+  console.log("PASS Product Owner canvases separate discussion and work, then update idempotently with readback");
 } finally {
   globalThis.fetch = originalFetch;
 }

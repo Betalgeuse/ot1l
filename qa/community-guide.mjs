@@ -119,7 +119,7 @@ globalThis.fetch = async (url, options) => {
 };
 
 const inspected = await inspectWelcomeGuideSource(env);
-assert.equal(inspected.version, "v0.0.81");
+assert.equal(inspected.version, "v0.0.82");
 assert.match(inspected.body, /수요 먼저 확인하기/);
 assert.match(inspected.body, /내가 주최할래요/);
 assert.match(inspected.body, /최소 성사 인원.*최대 인원.*무제한/);
@@ -132,7 +132,7 @@ assert.match(inspected.body, /참가 \/ 참가 취소/);
 assert.doesNotMatch(inspected.body, /시간 같이 정하기/);
 assert.match(inspected.body, /자동 참가/);
 assert.match(inspected.body, /자동 취소·보관/);
-assert.match(inspected.body, /Maintainer 되기/);
+assert.match(inspected.body, /Product Owner 되기/);
 assert.match(inspected.body, /Deployment Broker/);
 assert.match(inspected.body, /공개 GitHub 저장소.*fork/);
 assert.match(inspected.body, /나도 관심주제 채널 만들기/);

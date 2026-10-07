@@ -4,7 +4,7 @@ import type { CommunityContext, CommunityEnv } from "./community-runtime";
 import { callSlack } from "./community-social";
 import { InputError, type Json, object, string } from "./input";
 
-export const MAINTAINER_RETENTION_VERSION = "v0.2.1";
+export const MAINTAINER_RETENTION_VERSION = "v0.3.0";
 
 function requestButton(label: string, mode: "question" | "qna" | "ot"): Json {
   return {
@@ -15,9 +15,19 @@ function requestButton(label: string, mode: "question" | "qna" | "ot"): Json {
   };
 }
 
+function specialtyButton(): Json {
+  return {
+    type: "button",
+    text: { type: "plain_text", text: "전문 그룹 설정" },
+    action_id: "community_po_specialties_open",
+    value: JSON.stringify({ ownerId: "actor", key: "po-specialties" }),
+    accessibility_label: "PO Designer와 PO Dev 멘션 그룹 설정",
+  };
+}
+
 export function maintainerRetentionGuide(maintainersChannelId?: string) {
-  const workChannel = maintainersChannelId ? `<#${maintainersChannelId}>` : "#maintainers";
-  const text = `*OT1L Maintainer 시작 안내* · ${MAINTAINER_RETENTION_VERSION}\n\nMaintainer는 코드를 잘 알아야 얻는 역할이 아닙니다. 실제 회원의 문제를 더 쉽게 만들고, 질문에 답하고, 모임을 열고, AI와 함께 작은 변화를 끝내며 배울 수 있어요.\n\n• 궁금한 점은 *질문 남기기*로 바로 물어보세요.\n• 같이 배우거나 살펴보고 싶다면 *Q&A 허들 요청*을 남겨주세요.\n• 첫 기여를 혼자 시작하기 어렵다면 *첫 기여 OT 요청*으로 동료를 찾으세요.\n• 바꾸고 싶은 것이 생기면 *작업 제안하기*로 ${workChannel}의 DRI·진행 카드에 연결합니다.\n\nAI는 실행을 도울 수 있지만 결과를 확인하고 서로 설명하는 사람 DRI는 남습니다. 허들은 도움을 맡은 Maintainer가 정해진 뒤 이 채널에서 시작합니다.\n\n<https://github.com/Betalgeuse/ot1l/blob/main/CONTRIBUTING.md|직접 만들어 보고 싶을 때> · <https://github.com/Betalgeuse/ot1l/blob/main/docs/MAINTAINER_WORKFLOW.md|작업이 반영되는 흐름>`;
+  const workChannel = maintainersChannelId ? `<#${maintainersChannelId}>` : "#po-work";
+  const text = `*OT1L Product Owner 라운지* · ${MAINTAINER_RETENTION_VERSION}\n\n이곳은 PO끼리 아이디어, 질문, 사용자 경험과 모임을 이야기하는 공간입니다. Product Owner는 코드를 잘 알아야 얻는 역할이 아니라 실제 회원의 문제를 발견하고 더 나은 결과까지 함께 책임지는 참여 방식이에요.\n\n• 궁금한 점은 *질문 남기기*로 바로 물어보세요.\n• 같이 배우거나 살펴보고 싶다면 *Q&A 허들 요청*을 남겨주세요.\n• 첫 기여를 혼자 시작하기 어렵다면 *첫 기여 OT 요청*으로 동료를 찾으세요.\n• 바꾸고 싶은 것은 *작업 제안하기*로 ${workChannel}의 DRI·진행 카드에 연결합니다.\n• 디자인이나 개발 멘션을 받고 싶다면 *전문 그룹 설정*에서 @po-designer 또는 @po-dev를 선택합니다.\n\n대화는 이 채널에서, DRI·단계·승인·병합·배포 영수증은 ${workChannel}에서 관리합니다. AI가 실행해도 결과를 확인하고 설명하는 사람 DRI는 남습니다.\n\n<https://github.com/Betalgeuse/ot1l/blob/main/CONTRIBUTING.md|직접 만들어 보고 싶을 때> · <https://github.com/Betalgeuse/ot1l/blob/main/docs/PRODUCT_OWNER_WORKFLOW.md|작업이 반영되는 흐름>`;
   return {
     text,
     blocks: [
@@ -29,6 +39,7 @@ export function maintainerRetentionGuide(maintainersChannelId?: string) {
           requestButton("Q&A 허들 요청", "qna"),
           requestButton("첫 기여 OT 요청", "ot"),
           feedbackButton("작업 제안하기"),
+          specialtyButton(),
         ],
       },
     ],
@@ -36,14 +47,14 @@ export function maintainerRetentionGuide(maintainersChannelId?: string) {
 }
 
 export function maintainerWorkGuide() {
-  const text = `*OT1L Maintainer 작업 시작* · ${MAINTAINER_RETENTION_VERSION}\n\n불편했던 점, 해보고 싶은 변화, 같이 배우고 싶은 일, 열어보고 싶은 활동을 아래에서 시작하세요. 코딩하지 않아도 재현·QA·문구·디자인·질문 정리·모임 진행으로 참여할 수 있습니다. 직접 맡으면 기본 DRI가 되고, 같이할 사람을 찾거나 다른 Maintainer에게 넘길 수도 있어요. AI는 구현을 돕고 사람 DRI가 실제 결과를 확인합니다.\n\n<https://ot1l.hyuk.me/maintainers|지금 함께 만드는 일 보기>`;
+  const text = `*OT1L PO 작업 보드* · ${MAINTAINER_RETENTION_VERSION}\n\n이 채널은 대화방이 아니라 작업 정본입니다. 제안별 As-Is·To-Be, DRI, 단계, 검증 결과, 정확한 SHA 승인과 병합·배포 영수증을 한 스레드에서 관리합니다. 아이디어와 질문은 #po에서 충분히 이야기한 뒤 작업으로 연결해 주세요.\n\n<https://ot1l.hyuk.me/po|지금 함께 만드는 일 보기>`;
   return {
     text,
     blocks: [
       { type: "section", text: { type: "mrkdwn", text } },
       {
         type: "actions",
-        elements: [feedbackButton("피드백·작업 제안")],
+        elements: [feedbackButton("새 PO 작업 제안")],
       },
     ],
   } as const;
@@ -91,14 +102,14 @@ export async function publishMaintainerRetentionGuide(
 ): Promise<string> {
   const channel = env.COMMUNITY_RETENTION_CHANNEL_ID;
   const main = env.COMMUNITY_MAINTAINERS_CHANNEL_ID;
-  if (!channel || !main) throw new InputError("Maintainer 채널을 확인해 주세요.");
+  if (!channel || !main) throw new InputError("PO 채널을 확인해 주세요.");
   const ts = await upsertPinnedGuide(
     env,
     channel,
-    "*OT1L Maintainer 시작 안내*",
+    "*OT1L Product Owner 라운지*",
     maintainerRetentionGuide(main),
   );
-  await upsertPinnedGuide(env, main, "*OT1L Maintainer 작업 시작*", maintainerWorkGuide());
+  await upsertPinnedGuide(env, main, "*OT1L PO 작업 보드*", maintainerWorkGuide());
   return ts;
 }
 
@@ -108,7 +119,7 @@ export async function openMaintainerHelpModal(
   mode: "question" | "qna" | "ot",
 ): Promise<void> {
   if (!context.env.COMMUNITY_RETENTION_CHANNEL_ID)
-    throw new InputError("Maintainer retention 채널을 확인해 주세요.");
+    throw new InputError("PO 대화 채널을 확인해 주세요.");
   const titles = { question: "질문 남기기", qna: "Q&A 허들 요청", ot: "첫 기여 OT 요청" } as const;
   await callSlack(context.env.SLACK_BOT_TOKEN, "views.open", {
     trigger_id: triggerId,
@@ -171,7 +182,7 @@ export async function submitMaintainerHelp(
   mode: "question" | "qna" | "ot",
 ): Promise<void> {
   const channel = context.env.COMMUNITY_RETENTION_CHANNEL_ID;
-  if (!channel) throw new InputError("Maintainer retention 채널을 확인해 주세요.");
+  if (!channel) throw new InputError("PO 대화 채널을 확인해 주세요.");
   const topic = modalValue(view, "topic");
   const times = modalValue(view, "times");
   if (!topic || topic.length > 700) throw new InputError("요청 내용을 확인해 주세요.");
@@ -209,7 +220,7 @@ export async function claimMaintainerHelp(
     (await context.store.maintainerStatus(context.scope.teamId, context.scope.userId))?.state !==
     "active"
   )
-    throw new InputError("활성 Maintainer만 도움 요청을 맡을 수 있어요.");
+    throw new InputError("활성 Product Owner만 도움 요청을 맡을 수 있어요.");
   await callSlack(context.env.SLACK_BOT_TOKEN, "chat.postMessage", {
     channel: context.scope.channelId,
     thread_ts: context.thread,

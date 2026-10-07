@@ -1,8 +1,8 @@
 /** Reviewed, repo-owned welcome copy. Bump the version for every content change. */
 export const WELCOME_GUIDE_RELEASE = {
-  version: "v0.0.81",
+  version: "v0.0.82",
   body: `@channel
-OT1L v0.0.81 · welcome 가이드 업데이트
+OT1L v0.0.82 · welcome 가이드 업데이트
 
 OT1L (*ONE THING* 1 Line)에 오신 것을 환영합니다! Slack 채널 구조는 Toss를 차용했습니다.
 
@@ -47,22 +47,22 @@ OT1L (*ONE THING* 1 Line)에 오신 것을 환영합니다! Slack 채널 구조�
 
 > 매일 제일 중요한 일 하나 정해서 같이 끝내는 모임이야. 같이 할래?
 
-• 함께 만드는 Maintainer
-  ◦ 모든 회원은 *Maintainer 되기* 버튼으로 공동 운영자 역할을 스스로 활성화할 수 있습니다.
-  ◦ Maintainer는 이벤트 기능, 홈페이지 디자인, welcome 안내를 포함한 운영 개선을 누구나 제안·구현·검증할 수 있습니다.
+• 함께 만드는 Product Owner
+  ◦ 모든 회원은 *Product Owner 되기* 버튼으로 PO 역할을 스스로 활성화할 수 있습니다.
+  ◦ Product Owner는 이벤트 기능, 홈페이지 디자인, welcome 안내를 포함한 운영 개선을 누구나 제안·구현·검증할 수 있습니다.
   ◦ 공개 GitHub 저장소를 fork해 본인 개발환경이나 원하는 AI 개발 도구에서 수정하고 PR을 올릴 수 있습니다. 별도 GitHub 초대는 필요하지 않습니다.
-  ◦ 이벤트 공개 화면처럼 비밀에 접근하지 않는 Open 변경은 활성 Maintainer가 정확한 SHA를 승인하면 Deployment Broker가 병합·배포합니다.
-  ◦ 피드백은 #all-freetalk-qna-feedback와 #maintainers 양쪽에서 시작할 수 있으며 OT1L 작업 카드로 연결됩니다. 별도 업무 도구에 가입하지 않아도 됩니다.
-  ◦ Maintainer가 제안한 작업은 본인이 기본 DRI가 됩니다. #maintainers 카드에서 다른 Maintainer에게 넘기거나 상태를 바꿀 수 있습니다.
-  ◦ Open 변경과 Core 변경의 승인 버튼은 모두 #maintainers 작업 스레드에 나타납니다. Open은 활성 Maintainer 또는 Founder, Core는 Founder 본인만 승인할 수 있습니다.
-  ◦ #maintainers에서 기능 제안, 담당자, 진행 단계, 검증 결과, 승인과 병합·배포 영수증을 확인합니다. <https://ot1l.hyuk.me/maintainers|함께 만드는 중>에서는 공개 가능한 작업을 제안됨·진행 중·검토·반영·도움 필요·완료로 나눠 볼 수 있습니다.
-  ◦ #maintainers-dev: 개발환경 없이도 AI·동료와 실제 기능을 만들고 QA하며 배울 수 있는 빌드 스튜디오입니다.
-  ◦ #maintainers-design: 코딩 없이도 화면·콘텐츠·접근성을 만들고 실제 제품에 반영하는 디자인 스튜디오입니다.
-  ◦ #maintainers-retention: 질문, Q&A 허들, 첫 기여 OT와 모임을 통해 사람을 돕고 커뮤니티 운영을 경험합니다.
-  ◦ 각 Maintainer 채널의 Canvas에서 얻을 수 있는 경험, 첫 참여 방법과 예시를 확인합니다.
-  ◦ #maintainers-sys-alert: GitHub, 홈페이지와 Worker의 배포·장애 알림을 확인합니다. 원본 로그나 비밀 값은 올리지 않습니다.
+  ◦ 이벤트 공개 화면처럼 비밀에 접근하지 않는 Open 변경은 활성 Product Owner가 정확한 SHA를 승인하면 Deployment Broker가 병합·배포합니다.
+  ◦ 아이디어·질문·사용자 경험은 #po에서 이야기하고, 실행하기로 한 작업은 #po-work의 DRI 카드로 연결합니다.
+  ◦ Product Owner가 제안한 작업은 본인이 기본 DRI가 됩니다. #po-work 카드에서 다른 Product Owner에게 넘기거나 상태를 바꿀 수 있습니다.
+  ◦ Open 변경과 Core 변경의 승인 버튼은 모두 #po-work 작업 스레드에 나타납니다. Open은 활성 Product Owner 또는 Founder, Core는 Founder 본인만 승인할 수 있습니다.
+  ◦ #po-work에서 담당자, 진행 단계, 검증 결과, 승인과 병합·배포 영수증을 확인합니다. <https://ot1l.hyuk.me/po|함께 만드는 중>에서는 공개 가능한 작업 상태를 볼 수 있습니다.
+  ◦ #po-dev: 개발환경 없이도 AI·동료와 실제 기능을 만들고 QA하며 배울 수 있는 개발 스튜디오입니다.
+  ◦ #po-design: 코딩 없이도 화면·콘텐츠·접근성을 만들고 실제 제품에 반영하는 디자인 스튜디오입니다.
+  ◦ #po: 질문, Q&A 허들, 첫 기여 OT와 사용자 문제를 이야기하는 PO 라운지입니다.
+  ◦ 각 PO 채널의 Canvas에서 얻을 수 있는 경험, 첫 참여 방법과 예시를 확인합니다.
+  ◦ #po-sys-alert: GitHub, 홈페이지와 Worker의 배포·장애 알림을 확인합니다. 원본 로그나 비밀 값은 올리지 않습니다.
   ◦ 가입·개인정보·보안·Core Worker 변경은 Founder 승인 한 번 뒤 병합과 운영 배포가 연속 실행됩니다. 개인 컴퓨터에서 운영 Worker를 직접 배포하지 않습니다.
-  ◦ SSH·Slack token·DB 소유자 자격증명은 Maintainer에게 공개하지 않고 제한된 Deployment Broker가 정확한 승인 SHA만 실행합니다.
+  ◦ SSH·Slack token·DB 소유자 자격증명은 Product Owner에게 공개하지 않고 제한된 Deployment Broker가 정확한 승인 SHA만 실행합니다.
 
 • Slack이 처음이에요
   ◦ 자기소개는 *자기소개 쓰기*로 등록하고, *자기소개 모두 보기*에서 현재 공개 소개를 한 화면으로 확인할 수 있습니다.

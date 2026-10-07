@@ -141,7 +141,7 @@ Cron 등록이 실제로 stale이라는 Cloudflare 설정·호출 증거가 있�
 
 Slack delivery 실패 로그의 `providerSubcode`는 `invalid_blocks`, `invalid_arguments`, `invalid_form_data`, `msg_too_long`, `http_429`, `provider_5xx`, `other` 중 하나만 남깁니다. 원문 응답, 메타데이터 메시지, 사용자 입력은 로그나 delivery ledger에 저장하지 않습니다.
 
-확정된 피드백은 원문에 `loading` 반응을 달고 원격 branch SHA에 묶인 GenQuant job을 자동 생성합니다. 재현 artifact와 수정 diff는 별도 경계로 검사합니다. `bug_packet.v1`은 실제 실패 재현을 요구합니다. `feedback_packet.v1`은 저장소 검사에서 `failureObserved=false`여도 이를 실패로 위장하지 않고 `inspected` 증거로 남긴 뒤 수정 단계로 이어갑니다. 운영 DB·Slack 관찰을 요구한 제보가 로컬 테스트 통과만으로 종료되면 안 됩니다. 금지 경로가 없고 전체 검사가 통과한 변경만 Draft PR까지 만듭니다. OT1L은 As-Is·To-Be·수정 파일 요약·변경 내용 링크와 승인 버튼을 같은 `#maintainers` 작업 스레드에 게시합니다. Open은 활성 Maintainer 또는 Founder, Core는 Founder의 승인 영수증을 DB에 기록한 뒤에만 GenQuant가 PR을 ready로 바꾸고 squash merge합니다. 병합 알림은 운영 배포 대기 상태로 남고 `loading`을 유지합니다. 정확한 배포 SHA·Worker version·health·실제 시나리오 관찰 영수증이 모두 기록된 뒤에만 `resolved`로 전이하고 `white_check_mark`를 표시합니다. GitHub Actions는 사용하지 않습니다.
+확정된 피드백은 원문에 `loading` 반응을 달고 원격 branch SHA에 묶인 GenQuant job을 자동 생성합니다. 재현 artifact와 수정 diff는 별도 경계로 검사합니다. `bug_packet.v1`은 실제 실패 재현을 요구합니다. `feedback_packet.v1`은 저장소 검사에서 `failureObserved=false`여도 이를 실패로 위장하지 않고 `inspected` 증거로 남긴 뒤 수정 단계로 이어갑니다. 운영 DB·Slack 관찰을 요구한 제보가 로컬 테스트 통과만으로 종료되면 안 됩니다. 금지 경로가 없고 전체 검사가 통과한 변경만 Draft PR까지 만듭니다. OT1L은 As-Is·To-Be·수정 파일 요약·변경 내용 링크와 승인 버튼을 같은 `#po-work` 작업 스레드에 게시합니다. Open은 활성 Product Owner 또는 Founder, Core는 Founder의 승인 영수증을 DB에 기록한 뒤에만 GenQuant가 PR을 ready로 바꾸고 squash merge합니다. 병합 알림은 운영 배포 대기 상태로 남고 `loading`을 유지합니다. 정확한 배포 SHA·Worker version·health·실제 시나리오 관찰 영수증이 모두 기록된 뒤에만 `resolved`로 전이하고 `white_check_mark`를 표시합니다. GitHub Actions는 사용하지 않습니다.
 
 피드백 채널로 정규화된 초안은 opaque intake key와 함께 실제 `source_channel_id`·`source_thread`로도 다시 찾습니다. 따라서 새 피드백 스레드의 일반 댓글과 **답변하기** 모달 모두 같은 질문에 한 번만 연결됩니다. 명확한 `As-Is / To-Be`는 곧바로 승인 대기로 보내며 내부 분류 후보나 누락 필드 목록을 채널에 노출하지 않습니다. Qwen은 구현 판단을 바꾸는 정보가 없을 때만 한 질문을 만들고, 개선 제안에는 발생 시각과 빈도를 묻지 않습니다. 모델이 실패하면 이미 명확한 두 문장은 그대로 진행하고, 기대 결과가 비었을 때만 안전한 기본 질문 하나를 사용합니다.
 
@@ -159,7 +159,7 @@ Slack에는 Worker 이름, 실행 종류, outcome, HTTP 상태, 예외 개수와
 
 DB에 저장됐는지, Slack에 게시됐는지, 회원이 확인했는지를 따로 봅니다. 발송 실패나 응답이 불확실한 상태에서는 실제 채널과 발송 기록을 대조한 뒤 복구합니다. 무조건 다시 보내지 않습니다.
 
-신규 입장·회원 정보는 Slack 이벤트와 실행 시점의 완전한 채널 회원 스냅샷을 사용합니다. 자연스러운 신규 입장 welcome의 배포 후 관찰, 모든 과거 카드의 자동 정리, 자동 백업 SLO, 관리자 재전송 UI처럼 남은 작업은 Slack `#maintainers`와 홈페이지 `/maintainers`에서 관리합니다. 과거 [로드맵](ROADMAP.md)은 현재 작업판이 아닙니다.
+신규 입장·회원 정보는 Slack 이벤트와 실행 시점의 완전한 채널 회원 스냅샷을 사용합니다. 자연스러운 신규 입장 welcome의 배포 후 관찰, 모든 과거 카드의 자동 정리, 자동 백업 SLO, 관리자 재전송 UI처럼 남은 작업은 Slack `#po-work`와 홈페이지 `/po`에서 관리합니다. 과거 [로드맵](ROADMAP.md)은 현재 작업판이 아닙니다.
 
 ## feature-gated membership·site 운영 절차
 

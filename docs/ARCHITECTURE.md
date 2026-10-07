@@ -1,6 +1,6 @@
 # 시스템 구조
 
-ONE THING 기록의 불변조건은 [실행 명세](SPEC.md), 이벤트 계약은 [Townhall 이벤트](EVENTS.md), 작업·승인 계약은 [Maintainer 작업 흐름](MAINTAINER_WORKFLOW.md)에 있습니다. 이 문서는 그 동작을 구현하는 DB·Worker·Durable Object 경계를 설명합니다.
+ONE THING 기록의 불변조건은 [실행 명세](SPEC.md), 이벤트 계약은 [Townhall 이벤트](EVENTS.md), 작업·승인 계약은 [Product Owner 작업 흐름](PRODUCT_OWNER_WORKFLOW.md)에 있습니다. 이 문서는 그 동작을 구현하는 DB·Worker·Durable Object 경계를 설명합니다.
 
 Slack이 입력을 전달하고 Cloudflare Worker가 검증·분류·저장을 맡습니다. Neon PostgreSQL이 기록의 원본이며, Durable Object가 예약과 잔디 갱신 순서를 조정합니다.
 
@@ -10,7 +10,7 @@ Slack이 입력을 전달하고 Cloudflare Worker가 검증·분류·저장을 �
 | --- | --- | --- | --- |
 | Core Worker `otl1-onething-garden` | `src/`, `wrangler.jsonc` | Slack 서명, 회원·기록·이벤트 상태, DB mutation, 내부 service API | GitHub 병합·SSH |
 | Open events Worker `otl1-time` | `event-site/`, 현재 allowlist의 이벤트 정적 자산 | 공개 시간표와 이벤트 전용 Core 프록시 | Slack token, DB URL, SSH key |
-| Public site Worker | `site/` | 홈페이지, 가입 경계, 공개 Maintainer 현황 | Slack·DB 직접 접근 |
+| Public site Worker | `site/` | 홈페이지, 가입 경계, 공개 PO 현황 | Slack·DB 직접 접근 |
 | Tail Worker `otl1-log-alerts` | `src/log-alert-worker.ts`, `log-alerts/` | 정제된 실패·5xx·비정상 outcome 알림 | 요청 본문·비밀·원본 stack trace 게시 |
 | Deployment Broker | `automation/runner/`, `ops/genquant/` | 승인 SHA 재검증, 병합, 대상별 배포와 health 영수증 | 승인 범위 밖 배포 |
 
@@ -62,7 +62,7 @@ flowchart LR
 | `bug_artifacts`, `bug_links`, `agent_runs`, `git_changes` | digest로 참조하는 산출물, 중복·회귀 관계, 이후 작업의 관찰 이력 |
 | `townhall_events`, `townhall_event_options`, `townhall_event_availability` | 이벤트 원본, 시간 후보와 회원별 가능 시간 |
 | `townhall_event_participants`, `townhall_event_occurrences`, `townhall_event_followups`, `townhall_event_demands` | 참가·대기, 정기 회차, 행사 후 후기 요청, 수요와 주최자 |
-| `community_maintainers` | 회원의 opt-in Maintainer 역할. Slack workspace 역할이나 GitHub 권한이 아님 |
+| `community_maintainers` | 회원의 opt-in Product Owner 역할. 내부 이름은 migration 호환용이며 Slack workspace 역할이나 GitHub 권한이 아님 |
 | `maintainer_feedback_work`, `maintainer_slack_surfaces`, `maintainer_ops_receipts` | 작업 단계·사람 DRI 정본, 두 Slack 투영 위치와 외부 효과 영수증 |
 | `maintainer_linear_members` | 선택적 Linear 연결 상태. 작업·승인 정본이 아님 |
 | `community_chapters` | 회원이 만든 Chapter 채널과 Townhall·welcome 동기화 영수증 |
@@ -124,7 +124,7 @@ welcome 가이드는 일반 DB 연결과 분리합니다. Worker의 `otl_guide_r
 
 `bug_jobs`는 제공자와 분리된 재현·수정·검토·배포 작업 outbox입니다. `bug_deliveries`는 Slack에 질문·요약·접수 영수증·비공개 관리자 인계를 보내기 전의 durable record입니다. delivery key, 제보자 소유권, packet revision, template과 renderer가 같은 경우에만 idempotent하게 다시 읽고, worker lease를 가진 발송만 완료할 수 있습니다. 실패는 다음 시도 시각과 오류 분류를 남겨 독립적으로 재시도하며 세 번째 실패 뒤에는 retry 없이 `failed` dead-letter로 남깁니다. 만료와 delivery claim 함수는 team ID를 필수로 받아 다른 워크스페이스의 due 행을 건드리지 않습니다.
 
-확정된 `bug_packet.v1` 또는 `feedback_packet.v1`은 접수 직후 `bug_jobs`에 들어갑니다. 승인 시점의 원격 branch SHA와 packet revision을 job event에 묶고 GenQuant 실행기는 공개 포트를 열지 않은 채 최소 권한 `otl_bug_runner` DB 역할로 job을 lease합니다. 재현 단계는 schema-bound artifact 한 파일만 허용합니다. 장애 패킷은 실패를 재현해야 수정 단계로 가지만, 제품 개선 패킷은 저장소 검사에서 운영 증상을 재현하지 못해도 그 결과를 `inspected`로 보존하고 수정 단계로 이어갑니다. 운영 관찰이 필요한 사실을 로컬 통과로 반박하지 않습니다. 수정 단계는 금지 경로를 거절하고 전체 검사를 통과한 diff만 격리 브랜치와 Draft PR로 만듭니다. 이 시점에서 작업을 멈추고 OT1L이 변경 요약과 병합 승인 버튼을 원래 feedback 스레드에 냅니다. Open 변경은 활성 Maintainer, Core 변경은 Founder인지 버튼 클릭 때 다시 확인합니다. 승인 영수증을 받은 GenQuant만 PR을 ready로 바꾸고 보호된 `main`에 squash merge합니다. GitHub 앱 메시지는 Slack에 노출하지 않습니다. GitHub Actions는 사용하지 않습니다.
+확정된 `bug_packet.v1` 또는 `feedback_packet.v1`은 접수 직후 `bug_jobs`에 들어갑니다. 승인 시점의 원격 branch SHA와 packet revision을 job event에 묶고 GenQuant 실행기는 공개 포트를 열지 않은 채 최소 권한 `otl_bug_runner` DB 역할로 job을 lease합니다. 재현 단계는 schema-bound artifact 한 파일만 허용합니다. 장애 패킷은 실패를 재현해야 수정 단계로 가지만, 제품 개선 패킷은 저장소 검사에서 운영 증상을 재현하지 못해도 그 결과를 `inspected`로 보존하고 수정 단계로 이어갑니다. 운영 관찰이 필요한 사실을 로컬 통과로 반박하지 않습니다. 수정 단계는 금지 경로를 거절하고 전체 검사를 통과한 diff만 격리 브랜치와 Draft PR로 만듭니다. 이 시점에서 작업을 멈추고 OT1L이 변경 요약과 병합 승인 버튼을 원래 feedback 스레드에 냅니다. Open 변경은 활성 Product Owner, Core 변경은 Founder인지 버튼 클릭 때 다시 확인합니다. 승인 영수증을 받은 GenQuant만 PR을 ready로 바꾸고 보호된 `main`에 squash merge합니다. GitHub 앱 메시지는 Slack에 노출하지 않습니다. GitHub Actions는 사용하지 않습니다.
 
 ## 확장 규칙
 

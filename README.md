@@ -6,12 +6,12 @@
 
 - 회원: [사용 가이드](docs/USER_GUIDE.md)
 - 이벤트 주최자·참가자: [Townhall 이벤트](docs/EVENTS.md)
-- Maintainer: [Maintainer 작업 흐름](docs/MAINTAINER_WORKFLOW.md)
+- Product Owner: [Product Owner 작업 흐름](docs/PRODUCT_OWNER_WORKFLOW.md)
 - 공개 Contributor: [기여 시작하기](CONTRIBUTING.md)
 - 운영자: [운영 가이드](docs/OPERATIONS.md)
 - 개발자: [개발 가이드](docs/DEVELOPMENT.md)
 
-전체 문서의 권위와 상태 구분은 [문서 안내](docs/README.md)를 먼저 확인하세요. 정적 문서는 작업 진행률을 나타내지 않습니다. 현재 작업 단계는 Slack `#maintainers`와 홈페이지 `/maintainers`의 OT1L DB 투영에서 확인합니다.
+전체 문서의 권위와 상태 구분은 [문서 안내](docs/README.md)를 먼저 확인하세요. 정적 문서는 작업 진행률을 나타내지 않습니다. 대화는 Slack `#po`, 현재 작업 단계는 `#po-work`와 홈페이지 `/po`에서 확인합니다.
 
 ## 저장소 구조
 
@@ -20,7 +20,7 @@
 | `src/` | Slack 상호작용, 회원 상태, 이벤트 lifecycle, DB 접근을 포함한 Core Worker | Core |
 | `migrations/` | 순방향 PostgreSQL schema와 권한 계약 | Core |
 | `event-site/`와 이벤트 시간표 allowlist | 비밀 없는 공개 이벤트 시간표 Worker | Open |
-| `site/`의 allowlist 밖 경로 | 가입·공개 홈페이지·Maintainer 현황 페이지 | Core |
+| `site/`의 allowlist 밖 경로 | 가입·공개 홈페이지·PO 현황 페이지 | Core |
 | `automation/runner/` | 변경 분류, Codex 작업, 승인된 병합·배포 Broker | Core |
 | `ops/genquant/` | Broker의 systemd 운영 파일과 비밀 없는 예시 설정 | Core |
 | `qa/` | 외부 변경을 만들지 않는 합성 회귀와 명시적 별도 통합 검사 | 변경 경로에 따름 |

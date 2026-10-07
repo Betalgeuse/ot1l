@@ -15,4 +15,4 @@ Use Bun and the checked-in lockfile. Run `bun install --frozen-lockfile` and `bu
 
 Never copy values from `.dev.vars`, production Wrangler configs, logs, or secret stores into source, documentation, commits, PRs, or prompts. The checked-in Wrangler files contain placeholders and are not production deploy targets.
 
-Contributors push to their own fork and open a PR. Slack Maintainers approve an exact verified SHA for Open changes; Founder approval is required for Core changes. Deployment Broker on GenQuant owns merge/deploy credentials and verifies the resulting Worker health. Do not bypass that boundary with a local `wrangler deploy`.
+Contributors push to their own fork and open a PR. Slack Product Owners approve an exact verified SHA for Open changes; Founder approval is required for Core changes. Deployment Broker on GenQuant owns merge/deploy credentials and verifies the resulting Worker health. Internal `maintainer` identifiers remain for schema compatibility. Do not bypass that boundary with a local `wrangler deploy`.

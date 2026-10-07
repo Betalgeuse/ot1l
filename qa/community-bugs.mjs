@@ -2067,7 +2067,7 @@ try {
   );
   assert.equal(
     feedbackRoot.body.blocks.at(-1).elements[0].text.text,
-    "Maintainer가 되어 직접 고치기",
+    "Product Owner가 되어 직접 고치기",
   );
   const feedbackThread = "20.000001";
   const routedReplies = routedPosts.filter(

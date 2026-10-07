@@ -15,7 +15,7 @@ const env = {
           slackUrl: "https://app.slack.com/client/TQA/CFEEDBACK/thread/CFEEDBACK-1790000000.000001",
           updatedAt: "2026-10-05T08:00:00.000Z" },
         { title: "배포 확인", lane: "review_release", statusLabel: "반영 중", hasDri: false,
-          sourceLabel: "Maintainer 제안", progressSummary: "운영에 반영하고 있어요.",
+          sourceLabel: "PO 제안", progressSummary: "운영에 반영하고 있어요.",
           nextActionLabel: "운영 확인 기다리기",
           slackUrl: "https://app.slack.com/client/TQA/CMAIN/thread/CMAIN-1790000000.000002",
           updatedAt: "2026-10-05T09:00:00.000Z" },
@@ -25,7 +25,7 @@ const env = {
   ASSETS: { async fetch() { return new Response("not found", { status: 404 }); } },
   RATE_LIMITER: { async limit() { return { success: true }; } },
 };
-const response = await worker.fetch(new Request("https://ot1l.hyuk.me/maintainers"), env);
+const response = await worker.fetch(new Request("https://ot1l.hyuk.me/po"), env);
 assert.equal(response.status, 200);
 const html = await response.text();
 assert.match(html, /회원의 의견이/);
@@ -38,7 +38,11 @@ assert.match(html, /검토·반영/);
 assert.match(html, /Slack에서 보기/);
 assert.doesNotMatch(html, /BUG-QA|OT1-12|As-Is|To-Be|linear[.]app/);
 
-const unavailable = await worker.fetch(new Request("https://ot1l.hyuk.me/maintainers"), {
+const legacy = await worker.fetch(new Request("https://ot1l.hyuk.me/maintainers"), env);
+assert.equal(legacy.status, 308);
+assert.equal(legacy.headers.get("location"), "https://ot1l.hyuk.me/po");
+
+const unavailable = await worker.fetch(new Request("https://ot1l.hyuk.me/po"), {
   ...env,
   CORE: { async fetch() { return new Response("unavailable", { status: 503 }); } },
 });

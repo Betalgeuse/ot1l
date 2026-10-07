@@ -7,15 +7,15 @@
 | 질문 | 기준 문서·실행 원본 | 증명하지 않는 것 |
 | --- | --- | --- |
 | OT1L이 왜 존재하고 무엇을 우선하는가 | [제품 원칙](PRODUCT_PRINCIPLES.md) | 구현·배포 완료 |
-| ONE THING 입력·저장·후기 규칙은 무엇인가 | [실행 명세](SPEC.md) | 이벤트·Maintainer의 모든 세부 동작 |
+| ONE THING 입력·저장·후기 규칙은 무엇인가 | [실행 명세](SPEC.md) | 이벤트·Product Owner의 모든 세부 동작 |
 | 회원은 어떻게 사용하는가 | [사용 가이드](USER_GUIDE.md) | 운영 권한 |
 | 이벤트는 어떻게 열고 참가하는가 | [Townhall 이벤트](EVENTS.md) | Core 배포 권한 |
-| Maintainer는 어떻게 작업하고 승인하는가 | [Maintainer 작업 흐름](MAINTAINER_WORKFLOW.md), `automation/runner/change-policy.mjs` | 문서만으로 얻는 역할·비밀·배포 권한 |
+| Product Owner는 어떻게 이야기하고 작업·승인하는가 | [Product Owner 작업 흐름](PRODUCT_OWNER_WORKFLOW.md), `automation/runner/change-policy.mjs` | 문서만으로 얻는 역할·비밀·배포 권한 |
 | Worker·DB·외부 경계는 어떻게 나뉘는가 | [시스템 구조](ARCHITECTURE.md), 현재 코드와 migration | 운영 배포 완료 |
 | 복구·알림·장애 대응은 어떻게 하는가 | [운영 가이드](OPERATIONS.md) | 제품 정책 변경 |
 | 설치·검사·PR은 어떻게 하는가 | [개발 가이드](DEVELOPMENT.md), [기여 시작하기](../CONTRIBUTING.md) | 운영 비밀 접근 |
 
-현재 작업 단계와 DRI는 정적 문서나 과거 버전 표가 아니라 OT1L DB를 정본으로 하는 Slack `#maintainers` 카드와 홈페이지 `/maintainers`에서 확인합니다. 완료는 정확한 SHA의 병합, 대상 Worker 배포, health와 실제 사용자 경로 확인이 모두 끝났을 때만 표시합니다.
+현재 작업 단계와 DRI는 정적 문서나 과거 버전 표가 아니라 OT1L DB를 정본으로 하는 Slack `#po-work` 카드와 홈페이지 `/po`에서 확인합니다. 완료는 정확한 SHA의 병합, 대상 Worker 배포, health와 실제 사용자 경로 확인이 모두 끝났을 때만 표시합니다.
 
 ## 디렉터리
 
@@ -37,7 +37,7 @@
 ## 호환 문서
 
 - [과거 로드맵](ROADMAP.md)과 [과거 업데이트 이력](UPDATE_HISTORY.md)은 기존 외부 링크를 보존하는 안내 페이지입니다.
-- [이전 이벤트·Maintainer 통합 문서](EVENTS_AND_MAINTAINERS.md)와 [이전 Linear 중심 문서명](MAINTAINER_LINEAR.md)도 새 문서로 연결만 합니다.
+- [이전 이벤트·Maintainer 통합 문서](EVENTS_AND_MAINTAINERS.md), [이전 Maintainer 문서명](MAINTAINER_WORKFLOW.md)과 [이전 Linear 중심 문서명](MAINTAINER_LINEAR.md)은 새 Product Owner 문서로 연결만 합니다.
 
 ## 문서 변경 규칙
 

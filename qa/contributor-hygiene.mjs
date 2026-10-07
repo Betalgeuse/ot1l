@@ -8,7 +8,7 @@ const read = (path) => readFileSync(resolve(root, path), "utf8");
 const readme = read("README.md");
 const contributing = read("CONTRIBUTING.md");
 const agents = read("AGENTS.md");
-const maintainerGuide = read("docs/MAINTAINER_WORKFLOW.md");
+const maintainerGuide = read("docs/PRODUCT_OWNER_WORKFLOW.md");
 const eventGuide = read("docs/EVENTS.md");
 
 assert.match(readme, /CONTRIBUTING[.]md/);
@@ -19,7 +19,7 @@ for (const document of [contributing, agents]) {
   assert.match(document, /fork/i);
 }
 assert.match(contributing, /셀프서비스 버튼은 아직 없습니다/);
-assert.match(maintainerGuide, /GitHub collaborator 초대.*않/);
+assert.match(maintainerGuide, /GitHub collaborator 초대 없이/);
 assert.match(maintainerGuide, /개인 컴퓨터에서 운영 Worker를 직접 배포하지 않/);
 assert.doesNotMatch(maintainerGuide, /otl1-open-events/);
 assert.match(eventGuide, /시간 미정 이벤트 열기/);

@@ -11,7 +11,7 @@
 | DB·Worker·Durable Object가 어떻게 나뉘는가 | [시스템 구조](ARCHITECTURE.md) |
 | 회원이 무엇을 입력하면 되는가 | [사용 가이드](USER_GUIDE.md) |
 | 예약·복구·배포를 어떻게 운영하는가 | [운영 가이드](OPERATIONS.md), [개발 가이드](DEVELOPMENT.md) |
-| 현재 작업 단계와 DRI | Slack `#maintainers`, 홈페이지 `/maintainers` |
+| 현재 작업 단계와 DRI | Slack `#po-work`, 홈페이지 `/po` |
 | 과거 버전·계획 기록 | [로드맵 보관 안내](ROADMAP.md), [업데이트 이력 보관 안내](UPDATE_HISTORY.md) |
 
 로드맵이나 업데이트 이력은 현재 동작을 정의하지 않습니다. 실제 동작 변경은 코드·migration·QA·운영 readback을 함께 남기고 이 문서의 해당 규칙을 갱신합니다.
@@ -118,7 +118,7 @@ Townhall의 `이벤트 열기`는 같은 workspace와 townhall 채널의 사람 
 - 모달은 불편하거나 바라는 점 한 칸과 선택적인 기대 결과만 받습니다. 제출하면 feedback 채널에 제보자를 멘션한 새 글을 만들고 원문 위치를 보존합니다. `As-Is / To-Be`가 구현 판단에 충분하면 역질문 없이 관리자 승인으로 넘어갑니다. 필요한 정보가 실제로 빠졌을 때만 Qwen이 이미 받은 답을 반복하지 않는 한국어 질문 하나를 만들며, 개선 제안에는 발생 시각이나 빈도를 기계적으로 요구하지 않습니다. 자유응답 질문에는 **답변하기** 입력창을 제공합니다.
 - 사용자가 버그 여부를 결정하지 않습니다. 현재 OT1L 문서와 실제 관찰을 기준으로 오류·개선·질문·문서·불명확 후보를 구분합니다.
 - 명세가 부족하면 한 번에 한 질문만 하며 최대 3회입니다. 이후에는 모르는 값을 추정하지 않고 관리자 검토 카드로 넘깁니다.
-- OT1L은 확정된 피드백을 **As-Is / To-Be**로 제시합니다. 명확한 개선 요청은 재현 시각·빈도·단계를 꾸며내지 않고 `feedback_packet.v1`로 보존합니다. 접수 직후 원문에 `loading` 반응을 달고 GenQuant가 자동으로 수정·검증한 Draft PR을 만듭니다. OT1L이 As-Is·To-Be·수정 결과·변경 내용 링크와 승인 버튼을 같은 `#maintainers` 작업 스레드에 제시합니다. Open은 활성 Maintainer 또는 Founder, Core는 Founder가 정확한 SHA를 승인하기 전에는 병합하지 않습니다. GitHub 병합은 운영 반영으로 표현하지 않습니다. 정확한 Worker version과 운영 시나리오 관찰 영수증이 기록된 뒤에만 완료 답글과 `white_check_mark`를 표시합니다.
+- OT1L은 확정된 피드백을 **As-Is / To-Be**로 제시합니다. 명확한 개선 요청은 재현 시각·빈도·단계를 꾸며내지 않고 `feedback_packet.v1`로 보존합니다. 접수 직후 원문에 `loading` 반응을 달고 GenQuant가 자동으로 수정·검증한 Draft PR을 만듭니다. OT1L이 As-Is·To-Be·수정 결과·변경 내용 링크와 승인 버튼을 같은 `#po-work` 작업 스레드에 제시합니다. Open은 활성 Product Owner 또는 Founder, Core는 Founder가 정확한 SHA를 승인하기 전에는 병합하지 않습니다. GitHub 병합은 운영 반영으로 표현하지 않습니다. 정확한 Worker version과 운영 시나리오 관찰 영수증이 기록된 뒤에만 완료 답글과 `white_check_mark`를 표시합니다.
 - Codex 결과는 후보일 뿐입니다. 역할에 맞는 승인자가 정확한 PR SHA를 검토하고 Slack에서 승인하기 전에는 출시·배포 상태가 아닙니다. 승인 뒤 병합과 배포는 Deployment Broker가 수행합니다.
 
 | 책임 | 주요 코드·migration |

@@ -2,7 +2,7 @@
 
 OT1L 저장소는 공개되어 있습니다. 별도 GitHub 초대를 기다리지 않고 자신의 계정으로 fork한 뒤 로컬이나 원하는 AI 개발 도구에서 작업하고 Pull Request를 열 수 있습니다.
 
-변경 전에 [문서 안내](docs/README.md)에서 현재 계약과 역사 기록을 구분하고, [저장소 구조](README.md#저장소-구조)에서 담당 경계를 확인합니다. 이벤트는 [Townhall 이벤트](docs/EVENTS.md), 작업·승인은 [Maintainer 작업 흐름](docs/MAINTAINER_WORKFLOW.md)을 기준으로 합니다.
+변경 전에 [문서 안내](docs/README.md)에서 현재 계약과 역사 기록을 구분하고, [저장소 구조](README.md#저장소-구조)에서 담당 경계를 확인합니다. 이벤트는 [Townhall 이벤트](docs/EVENTS.md), 작업·승인은 [Product Owner 작업 흐름](docs/PRODUCT_OWNER_WORKFLOW.md)을 기준으로 합니다.
 
 ## 5분 시작
 
@@ -23,11 +23,11 @@ PR의 base는 `Betalgeuse/ot1l:main`으로 지정하고, 무엇을 바꿨는지�
 | 역할 | 할 수 있는 일 | 할 수 없는 일 |
 | --- | --- | --- |
 | 공개 Contributor | fork, 로컬 개발, 자신의 fork에 push, PR 제출 | upstream 직접 push, 운영 비밀 접근, 운영 배포 |
-| Slack Maintainer | 위 작업과 Open 변경의 정확한 SHA 검증·승인 | Core 승인, Cloudflare·Slack·DB·SSH 비밀 열람 |
+| Slack Product Owner | 위 작업과 Open 변경의 정확한 SHA 검증·승인 | Core 승인, Cloudflare·Slack·DB·SSH 비밀 열람 |
 | Founder | Core 변경 승인, 예외 운영 판단 | 검증되지 않은 SHA의 자동 우회 |
 | Deployment Broker | 승인된 SHA 병합·배포, 전체 검사와 health 영수증 기록 | 승인 범위 밖 경로 배포, 비밀 공개 |
 
-GitHub collaborator 초대는 Maintainer 활성화의 일부가 아닙니다. GitHub 권한과 Slack 역할을 억지로 묶지 않고 공개 fork/PR을 사용합니다. 현재 자동 병합·배포 큐는 OT1L 피드백 흐름이 만든 PR에 연결됩니다. 피드백은 일반 피드백 채널과 `#maintainers` 양쪽에서 시작할 수 있고, OT1L DB의 한 작업과 두 Slack 상태 카드로 연결됩니다. 별도 Linear 계정은 필요하지 않습니다. Maintainer가 제안하면 본인이 기본 DRI가 되며 작업 카드에서 다른 Maintainer에게 넘기거나 상태를 바꿀 수 있습니다. Open 변경은 활성 Maintainer 또는 Founder가 승인하고 Core 변경은 `#maintainers`에 보이는 동일한 버튼을 Founder 본인만 누를 수 있습니다. 직접 만든 PR을 큐에 넣는 셀프서비스 버튼은 아직 없습니다. 직접 만든 PR은 `#maintainers`에 링크해 Founder가 피드백 항목과 승인 SHA에 연결한 뒤 같은 Broker 경로로 반영합니다. 개인 컴퓨터에서 운영 Worker를 직접 배포하지 않습니다.
+GitHub collaborator 초대는 Product Owner 활성화의 일부가 아닙니다. GitHub 권한과 Slack 역할을 억지로 묶지 않고 공개 fork/PR을 사용합니다. 아이디어와 질문은 `#po`, DRI·단계·승인·배포 영수증은 `#po-work`에서 관리합니다. OT1L DB의 한 작업이 회원용·PO용 Slack 카드로 투영되며 별도 Linear 계정은 필요하지 않습니다. Product Owner가 제안하면 본인이 기본 DRI가 되고 다른 Product Owner에게 넘길 수 있습니다. Open 변경은 활성 Product Owner 또는 Founder가 승인하고 Core 변경은 `#po-work`에서 Founder 본인만 승인할 수 있습니다. 직접 만든 PR을 큐에 넣는 셀프서비스 버튼은 아직 없습니다. 직접 만든 PR은 `#po-work`에 링크해 Founder가 피드백 항목과 승인 SHA에 연결한 뒤 같은 Broker 경로로 반영합니다. 개인 컴퓨터에서 운영 Worker를 직접 배포하지 않습니다.
 
 ## 어느 Worker를 고쳐야 하나요?
 

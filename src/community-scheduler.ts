@@ -17,6 +17,7 @@ export type CommunityScheduleEnv = {
   readonly COMMUNITY_BOT_USER_ID?: string;
   readonly COMMUNITY_FEEDBACK_CHANNEL_ID?: string;
   readonly COMMUNITY_MAINTAINERS_CHANNEL_ID?: string;
+  readonly COMMUNITY_RETENTION_CHANNEL_ID?: string;
   readonly REVIEW_THREAD_V2?: string;
   readonly COMMUNITY_GUIDE_CANVAS_URL?: string;
   readonly COMMUNITY_INTRO_CANVAS_URL?: string;

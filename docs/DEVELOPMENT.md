@@ -1,6 +1,6 @@
 # 개발 가이드
 
-Townhall 이벤트 사용법은 [Townhall 이벤트](EVENTS.md), Maintainer의 Open/Core 승인 경계와 배포 점검은 [Maintainer 작업 흐름](MAINTAINER_WORKFLOW.md)을 기준으로 합니다.
+Townhall 이벤트 사용법은 [Townhall 이벤트](EVENTS.md), Product Owner의 Open/Core 승인 경계와 배포 점검은 [Product Owner 작업 흐름](PRODUCT_OWNER_WORKFLOW.md)을 기준으로 합니다.
 
 처음 기여하는 사람이나 AI 개발 도구는 루트의 [기여 시작하기](../CONTRIBUTING.md)와 [`AGENTS.md`](../AGENTS.md)부터 읽습니다. 공개 저장소이므로 GitHub 초대 없이 fork와 PR로 작업하며, upstream push와 운영 배포 권한은 별도로 두지 않습니다.
 
@@ -151,4 +151,4 @@ cd /tmp/otl1-public-review && bun run check
 - runner·운영 파일만 바뀐 경우 runner 계약 검사와 systemd 서비스 재시작을 수행합니다.
 - migration과 일반 site가 섞인 Core 변경은 Founder가 정확한 SHA를 승인한 경우에만 GenQuant Broker가 전용 migration 역할로 forward migration을 적용한 뒤 Core Worker와 site를 순서대로 배포하고 각각 readback합니다. 승인 범위 밖의 migration 파일, 끊긴 선행 migration, 전용 역할·대상 config가 없는 경우에는 fail-closed합니다.
 
-각 adapter는 전체 `bun run check`, exact HEAD, Worker version과 `/health`를 확인한 뒤에만 `bug_runner_finish_deployment` 영수증을 기록합니다. 진행 중인 leased job이 있으면 deployment claim 자체를 보류합니다. 공개 fork에서 직접 연 PR은 자동 큐에 들어오지 않으며, 현재는 `#maintainers`에서 Founder가 피드백 항목과 head SHA에 연결해야 합니다.
+각 adapter는 전체 `bun run check`, exact HEAD, Worker version과 `/health`를 확인한 뒤에만 `bug_runner_finish_deployment` 영수증을 기록합니다. 진행 중인 leased job이 있으면 deployment claim 자체를 보류합니다. 공개 fork에서 직접 연 PR은 자동 큐에 들어오지 않으며, 현재는 `#po-work`에서 Founder가 피드백 항목과 head SHA에 연결해야 합니다.

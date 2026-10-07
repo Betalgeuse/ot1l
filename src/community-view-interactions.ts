@@ -8,6 +8,7 @@ import { submitMaintainerHelp } from "./community-maintainer-retention";
 import { escapeSlackText } from "./community-messages";
 import { submitCommunityPalette } from "./community-palette";
 import { parsePastReviewSubmission, pastReviewChange } from "./community-past-review";
+import { submitProductOwnerSpecialties } from "./community-product-owner-groups";
 import { parseQuickEntrySubmission, submitQuickEntry } from "./community-quick-entry";
 import { applyChange } from "./community-records";
 import { type CommunityContext, type CommunityEnv, ephemeral, post } from "./community-runtime";
@@ -51,6 +52,10 @@ export async function handleCommunityView(input: ViewInteraction): Promise<Respo
     if (mode !== "question" && mode !== "qna" && mode !== "ot")
       throw new InputError("도움 요청 종류를 확인할 수 없어요.");
     input.waitUntil(submitMaintainerHelp(input.context, input.view, mode));
+    return Response.json({ response_action: "clear" });
+  }
+  if (input.id === "community_po_specialties_submit") {
+    input.waitUntil(submitProductOwnerSpecialties(input.context, input.view));
     return Response.json({ response_action: "clear" });
   }
   if (input.id === "community_event_submit") {

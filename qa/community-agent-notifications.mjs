@@ -110,7 +110,7 @@ try {
   assert.match(readyPost.body.blocks[0].text.text, /Open/);
   assert.equal(readyPost.body.thread_ts, "1790252999.000001");
   assert.equal(calls.some((call) => call.url.includes("conversations.history")), false);
-  assert.equal(readyPost.body.blocks[1].elements[0].text.text, "Maintainer 병합·배포 승인");
+  assert.equal(readyPost.body.blocks[1].elements[0].text.text, "Product Owner 병합·배포 승인");
   assert.equal(readyPost.body.blocks[1].elements[0].action_id, "community_feedback_merge_approve");
   assert.equal(JSON.parse(readyPost.body.blocks[1].elements[0].value).headSha, "a".repeat(40));
   assert.equal(
@@ -137,7 +137,7 @@ try {
   const founderPost = calls.find(
     (call) => call.url.includes("chat.postMessage") && call.body.channel === "DFOUNDER",
   );
-  assert.match(founderPost.body.text, /Maintainer 작업 스레드에서 Founder 병합·배포 승인하기/);
+  assert.match(founderPost.body.text, /PO 작업 스레드에서 Founder 병합·배포 승인하기/);
   assert.equal(founderPost.body.blocks, undefined);
 
   calls.length = 0;

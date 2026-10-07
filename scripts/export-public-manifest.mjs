@@ -55,6 +55,7 @@ export const PUBLIC_COPY_PATHS = [
   "scripts/deploy-production-worker.mjs",
   "scripts/schedule-private-house-reminders.mjs",
   "scripts/publish-townhall-event-launcher.mjs",
+  "scripts/bootstrap-product-owner-groups.mjs",
 ];
 
 export const PUBLIC_RUNTIME_MIGRATION_PATHS = [
@@ -159,6 +160,7 @@ export const PUBLIC_QA_NAMES = [
   "check-intent.mjs",
   "community-admin-access.mjs",
   "community-maintainers.mjs",
+  "community-product-owner-groups.mjs",
   "community-chapters.mjs",
   "community-chapters-pg.mjs",
   "community-event-demands.mjs",

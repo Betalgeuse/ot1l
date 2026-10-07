@@ -96,6 +96,8 @@ const memberActions = new Set([
   "community_maintainer_help_open_ot",
   "community_maintainer_help_submit",
   "community_maintainer_help_claim",
+  "community_po_specialties_open",
+  "community_po_specialties_submit",
   "community_linear_open",
 ]);
 

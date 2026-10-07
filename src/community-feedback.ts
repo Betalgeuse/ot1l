@@ -253,11 +253,11 @@ export function feedbackPromptDue(minute: string): boolean {
 }
 
 export function dailyFeedbackPromptText(date: string): string {
-  return `${date} 오늘 OT1L을 쓰면서 불편했거나 바랐던 점이 있었나요? 작은 의견도 괜찮아요. 아래 버튼으로 편하게 남겨주세요. 피드백을 남겨주시면 봇이 자동으로 수정안을 만들고, Maintainer가 확인한 뒤 배포해요!`;
+  return `${date} 오늘 OT1L을 쓰면서 불편했거나 바랐던 점이 있었나요? 작은 의견도 괜찮아요. 아래 버튼으로 편하게 남겨주세요. 피드백을 남겨주시면 봇이 자동으로 수정안을 만들고, Product Owner가 확인한 뒤 배포해요!`;
 }
 
 export function dailyMaintainerPromptText(date: string): string {
-  return `${date} 오늘 OT1L을 함께 만들며 불편했던 점, 해보고 싶은 변화, 같이 배우거나 열어보고 싶은 활동이 있었나요? 작은 아이디어·질문·도움 요청도 괜찮아요. 아래 버튼으로 남기면 함께할 사람을 찾고 AI의 도움을 받아 실제 변화로 이어갈 수 있어요.`;
+  return `${date} Product Owner끼리 이야기해 볼 아이디어, 사용자 문제, 같이 배우거나 열어보고 싶은 활동이 있었나요? 질문과 도움 요청도 괜찮아요. 충분히 이야기한 뒤 실제 작업은 #po-work의 DRI 카드로 연결합니다.`;
 }
 
 function maintainerFeedbackSourceUrl(context: CommunityContext): string {
@@ -355,17 +355,21 @@ export async function sendDailyFeedbackPrompt(
 export async function sendDailyMaintainerPrompt(
   env: Pick<
     CommunityEnv,
-    "SLACK_TEAM_ID" | "SLACK_BOT_TOKEN" | "COMMUNITY_ADMIN_ID" | "COMMUNITY_MAINTAINERS_CHANNEL_ID"
+    | "SLACK_TEAM_ID"
+    | "SLACK_BOT_TOKEN"
+    | "COMMUNITY_ADMIN_ID"
+    | "COMMUNITY_MAINTAINERS_CHANNEL_ID"
+    | "COMMUNITY_RETENTION_CHANNEL_ID"
   >,
   store: Pick<CommunityStore, "putRecord" | "claimRecord" | "finishRecord">,
   date: string,
   minute: string,
 ): Promise<boolean> {
-  const channelId = env.COMMUNITY_MAINTAINERS_CHANNEL_ID;
+  const channelId = env.COMMUNITY_RETENTION_CHANNEL_ID ?? env.COMMUNITY_MAINTAINERS_CHANNEL_ID;
   const userId = env.COMMUNITY_ADMIN_ID;
   if (!channelId || !userId || !feedbackPromptDue(minute)) return false;
   const scope = { teamId: env.SLACK_TEAM_ID, channelId, userId };
-  const key = `maintainer-feedback-prompt:${date}`;
+  const key = `po-discussion-prompt:${date}`;
   await store.putRecord({ ...scope, key, kind: "feedback_prompt", body: { date } });
   if (!(await store.claimRecord({ ...scope, key }))) return false;
   try {
@@ -380,7 +384,7 @@ export async function sendDailyMaintainerPrompt(
           elements: [
             {
               type: "button",
-              text: { type: "plain_text", text: "개선 제안" },
+              text: { type: "plain_text", text: "PO 작업 제안" },
               action_id: "community_bug_open",
               value: JSON.stringify({ ownerId: "actor", key: "new" }),
             },
@@ -570,7 +574,7 @@ export async function approveCodexMerge(
     approvalContext.maintainer !== true &&
     context.scope.userId !== context.env.COMMUNITY_ADMIN_ID
   )
-    throw new InputError("활성 Maintainer 또는 Founder만 Open 변경을 승인할 수 있어요.");
+    throw new InputError("활성 Product Owner 또는 Founder만 Open 변경을 승인할 수 있어요.");
   const approved = object(
     await database.queryJson("SELECT otl.bug_actor_approve_merge($1::jsonb)", [
       JSON.stringify({

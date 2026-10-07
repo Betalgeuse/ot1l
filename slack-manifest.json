@@ -32,7 +32,9 @@
         "bookmarks:write",
         "reactions:read",
         "reactions:write",
-        "emoji:read"
+        "emoji:read",
+        "usergroups:read",
+        "usergroups:write"
       ]
     }
   },
