@@ -1,6 +1,5 @@
 import { slackCanvasUrl } from "./community-canvas";
 import { feedbackActionBlock } from "./community-feedback-button";
-import { introductionButton, introductionDirectoryButton } from "./community-introduction";
 import type { Json } from "./input";
 
 export type MemberNavigation = {
@@ -58,8 +57,6 @@ export function memberActionBlocks(
               },
             ]
           : []),
-        introductionButton(undefined, "자기소개 쓰기"),
-        introductionDirectoryButton(navigation.introductionUrl),
         {
           type: "button",
           text: { type: "plain_text", text: "밀린 후기 기록하기" },

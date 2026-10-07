@@ -2,14 +2,17 @@ import { type CommunityContext, ephemeral } from "./community-runtime";
 import { CommunitySlackError, callSlack } from "./community-social";
 import { InputError, type Json, object } from "./input";
 
-export function maintainerButton(label = "Maintainer 되기"): Json {
+export const PRODUCT_OWNER_DESCRIPTION =
+  "Product Owner(PO)는 코딩 여부와 관계없이 회원 문제를 발견하고 개선을 끝까지 맡는 역할입니다.";
+
+export function maintainerButton(label = "Product Owner 되기"): Json {
   return {
     type: "button",
     text: { type: "plain_text", text: label },
     style: "primary",
     action_id: "community_maintainer_activate",
     value: JSON.stringify({ ownerId: "actor", key: "maintainer-self-activate" }),
-    accessibility_label: "OT1L 공동 운영자 Maintainer로 참여하기",
+    accessibility_label: "OT1L Product Owner로 참여하기",
   };
 }
 

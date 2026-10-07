@@ -69,14 +69,10 @@ try {
   assert.match(sync.body.params[1], /"issueState":"검토·승인 중"/);
   assert.match(sync.body.params[1], /"driUserId":"UMAIN"/);
   const updates = calls.filter((call) => call.pathname.endsWith("/chat.update"));
-  assert.equal(updates.length, 2);
+  assert.equal(updates.length, 1);
   const memberUpdate = updates.find((call) => call.body.channel === "CFEEDBACK");
   const maintainerUpdate = updates.find((call) => call.body.channel === "CMAIN");
-  assert.match(memberUpdate.body.text, /버그 키 BUG-QA/);
-  assert.deepEqual(
-    memberUpdate.body.blocks.at(-1).elements.map((element) => element.action_id),
-    ["community_maintainer_activate"],
-  );
+  assert.equal(memberUpdate, undefined);
   assert.match(maintainerUpdate.body.blocks[0].text.text, /DRI  <@UMAIN>/);
   assert.match(maintainerUpdate.body.blocks[0].text.text, /버그 키  BUG-QA/);
   assert.deepEqual(
