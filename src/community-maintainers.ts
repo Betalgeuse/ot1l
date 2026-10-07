@@ -14,6 +14,18 @@ export function maintainerButton(label = "Product Owner 되기"): Json {
   };
 }
 
+export function productOwnerContext(): Json {
+  return {
+    type: "context",
+    elements: [
+      {
+        type: "plain_text",
+        text: "Product Owner(PO)는 코딩 여부와 관계없이 회원 문제를 발견하고 개선을 끝까지 맡는 역할이에요.",
+      },
+    ],
+  };
+}
+
 function maintainerChannels(context: CommunityContext): readonly string[] {
   return [
     ...new Set(

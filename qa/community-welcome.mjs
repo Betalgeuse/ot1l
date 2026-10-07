@@ -94,9 +94,10 @@ try {
   assert.equal(posts.length, 1);
   assert.match(posts[0].text, /<@UNEW>/);
   assert.equal(posts[0].channel, "CTOWN");
-  assert.equal(posts[0].blocks[1].elements[0].action_id, "community_introduction");
-  assert.equal(posts[0].blocks[1].elements[1].action_id, "community_referral_link");
-  assert.match(posts[0].blocks[1].elements[0].value, /actor/);
+  assert.match(posts[0].blocks[1].elements[0].text, /Product Owner/);
+  assert.equal(posts[0].blocks[2].elements[0].action_id, "community_introduction");
+  assert.equal(posts[0].blocks[2].elements[1].action_id, "community_referral_link");
+  assert.match(posts[0].blocks[2].elements[0].value, /actor/);
   console.log(
     "PASS welcome routing: first join, duplicate, both event types, bot, wrong channel/team; no real Slack",
   );

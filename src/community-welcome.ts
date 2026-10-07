@@ -1,6 +1,6 @@
 import { customBotEmoji, randomCustomEmoji } from "./community-emoji";
 import { introductionButton } from "./community-introduction";
-import { maintainerButton } from "./community-maintainers";
+import { maintainerButton, productOwnerContext } from "./community-maintainers";
 import { inviteButton } from "./community-member-actions";
 import type { CommunityEnv } from "./community-runtime";
 import { addReactions, callSlack } from "./community-social";
@@ -49,6 +49,7 @@ export async function welcomeTownhallMember(
     text: renderedText,
     blocks: [
       { type: "section", text: { type: "mrkdwn", text: renderedText } },
+      productOwnerContext(),
       {
         type: "actions",
         elements: [introductionButton(), inviteButton(), townhallEventButton(), maintainerButton()],

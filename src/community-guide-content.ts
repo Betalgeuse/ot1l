@@ -1,5 +1,5 @@
 import { feedbackButton } from "./community-feedback-button";
-import { maintainerButton } from "./community-maintainers";
+import { maintainerButton, productOwnerContext } from "./community-maintainers";
 import { inviteButton } from "./community-member-actions";
 import type { CommunityEnv } from "./community-runtime";
 import { InputError } from "./input";
@@ -166,6 +166,7 @@ export function guideBlocks(userId: string, guide: WelcomeGuideContent, rendered
   }));
   return [
     ...sections,
+    productOwnerContext(),
     {
       type: "actions",
       elements: [inviteButton(), maintainerButton(), feedbackButton()],
