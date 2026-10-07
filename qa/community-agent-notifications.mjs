@@ -77,6 +77,7 @@ try {
     SLACK_TEAM_ID: "TQA",
     SLACK_BOT_TOKEN: "xoxb-test",
     COMMUNITY_CODEX_REPOSITORY: "Betalgeuse/ot1l",
+    COMMUNITY_FEEDBACK_CHANNEL_ID: "CFEEDBACK",
     COMMUNITY_MAINTAINERS_CHANNEL_ID: "CMAINTAIN",
     COMMUNITY_ADMIN_ID: "UADMIN",
     DATABASE_URL:
@@ -94,6 +95,12 @@ try {
   assert.equal(readyPost.body.blocks[1].elements[0].text.text, "Maintainer 병합·배포 승인");
   assert.equal(readyPost.body.blocks[1].elements[0].action_id, "community_feedback_merge_approve");
   assert.equal(JSON.parse(readyPost.body.blocks[1].elements[0].value).headSha, "a".repeat(40));
+  assert.equal(
+    calls.some(
+      (call) => call.url.includes("chat.postMessage") && call.body.channel === "CFEEDBACK",
+    ),
+    false,
+  );
   assert.equal(
     calls.some((call) => call.url.includes("reactions.")),
     false,
@@ -132,6 +139,7 @@ try {
     .filter((call) => call.url.includes("reactions."))
     .map((call) => new URL(call.url).pathname.split("/").at(-1));
   assert.deepEqual(reactionMethods, []);
+  assert.equal(calls.some((call) => call.url.includes("chat.postMessage")), false);
   const finish = calls.find((call) => call.body.query?.includes("bug_runner_finish_notification"));
   assert.match(finish.body.params[0], /"status":"sent"/);
   calls.length = 0;
@@ -139,7 +147,13 @@ try {
   const deployed = await sendAgentNotifications(env, new Date("2026-09-24T13:01:00Z"));
   assert.deepEqual(deployed, { claimed: 1, sent: 1, failed: 0 });
   const deployedPost = calls.find((call) => call.url.includes("chat.postMessage"));
-  assert.match(deployedPost.body.text, /운영 배포와 실제 동작 확인을 완료했어요/);
+  assert.equal(
+    calls.filter(
+      (call) => call.url.includes("chat.postMessage") && call.body.channel === "CFEEDBACK",
+    ).length,
+    1,
+  );
+  assert.equal(deployedPost.body.text, "요청한 개선이 운영에 반영됐어요. ✅");
   const deployedReactionMethods = calls
     .filter((call) => call.url.includes("reactions."))
     .map((call) => new URL(call.url).pathname.split("/").at(-1));
@@ -161,12 +175,27 @@ try {
   notificationKind = "deployment_manual";
   const manual = await sendAgentNotifications(env, new Date("2026-09-24T13:02:00Z"));
   assert.deepEqual(manual, { claimed: 1, sent: 1, failed: 0 });
+  assert.equal(
+    calls.some(
+      (call) => call.url.includes("chat.postMessage") && call.body.channel === "CFEEDBACK",
+    ),
+    false,
+  );
   const manualPost = calls.find((call) => call.url.includes("chat.postMessage"));
+  assert.equal(manualPost.body.channel, "CMAINTAIN");
   assert.match(manualPost.body.text, /안전한 순서로 운영 반영하고 있어요/);
   const manualReactionMethods = calls
     .filter((call) => call.url.includes("reactions."))
     .map((call) => new URL(call.url).pathname.split("/").at(-1));
   assert.deepEqual(manualReactionMethods, []);
+  for (const quietKind of ["task_started", "task_ready"]) {
+    calls.length = 0;
+    notificationKind = quietKind;
+    includeTaskUrl = true;
+    const quiet = await sendAgentNotifications(env, new Date("2026-09-24T13:02:30Z"));
+    assert.deepEqual(quiet, { claimed: 1, sent: 1, failed: 0 });
+    assert.equal(calls.some((call) => call.url.includes("chat.postMessage")), false);
+  }
   calls.length = 0;
   notificationKind = "invalid_kind";
   const malformed = await sendAgentNotifications(env, new Date("2026-09-24T13:03:00Z"));
