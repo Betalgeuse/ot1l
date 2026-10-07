@@ -350,9 +350,12 @@ function eventActivityText(activity: string): string {
 }
 
 export function townhallEventMessage(event: TownhallEvent): Json {
-  const options = event.options
-    .map((option) => `• ${slackDate(option.startsAt)} · 가능 ${option.votes}명`)
-    .join("\n");
+  const options =
+    event.poll && event.options.length > 8
+      ? `${event.poll.startDate}~${event.poll.endDate} · 매일 ${event.poll.dayStart}~${event.poll.dayEnd} · ${event.poll.stepMinutes}분 간격 · 총 ${event.options.length}개`
+      : event.options
+          .map((option) => `• ${slackDate(option.startsAt)} · 가능 ${option.votes}명`)
+          .join("\n");
   const schedule = options
     ? `*시간 후보*\n${options}\n\n선택한 시간으로 확정되면 자동으로 참가됩니다.`
     : "*시간*\n아직 정하지 않았어요.";
