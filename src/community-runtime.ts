@@ -121,6 +121,8 @@ export function actionIdentity(data: Record<string, unknown>, env: CommunityEnv,
     "community_maintainer_help_open_ot",
     "community_maintainer_help_submit",
     "community_maintainer_help_claim",
+    "community_po_specialties_submit",
+    "community_po_summon_submit",
     "community_linear_open",
   ].includes(actionId);
   const introductionAction = [
@@ -156,6 +158,10 @@ export function actionIdentity(data: Record<string, unknown>, env: CommunityEnv,
     "community_maintainer_help_open_ot",
     "community_maintainer_help_submit",
     "community_maintainer_help_claim",
+    "community_po_specialties",
+    "community_po_specialties_submit",
+    "community_po_summon",
+    "community_po_summon_submit",
   ].includes(actionId);
   const founderApprovalInDm =
     actionId === "community_feedback_merge_approve" &&

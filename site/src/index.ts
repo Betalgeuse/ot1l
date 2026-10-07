@@ -360,18 +360,40 @@ function stageClass(stage: string): string {
 }
 
 function maintainerBoard(items: readonly MaintainerStatusItem[]): string {
-  const order = ["접수됨", "담당자 지정됨", "방향 논의 중", "작업 중", "검토·승인 중", "배포 확인 중", "운영자 배포 필요", "운영 확인 대기", "운영 반영 완료", "확인 필요", "종료"];
-  const stages = [...new Set([...order, ...items.map((item) => item.stage)])]
-    .filter((stage) => items.some((item) => item.stage === stage));
-  const columns = stages.map((stage) => {
-    const cards = items.filter((item) => item.stage === stage).map((item) => {
-      const url = item.slackUrl;
-      const date = new Intl.DateTimeFormat("ko-KR", { month: "short", day: "numeric", timeZone: "Asia/Seoul" }).format(new Date(item.updatedAt));
-      return `<article class="work-card"><div class="work-card__meta"><span>${escapeHtml(item.identifier ?? "OT1L")}</span><time datetime="${escapeHtml(item.updatedAt)}">${escapeHtml(date)}</time></div><h3>${escapeHtml(item.title)}</h3><a href="${escapeHtml(url)}" rel="noreferrer">Slack에서 보기 <span aria-hidden="true">↗</span></a></article>`;
-    }).join("");
-    return `<section class="work-column ${stageClass(stage)}" aria-labelledby="stage-${encodeURIComponent(stage)}"><header><h2 id="stage-${encodeURIComponent(stage)}">${escapeHtml(stage)}</h2><span>${items.filter((item) => item.stage === stage).length}</span></header>${cards}</section>`;
-  }).join("");
-  return columns || '<p class="work-empty">아직 공개된 Maintainer 작업이 없습니다.</p>';
+  const order = [
+    "접수됨",
+    "담당자 지정됨",
+    "방향 논의 중",
+    "작업 중",
+    "검토·승인 중",
+    "배포 확인 중",
+    "운영자 배포 필요",
+    "운영 확인 대기",
+    "운영 반영 완료",
+    "확인 필요",
+    "종료",
+  ];
+  const stages = [...new Set([...order, ...items.map((item) => item.stage)])].filter((stage) =>
+    items.some((item) => item.stage === stage),
+  );
+  const columns = stages
+    .map((stage) => {
+      const cards = items
+        .filter((item) => item.stage === stage)
+        .map((item) => {
+          const url = item.slackUrl;
+          const date = new Intl.DateTimeFormat("ko-KR", {
+            month: "short",
+            day: "numeric",
+            timeZone: "Asia/Seoul",
+          }).format(new Date(item.updatedAt));
+          return `<article class="work-card"><div class="work-card__meta"><span>${escapeHtml(item.identifier ?? "OT1L")}</span><time datetime="${escapeHtml(item.updatedAt)}">${escapeHtml(date)}</time></div><h3>${escapeHtml(item.title)}</h3><a href="${escapeHtml(url)}" rel="noreferrer">Slack에서 보기 <span aria-hidden="true">↗</span></a></article>`;
+        })
+        .join("");
+      return `<section class="work-column ${stageClass(stage)}" aria-labelledby="stage-${encodeURIComponent(stage)}"><header><h2 id="stage-${encodeURIComponent(stage)}">${escapeHtml(stage)}</h2><span>${items.filter((item) => item.stage === stage).length}</span></header>${cards}</section>`;
+    })
+    .join("");
+  return columns || '<p class="work-empty">아직 공개된 Product Owner 작업이 없습니다.</p>';
 }
 
 async function maintainerStatusPage(env: SiteEnv): Promise<Response> {
@@ -380,26 +402,44 @@ async function maintainerStatusPage(env: SiteEnv): Promise<Response> {
     const response = await coreRequest(env, MAINTAINER_STATUS_PATH, {});
     if (!response.ok) throw new Error("status unavailable");
     const value: unknown = await response.json();
-    if (typeof value !== "object" || value === null || !("items" in value) || !Array.isArray(value.items))
+    if (
+      typeof value !== "object" ||
+      value === null ||
+      !("items" in value) ||
+      !Array.isArray(value.items)
+    )
       throw new Error("invalid status response");
     items = value.items.flatMap((entry) => {
       if (typeof entry !== "object" || entry === null) return [];
       const item = entry as Record<string, unknown>;
-      return typeof item.key === "string" && typeof item.title === "string" &&
-        typeof item.stage === "string" && typeof item.sourceChannel === "string" &&
-        typeof item.sourceThread === "string" && typeof item.slackUrl === "string" &&
-        /^https:\/\/app[.]slack[.]com\/client\/[A-Z0-9]+\/[A-Z0-9]+\/thread\/[A-Z0-9]+-\d+[.]\d+$/.test(item.slackUrl) &&
+      return typeof item.key === "string" &&
+        typeof item.title === "string" &&
+        typeof item.stage === "string" &&
+        typeof item.sourceChannel === "string" &&
+        typeof item.sourceThread === "string" &&
+        typeof item.slackUrl === "string" &&
+        /^https:\/\/app[.]slack[.]com\/client\/[A-Z0-9]+\/[A-Z0-9]+\/thread\/[A-Z0-9]+-\d+[.]\d+$/.test(
+          item.slackUrl,
+        ) &&
         typeof item.updatedAt === "string"
-        ? [{ key: item.key, title: item.title, stage: item.stage,
-            identifier: typeof item.identifier === "string" ? item.identifier : null,
-            sourceChannel: item.sourceChannel, sourceThread: item.sourceThread,
-            slackUrl: item.slackUrl, updatedAt: item.updatedAt }]
+        ? [
+            {
+              key: item.key,
+              title: item.title,
+              stage: item.stage,
+              identifier: typeof item.identifier === "string" ? item.identifier : null,
+              sourceChannel: item.sourceChannel,
+              sourceThread: item.sourceThread,
+              slackUrl: item.slackUrl,
+              updatedAt: item.updatedAt,
+            },
+          ]
         : [];
     });
   } catch (error) {
     if (!(error instanceof Error)) throw error;
   }
-  const html = `<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><meta name="description" content="OT1L 회원 피드백이 실제 기능으로 반영되는 과정을 확인합니다."><title>OT1L · 함께 만드는 중</title><link rel="stylesheet" href="/styles.css"></head><body class="work-page"><a class="skip-link" href="#work-main">본문으로 건너뛰기</a><header class="work-header"><a class="wordmark" href="/"><img src="/assets/otl1-avatar.jpg" width="40" height="40" alt=""><span>ONE THING 1 LINE</span></a><a href="/">모임 소개</a></header><main id="work-main"><div class="work-intro"><p class="eyebrow">함께 만드는 OT1L</p><h1>회원의 의견이<br>어디까지 왔는지 보여드려요.</h1><p>피드백과 대화는 Slack에서 이어집니다. 이 화면은 공개 가능한 작업의 현재 단계만 보여줍니다.</p></div><div class="work-board" aria-label="Maintainer 작업 현황">${maintainerBoard(items)}</div></main></body></html>`;
+  const html = `<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><meta name="description" content="OT1L 회원 피드백이 실제 기능으로 반영되는 과정을 확인합니다."><title>OT1L · Product Owner 현황</title><link rel="stylesheet" href="/styles.css"></head><body class="work-page"><a class="skip-link" href="#work-main">본문으로 건너뛰기</a><header class="work-header"><a class="wordmark" href="/"><img src="/assets/otl1-avatar.jpg" width="40" height="40" alt=""><span>ONE THING 1 LINE</span></a><a href="/">모임 소개</a></header><main id="work-main"><div class="work-intro"><p class="eyebrow">Product Owner와 함께 만드는 OT1L</p><h1>회원의 의견이<br>어디까지 왔는지 보여드려요.</h1><p>피드백과 대화는 Slack에서 이어집니다. 이 화면은 공개 가능한 작업의 현재 단계만 보여줍니다.</p></div><div class="work-board" aria-label="Product Owner 작업 현황">${maintainerBoard(items)}</div></main></body></html>`;
   return new Response(html, { headers: { "content-type": "text/html;charset=UTF-8" } });
 }
 async function referralPage(request: Request, env: SiteEnv, token: string): Promise<Response> {
@@ -753,6 +793,8 @@ const siteWorker = {
         { headers: { "content-type": "text/html;charset=UTF-8" } },
       );
     } else if (request.method === "GET" && url.pathname === "/maintainers")
+      response = Response.redirect(new URL("/po", request.url), 308);
+    else if (request.method === "GET" && url.pathname === "/po")
       response = await maintainerStatusPage(env);
     else if (
       url.pathname === "/interest.html" ||
