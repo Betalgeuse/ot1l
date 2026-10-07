@@ -95,7 +95,7 @@ export default {
     if (request.method === "POST" && api) return secured(await eventApi(request, env, api[1]));
     if (
       request.method === "GET" &&
-      ["/event-schedule.js", "/styles.css"].includes(url.pathname)
+      ["/event-schedule.js", "/event-schedule.css"].includes(url.pathname)
     )
       return secured(await env.ASSETS.fetch(request));
     return secured(new Response("Not found", { status: 404 }));

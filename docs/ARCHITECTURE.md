@@ -1,8 +1,20 @@
 # 시스템 구조
 
-현재 동작의 불변조건과 이벤트별 결과는 [실행 명세](SPEC.md)에 있습니다. 이 문서는 그 동작을 구현하는 DB·Worker·Durable Object 경계를 설명합니다.
+ONE THING 기록의 불변조건은 [실행 명세](SPEC.md), 이벤트 계약은 [Townhall 이벤트](EVENTS.md), 작업·승인 계약은 [Maintainer 작업 흐름](MAINTAINER_WORKFLOW.md)에 있습니다. 이 문서는 그 동작을 구현하는 DB·Worker·Durable Object 경계를 설명합니다.
 
 Slack이 입력을 전달하고 Cloudflare Worker가 검증·분류·저장을 맡습니다. Neon PostgreSQL이 기록의 원본이며, Durable Object가 예약과 잔디 갱신 순서를 조정합니다.
+
+## 실행 경계
+
+| 실행 단위 | 코드 | 책임 | 갖지 않는 권한 |
+| --- | --- | --- | --- |
+| Core Worker `otl1-onething-garden` | `src/`, `wrangler.jsonc` | Slack 서명, 회원·기록·이벤트 상태, DB mutation, 내부 service API | GitHub 병합·SSH |
+| Open events Worker `otl1-time` | `event-site/`, 현재 allowlist의 이벤트 정적 자산 | 공개 시간표와 이벤트 전용 Core 프록시 | Slack token, DB URL, SSH key |
+| Public site Worker | `site/` | 홈페이지, 가입 경계, 공개 Maintainer 현황 | Slack·DB 직접 접근 |
+| Tail Worker `otl1-log-alerts` | `src/log-alert-worker.ts`, `log-alerts/` | 정제된 실패·5xx·비정상 outcome 알림 | 요청 본문·비밀·원본 stack trace 게시 |
+| Deployment Broker | `automation/runner/`, `ops/genquant/` | 승인 SHA 재검증, 병합, 대상별 배포와 health 영수증 | 승인 범위 밖 배포 |
+
+문서는 이 경계를 설명하지만 실제 변경 분류는 `automation/runner/change-policy.mjs`가 결정합니다. 테스트 통과는 실행 가능성을, 배포 영수증은 운영 반영을, 실제 Slack·브라우저 readback은 사용자 경로를 각각 증명합니다.
 
 ```mermaid
 flowchart LR
@@ -48,6 +60,13 @@ flowchart LR
 | `bug_events`, `bug_transition_contract`, `bug_jobs` | 허용 상태 전이, idempotency 이력, 재현·수정·검토·배포 작업 outbox |
 | `bug_deliveries` | 질문·요약·접수 영수증·비공개 관리자 인계의 Slack delivery outbox와 lease·재시도·발송 영수증 |
 | `bug_artifacts`, `bug_links`, `agent_runs`, `git_changes` | digest로 참조하는 산출물, 중복·회귀 관계, 이후 작업의 관찰 이력 |
+| `townhall_events`, `townhall_event_options`, `townhall_event_availability` | 이벤트 원본, 시간 후보와 회원별 가능 시간 |
+| `townhall_event_participants`, `townhall_event_occurrences`, `townhall_event_followups`, `townhall_event_demands` | 참가·대기, 정기 회차, 행사 후 후기 요청, 수요와 주최자 |
+| `community_maintainers` | 회원의 opt-in Maintainer 역할. Slack workspace 역할이나 GitHub 권한이 아님 |
+| `maintainer_feedback_work`, `maintainer_slack_surfaces`, `maintainer_ops_receipts` | 작업 단계·사람 DRI 정본, 두 Slack 투영 위치와 외부 효과 영수증 |
+| `maintainer_linear_members` | 선택적 Linear 연결 상태. 작업·승인 정본이 아님 |
+| `community_chapters` | 회원이 만든 Chapter 채널과 Townhall·welcome 동기화 영수증 |
+| `member_onboarding_legacy_members`, `member_onboarding_deliveries` | 기존 회원 재발송 방지와 신규 회원별 독립 welcome 효과 outbox |
 | `referral_capacity_defaults`, `referral_capacity_members`, `referral_capacity_events` | 운영자만 바꾸는 전역·회원별 lifetime 초대 한도와 불변 변경 감사. 가입과 승인 예약만 계산함 |
 | `interest_requests`, `interest_consents`, `interest_attachment_consents` | 비소속자 비공개 문의의 상태, `interest-consent-v1`과 별도 `invite-consent-v1` |
 | `interest_private_payloads`, `interest_submission_receipts` | 문의 원문의 암호화 객체 참조와 멱등 접수 영수증 |
@@ -97,7 +116,7 @@ Share Info·Chapter 반응은 Events API와 15분 bounded history reconciliation
 
 welcome 가이드는 일반 DB 연결과 분리합니다. Worker의 `otl_guide_runtime` 역할은 최신 발행본 조회·가입 전달 claim/finish만, 발행 CLI의 `otl_guide_admin` 역할은 발행·명시적 대상 복구만 실행합니다. 발행본은 채널 Canvas와 핀 메시지에 반영하고, 신규 회원별 delivery는 전문 복사 대신 Canvas 링크만 보냅니다. 두 역할은 테이블 직접 권한이 없고, DB 소유자 연결은 migration과 역할 부트스트랩에만 사용합니다. 외부 Slack API와 DB 사이의 완전한 분산 원자성은 보장하지 않습니다. 실패·응답 불확실 상태에는 운영 대조가 필요합니다. 대규모 부하와 자동 백업·복구 SLO는 후속 과제입니다.
 
-## 버그 제보 경계 v0.0.54 구현 상태
+## 피드백·버그 제보 경계
 
 피드백은 하나의 짧은 모달에서 시작하고 feedback 채널의 제보자 멘션 글과 그 스레드에 정규화합니다. 최초 입력 위치는 링크로만 보존하고, 질문·관리자 승인은 canonical feedback thread에서 진행합니다. 동일한 제출 재시도는 결정적인 버그 키와 최근 Slack history를 대조해 기존 스레드를 재사용합니다. Qwen은 질문 필요 여부와 가장 값진 다음 질문 하나만 고릅니다. 사용자 문장을 사실로 추가하거나 확정하지 않습니다. `As-Is / To-Be`가 충분한 개선 요청은 즉시 `feedback_packet.v1`로 확정하고, 부족한 경우에만 맥락 질문과 답변 모달을 냅니다. 장애 제보의 `bug_packet.v1`과 개선 제안의 `feedback_packet.v1`을 분리해 개선 제안에 발생 시각·빈도·재현 단계를 강요하지 않습니다.
 
@@ -115,9 +134,9 @@ welcome 가이드는 일반 DB 연결과 분리합니다. Worker의 `otl_guide_r
 
 구체적인 설정·실행 명령은 [개발 가이드](DEVELOPMENT.md)에서만 관리합니다.
 
-## 계획된 membership·site 경계
+## feature-gated membership·site 경계
 
-다음 구조는 v0.0.56–v0.0.70의 미출시 경계입니다. core Worker는 Slack 서명, lifecycle·초대 한도·소개 신청·비소속자 문의 저장, R2 비공개 객체와 Slack 효과를 맡고, 공개 site Worker는 서비스 바인딩 `CORE`로만 core에 요청합니다. site Worker에는 Slack·Neon 자격증명을 두지 않습니다. 현재 core shadow와 migration 036·037은 staged implementation일 뿐 출시가 아닙니다.
+다음 구조는 코드·migration이 존재해도 feature flag와 운영 자격증명, 실제 가입 관찰이 없으면 사용할 수 없는 경계입니다. Core Worker는 Slack 서명, lifecycle·초대 한도·소개 신청·비소속자 문의 저장, R2 비공개 객체와 Slack 효과를 맡고, 공개 site Worker는 service binding `CORE`로만 Core에 요청합니다. Site Worker에는 Slack·Neon 자격증명을 두지 않습니다. 정적 문서는 이 경로의 운영 활성화를 선언하지 않습니다.
 
 ```mermaid
 flowchart LR

@@ -59,7 +59,7 @@ function townhallEventCardLaunchButtons(): readonly Json[] {
 
 export function townhallEventLauncher(): Json {
   const text =
-    "날짜가 정해졌다면 Slack에서 바로 열고 참가를 받아요. 아직 모른다면 시간 같이 정하기로 가능한 일정을 모아보세요.";
+    "날짜가 정해졌다면 Slack에서 바로 열고 참가를 받아요. 아직 정하지 않았다면 시간 미정 이벤트로 가능한 일정을 모아보세요.";
   return {
     text,
     blocks: [

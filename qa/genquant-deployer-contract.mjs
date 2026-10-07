@@ -24,7 +24,7 @@ assert.equal(classifyRunnerDeploymentPaths(["src/community-townhall-events.ts"])
 assert.equal(classifyRunnerDeploymentPaths(["package.json"]).adapter, "core-worker");
 assert.equal(
   classifyRunnerDeploymentPaths([
-    "docs/EVENTS_AND_MAINTAINERS.md",
+    "docs/MAINTAINER_WORKFLOW.md",
     "src/community-townhall-events.ts",
   ]).adapter,
   "core-worker",

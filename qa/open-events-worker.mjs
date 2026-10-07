@@ -27,6 +27,21 @@ assert.deepEqual(await health.json(), { status: "ok", service: "open-events", co
 const page = await worker.fetch(new Request(`https://events.example/events/schedule/${token}`), env);
 assert.equal(page.status, 200);
 assert.match(await page.text(), new RegExp(token.replaceAll(".", "[.]")));
+assert.equal(
+  await worker
+    .fetch(new Request("https://events.example/event-schedule.css"), {
+      ...env,
+      ASSETS: { async fetch() { return new Response("event css"); } },
+    })
+    .then((response) => response.text()),
+  "event css",
+);
+assert.equal(
+  await worker
+    .fetch(new Request("https://events.example/styles.css"), env)
+    .then((response) => response.status),
+  404,
+);
 const state = await worker.fetch(new Request("https://events.example/bridge/state", {
   method: "POST",
   headers: { "content-type": "application/json" },

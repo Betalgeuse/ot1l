@@ -115,7 +115,7 @@ npm run reconcile:garden -- --team T_REPLACE --channel C_REPLACE --through 2026-
 
 실행은 `otl.community_execute('reconcile_garden_projections', ...)`만 호출합니다. 같은 reconciliation key 재실행은 route와 delivery를 추가하지 않습니다. 빈 revision 0 행은 제외하고, 실제 목표·후기·상태가 있는 revision 0 baseline만 projection 대상으로 허용합니다.
 
-## 버그 제보 v0.0.54 구현 기준
+## 피드백·버그 제보 운영 기준
 
 과거 pre-release QA 배포는 exact source와 migration·Worker 영수증 및 Chrome Slack Web 시나리오를 남겼지만 `main`과 공통 조상이 없는 이력에서 수행됐습니다. 해당 결과는 운영 증거로 보존하되 정식 release로 소급하지 않습니다.
 
@@ -141,7 +141,7 @@ Cron 등록이 실제로 stale이라는 Cloudflare 설정·호출 증거가 있�
 
 Slack delivery 실패 로그의 `providerSubcode`는 `invalid_blocks`, `invalid_arguments`, `invalid_form_data`, `msg_too_long`, `http_429`, `provider_5xx`, `other` 중 하나만 남깁니다. 원문 응답, 메타데이터 메시지, 사용자 입력은 로그나 delivery ledger에 저장하지 않습니다.
 
-확정된 피드백은 원문에 `loading` 반응을 달고 원격 branch SHA에 묶인 GenQuant job을 자동 생성합니다. 재현 artifact와 수정 diff는 별도 경계로 검사합니다. `bug_packet.v1`은 실제 실패 재현을 요구합니다. `feedback_packet.v1`은 저장소 검사에서 `failureObserved=false`여도 이를 실패로 위장하지 않고 `inspected` 증거로 남긴 뒤 수정 단계로 이어갑니다. 운영 DB·Slack 관찰을 요구한 제보가 로컬 테스트 통과만으로 종료되면 안 됩니다. 금지 경로가 없고 전체 검사가 통과한 변경만 Draft PR까지 만듭니다. OT1L은 As-Is·To-Be·수정 파일 요약·변경 내용 링크와 **병합 승인** 버튼을 같은 스레드에 게시합니다. 승인 전 PR은 Draft로 남습니다. Slack workspace admin 또는 owner의 승인 영수증을 DB에 기록한 뒤에만 GenQuant가 PR을 ready로 바꾸고 squash merge합니다. 병합 알림은 운영 배포 대기 상태로 남고 `loading`을 유지합니다. 정확한 배포 SHA·Worker version·health·실제 시나리오 관찰 영수증이 모두 기록된 뒤에만 `resolved`로 전이하고 `white_check_mark`를 표시합니다. GitHub Actions는 사용하지 않습니다.
+확정된 피드백은 원문에 `loading` 반응을 달고 원격 branch SHA에 묶인 GenQuant job을 자동 생성합니다. 재현 artifact와 수정 diff는 별도 경계로 검사합니다. `bug_packet.v1`은 실제 실패 재현을 요구합니다. `feedback_packet.v1`은 저장소 검사에서 `failureObserved=false`여도 이를 실패로 위장하지 않고 `inspected` 증거로 남긴 뒤 수정 단계로 이어갑니다. 운영 DB·Slack 관찰을 요구한 제보가 로컬 테스트 통과만으로 종료되면 안 됩니다. 금지 경로가 없고 전체 검사가 통과한 변경만 Draft PR까지 만듭니다. OT1L은 As-Is·To-Be·수정 파일 요약·변경 내용 링크와 승인 버튼을 같은 `#maintainers` 작업 스레드에 게시합니다. Open은 활성 Maintainer 또는 Founder, Core는 Founder의 승인 영수증을 DB에 기록한 뒤에만 GenQuant가 PR을 ready로 바꾸고 squash merge합니다. 병합 알림은 운영 배포 대기 상태로 남고 `loading`을 유지합니다. 정확한 배포 SHA·Worker version·health·실제 시나리오 관찰 영수증이 모두 기록된 뒤에만 `resolved`로 전이하고 `white_check_mark`를 표시합니다. GitHub Actions는 사용하지 않습니다.
 
 피드백 채널로 정규화된 초안은 opaque intake key와 함께 실제 `source_channel_id`·`source_thread`로도 다시 찾습니다. 따라서 새 피드백 스레드의 일반 댓글과 **답변하기** 모달 모두 같은 질문에 한 번만 연결됩니다. 명확한 `As-Is / To-Be`는 곧바로 승인 대기로 보내며 내부 분류 후보나 누락 필드 목록을 채널에 노출하지 않습니다. Qwen은 구현 판단을 바꾸는 정보가 없을 때만 한 질문을 만들고, 개선 제안에는 발생 시각과 빈도를 묻지 않습니다. 모델이 실패하면 이미 명확한 두 문장은 그대로 진행하고, 기대 결과가 비었을 때만 안전한 기본 질문 하나를 사용합니다.
 
@@ -159,11 +159,11 @@ Slack에는 Worker 이름, 실행 종류, outcome, HTTP 상태, 예외 개수와
 
 DB에 저장됐는지, Slack에 게시됐는지, 회원이 확인했는지를 따로 봅니다. 발송 실패나 응답이 불확실한 상태에서는 실제 채널과 발송 기록을 대조한 뒤 복구합니다. 무조건 다시 보내지 않습니다.
 
-신규 입장·회원 정보는 Slack 이벤트와 실행 시점의 완전한 채널 회원 스냅샷을 사용합니다. 자연스러운 신규 입장 welcome의 배포 후 관찰, 모든 과거 카드의 자동 정리, 자동 백업 SLO, 관리자 재전송 UI는 아직 완성된 검증·기능이 아닙니다. 다음 작업은 [로드맵](ROADMAP.md)에서 관리합니다.
+신규 입장·회원 정보는 Slack 이벤트와 실행 시점의 완전한 채널 회원 스냅샷을 사용합니다. 자연스러운 신규 입장 welcome의 배포 후 관찰, 모든 과거 카드의 자동 정리, 자동 백업 SLO, 관리자 재전송 UI처럼 남은 작업은 Slack `#maintainers`와 홈페이지 `/maintainers`에서 관리합니다. 과거 [로드맵](ROADMAP.md)은 현재 작업판이 아닙니다.
 
-## 계획된 membership·site 운영 절차
+## feature-gated membership·site 운영 절차
 
-이 절은 v0.0.56–v0.0.70를 배포하기 전의 runbook입니다. 현재 운영 설정을 바꾸거나 기능이 출시되었다고 선언하지 않습니다.
+이 절은 관련 feature flag를 켜기 전의 runbook입니다. 정적 문서나 자격증명 설치만으로 현재 운영 설정이 바뀌거나 기능이 출시되었다고 선언하지 않습니다.
 
 1. exact clean SHA와 `schema_migrations` 028을 readback하고, `029_member_lifecycle.sql`부터 `042_instant_shared_invite_join.sql`까지를 정확한 순서로 release receipt에 적습니다. 034의 runtime role은 30일 소개 신청 만료·정리와 12개월 비식별 decision/security audit 보존만 처리하며, 036은 초대 한도, 037은 비소속자 문의, 038은 플래그와 독립된 보존 작업, 039는 봇 소유 welcome 발행, 040은 본명 입력과 비공개 후보를 각각 추가합니다. 041은 정리 전용 interest runtime 권한만 부여합니다. 042는 기존 신청을 `manual_review`로 보존하고 `shared_invite` 직접 예약, INSERT까지 잠그는 한도 guard, 정확한 이메일 가입 귀속 함수만 referral runtime에 추가합니다. 기존 회원 본명 후보는 실제 Slack ID와 대조한 뒤 비공개로 넣고, 회원의 저장 또는 정확한 관리자 확인 전에는 초대 페이지에 노출하지 않습니다. 승인·거절·수동 초대 표시는 지정 관리자 경로에 남깁니다. 이미 적용한 migration을 고치거나 002–004의 retired invitation 경로를 되살리지 않습니다.
 2. 유지보수를 켠 뒤 core Worker를 먼저 배포하고, `SITE_CORE_HMAC_SECRET`, `INVITE_EMAIL_PEPPER`, `INVITE_PRIVATE_KEK`, `INVITE_PRIVATE_KEK_VERSION`, 전용 `INVITE_PRIVATE_OBJECTS`를 값 없이 이름만 확인합니다. site Worker에는 core Service Binding과 Turnstile public site key를 두고, `TURNSTILE_SECRET`, `SITE_CORE_HMAC_SECRET`, `SLACK_SHARED_INVITE_URL`은 값이 아닌 secret binding 이름으로만 확인합니다. Slack·Neon·R2 비밀을 site asset이나 공개 vars에 넣지 않습니다.
@@ -173,7 +173,7 @@ DB에 저장됐는지, Slack에 게시됐는지, 회원이 확인했는지를 �
 
 기존 `manual_review` 신청의 `approved`는 Slack 접근 권한이 아니며 지정 운영자의 수동 초대 표식을 유지합니다. `shared_invite` 직접 예약은 동의·Turnstile·회원별 한도를 통과한 방문자만 Site Worker의 공식 공유 초대로 이동시킵니다. 공유 URL은 Site Worker의 `SLACK_SHARED_INVITE_URL` secret으로 설치하고 저장소·정적 자산·로그에 남기지 않습니다. `https://join.slack.com/t/<workspace>/shared_invite/<token>` 형식만 허용하며 쿼리·fragment·자격증명·다른 host는 모두 503으로 닫습니다. 실제 `team_join`에서 Slack 계정 이메일 digest가 예약과 정확히 일치할 때만 출처를 기록하고 자기소개 DM을 보냅니다. 불일치 가입은 추정하거나 한도에 차감하지 않습니다.
 
-### 계획된 초대 한도와 비공개 참여 문의
+### feature-gated 초대 한도와 비공개 참여 문의
 
 036 적용 뒤 `scripts/bootstrap-referral-admin-db-role.mjs`는 DB 소유자 연결에서 `otl_referral_admin_login`의 새 비밀번호를 만들어 지정한 secret sink로만 전달합니다. sink가 Core Worker의 `REFERRAL_ADMIN_DATABASE_URL`에 전용 연결을 설치합니다. 일반 `DATABASE_URL`이나 회원 링크에는 이 권한을 주지 않습니다. 지정 운영자는 비공개 admin 채널에서만 자연어 `초대 한도 보기`, `초대 한도 <@U...> 보기`, `초대 한도 <@U...> 3`, `초대 기본 한도 2`로 전체 기본값과 회원별 lifetime 한도를 읽거나 바꿉니다. 기본값은 2명이며, 가입과 승인 예약만 세고 joined 출처는 계속 셉니다. 회원은 한도를 바꾸거나 신청을 승인할 수 없습니다.
 
@@ -187,7 +187,7 @@ DB에 저장됐는지, Slack에 게시됐는지, 회원이 확인했는지를 �
 
 장애가 나면 먼저 `REFERRALS_ENABLED`와 `PUBLIC_APPLICATIONS_ENABLED`를 닫고 Slack에서 공식 공유 초대를 회수·교체합니다. 이미 노출된 URL은 flag만으로 회수되지 않습니다. migration 042는 내려가지 않고 기존 직접 예약의 정확한 귀속과 30일 만료를 계속 처리합니다. 같은 버전의 core/site 이전 배포로 되돌릴 수 있는지와 schema의 forward repair 필요성을 분리하며 migration은 운영 DB에서 자동 down하지 않습니다. 잘못 분류된 lifecycle은 근거가 있는 관리자 correction만 같은 시즌을 복원할 수 있고, 과거 기록을 지우지 않습니다. canonical 잔디 교체는 새 review-thread 게시를 Slack Web에서 확인한 뒤에만 옛 봇 이미지를 그 메시지의 저장된 payload로 복구하거나 forward repair 합니다. 어떤 복구도 Slack 강퇴·계정 비활성화·공개 초대 링크 발급을 포함하지 않습니다.
 
-### 계획된 lifecycle 관리자 자격증명
+### feature-gated lifecycle 관리자 자격증명
 
 035은 Neon 호환 PostgreSQL에서 `otl_lifecycle_admin_login` 로그인 역할을 만들며, superuser·DB 생성·역할 생성 권한이 없고 `otl_lifecycle_admin`만 상속합니다. 이 로그인에는 직접 테이블 권한이나 일반 lifecycle runtime·소개·guide 함수 권한이 없습니다. 허용된 경로는 workspace/channel/member 범위의 후보 읽기와 `restore_error` 정정뿐입니다.
 
@@ -195,4 +195,4 @@ DB에 저장됐는지, Slack에 게시됐는지, 회원이 확인했는지를 �
 
 전용 연결은 Slack 서명이 검증되고, 설정된 workspace·공개 채널과 다른 비공개 admin 채널·지정 관리자 ID가 모두 일치한 `생애주기` 명령에서만 사용합니다. 운영자는 후보를 읽거나 dormant 상태와 revision 및 근거 키가 일치할 때만 `restore_error`를 기록할 수 있습니다. 범용 runtime 관리자 권한, 다른 회원·채널·workspace 조회, 임의 상태 전환 권한은 만들지 않습니다.
 
-롤백은 먼저 lifecycle feature flag와 전용 `LIFECYCLE_ADMIN_DATABASE_URL`, 소개 플래그와 `REFERRAL_ADMIN_DATABASE_URL`, 관심 문의 플래그와 interest admin/member 역할 비밀을 닫아 새 관리 호출을 멈춥니다. 정리 전용 interest runtime 자격증명과 R2/KEK/HMAC 바인딩은 기존 암호문·감사 기록의 정리가 끝날 때까지 유지합니다. migration 029–041은 운영 DB에서 down하지 않으며, 필요한 복구는 audit를 보존한 forward repair로만 합니다. 다시 열기 전에는 새 자격증명을 설치하고 비공개 Slack 관리자 gate와 후보·정정 경로를 재검증합니다. 이 절은 v0.0.56–v0.0.70의 미출시 runbook이며, 자격증명 설치만으로 출시를 선언하지 않습니다.
+롤백은 먼저 lifecycle feature flag와 전용 `LIFECYCLE_ADMIN_DATABASE_URL`, 소개 플래그와 `REFERRAL_ADMIN_DATABASE_URL`, 관심 문의 플래그와 interest admin/member 역할 비밀을 닫아 새 관리 호출을 멈춥니다. 정리 전용 interest runtime 자격증명과 R2/KEK/HMAC 바인딩은 기존 암호문·감사 기록의 정리가 끝날 때까지 유지합니다. migration 029–041은 운영 DB에서 down하지 않으며, 필요한 복구는 audit를 보존한 forward repair로만 합니다. 다시 열기 전에는 새 자격증명을 설치하고 비공개 Slack 관리자 gate와 후보·정정 경로를 재검증합니다. 이 절은 feature-gated 경로의 runbook이며, 자격증명 설치만으로 출시를 선언하지 않습니다.

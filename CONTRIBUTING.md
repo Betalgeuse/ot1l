@@ -2,6 +2,8 @@
 
 OT1L 저장소는 공개되어 있습니다. 별도 GitHub 초대를 기다리지 않고 자신의 계정으로 fork한 뒤 로컬이나 원하는 AI 개발 도구에서 작업하고 Pull Request를 열 수 있습니다.
 
+변경 전에 [문서 안내](docs/README.md)에서 현재 계약과 역사 기록을 구분하고, [저장소 구조](README.md#저장소-구조)에서 담당 경계를 확인합니다. 이벤트는 [Townhall 이벤트](docs/EVENTS.md), 작업·승인은 [Maintainer 작업 흐름](docs/MAINTAINER_WORKFLOW.md)을 기준으로 합니다.
+
 ## 5분 시작
 
 ```sh
@@ -29,7 +31,7 @@ GitHub collaborator 초대는 Maintainer 활성화의 일부가 아닙니다. Gi
 
 ## 어느 Worker를 고쳐야 하나요?
 
-- `event-site/**`, `site/dist/event-schedule.*`, `site/qa/event-schedule.mjs`: 공개 이벤트 시간표 Worker `otl1-time`. 비밀이 없는 Open 변경입니다.
+- `event-site/**`, `site/dist/event-schedule.{html,js,css}`, `site/qa/event-schedule.mjs`: 공개 이벤트 시간표 Worker `otl1-time`. 비밀이 없는 Open 변경입니다. 홈페이지 공용 `site/dist/styles.css`는 Core입니다.
 - `src/**`, `migrations/**`, 루트 `wrangler.jsonc`: Slack, 회원 상태, DB, Core Worker `otl1-onething-garden`. Founder 승인이 필요한 Core 변경입니다.
 - `site/**`의 이벤트 시간표 외 경로: 가입·공개 사이트 영역입니다. Core로 분류하며 Founder 승인 뒤 Broker가 배포합니다.
 - `automation/runner/**`, `ops/genquant/**`: 배포·수정 브로커 자체입니다. Core로 취급합니다.

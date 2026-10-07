@@ -7,6 +7,7 @@ assert.deepEqual(
     "event-site/wrangler.jsonc",
     "site/dist/event-schedule.html",
     "site/dist/event-schedule.js",
+    "site/dist/event-schedule.css",
   ]),
   {
     changeClass: "open",
@@ -14,6 +15,7 @@ assert.deepEqual(
     paths: [
       "event-site/src/index.ts",
       "event-site/wrangler.jsonc",
+      "site/dist/event-schedule.css",
       "site/dist/event-schedule.html",
       "site/dist/event-schedule.js",
     ],
@@ -25,7 +27,7 @@ assert.deepEqual(classifyChangePaths(["src/community-runtime.ts"]), {
   paths: ["src/community-runtime.ts"],
 });
 assert.equal(
-  classifyChangePaths(["docs/EVENTS_AND_MAINTAINERS.md", "src/community-runtime.ts"]).adapter,
+  classifyChangePaths(["docs/MAINTAINER_WORKFLOW.md", "src/community-runtime.ts"]).adapter,
   "core-worker",
 );
 assert.equal(
@@ -34,6 +36,7 @@ assert.equal(
   "core",
 );
 assert.equal(classifyChangePaths(["site/src/index.ts"]).adapter, "site");
+assert.equal(classifyChangePaths(["site/dist/styles.css"]).adapter, "site");
 assert.equal(
   classifyChangePaths([
     "migrations/084_slack_native_maintainer_work.sql",

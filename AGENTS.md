@@ -4,7 +4,7 @@ Read `CONTRIBUTING.md` before changing code. This is a public repository, but pr
 
 ## Route changes by product boundary
 
-- Open event scheduling UI: `event-site/**`, `site/dist/event-schedule.html`, `site/dist/event-schedule.js`, `site/dist/styles.css`, `site/qa/event-schedule.mjs`. Target Worker: `otl1-time`.
+- Open event scheduling UI: `event-site/**`, `site/dist/event-schedule.html`, `site/dist/event-schedule.js`, `site/dist/event-schedule.css`, `site/qa/event-schedule.mjs`. Target Worker: `otl1-time`. Shared `site/dist/styles.css` is Core.
 - Slack interactions, member state, event lifecycle, database, secrets, or security: `src/**`, `migrations/**`, root config and scripts. Target Worker: `otl1-onething-garden`. Treat as Core.
 - Membership/public site code outside the event-schedule allowlist: Core/manual review.
 - The executable source of truth is `automation/runner/change-policy.mjs`. Mixed paths fail closed to Core.

@@ -1,32 +1,39 @@
 # OT1L · ONE THING 1 LINE
 
-오늘 가장 중요한 업무 하나를 한 문장으로 정하고, 실행하고, 돌아보는 프라이빗 커뮤니티입니다.
+오늘 가장 중요한 일 하나를 한 문장으로 정하고, 실행하고, 돌아보는 Slack 기반 커뮤니티입니다. 봇의 목적은 기록량을 늘리는 것이 아니라 회원이 실제로 중요한 일을 해내고 서로 돕기 쉽게 만드는 것입니다.
 
-## 우리가 추구하는 것
+## 시작하기
 
-OT1L의 중심은 봇이나 기록량이 아니라 **사람이 자신의 가장 중요한 일을 실제로 해내는 것**입니다.
+- 회원: [사용 가이드](docs/USER_GUIDE.md)
+- 이벤트 주최자·참가자: [Townhall 이벤트](docs/EVENTS.md)
+- Maintainer: [Maintainer 작업 흐름](docs/MAINTAINER_WORKFLOW.md)
+- 공개 Contributor: [기여 시작하기](CONTRIBUTING.md)
+- 운영자: [운영 가이드](docs/OPERATIONS.md)
+- 개발자: [개발 가이드](docs/DEVELOPMENT.md)
 
-- **SET:** 오늘 가장 중요한 업무 하나를 한 문장으로 정합니다.
-- **DO:** 다른 할 일보다 오늘의 ONE THING을 먼저 실행합니다.
-- **REVIEW:** 완료 상태와 후기를 남기고, 다음 행동으로 이어갑니다.
+전체 문서의 권위와 상태 구분은 [문서 안내](docs/README.md)를 먼저 확인하세요. 정적 문서는 작업 진행률을 나타내지 않습니다. 현재 작업 단계는 Slack `#maintainers`와 홈페이지 `/maintainers`의 OT1L DB 투영에서 확인합니다.
 
-한 사람이 모든 일을 잘하게 만들기보다 오늘의 한 가지에 집중하게 합니다. 봇은 형식과 명령어를 기억할 부담을 줄이고 먼저 챙기지만, 응원과 신뢰는 실제 사람 사이에 쌓여야 합니다. 공개 순위와 과도한 경쟁보다 서로의 실행을 알아보고, 필요한 순간에 경험을 나누며, 혼자보다 멀리 갈 수 있는 관계를 지향합니다.
+## 저장소 구조
 
-현재 Slack House는 지인 초대 기반으로 운영합니다. 회원이 늘며 서로 자연스럽게 친해질 수 있는 단계에는 작은 사교 모임과 일부 공개 이벤트를 검토하되, 공개 이벤트 참가가 곧 Slack 회원 자격이 되지는 않습니다. 관련 조사와 계획은 [프라이빗 하우스 운영 설계](docs/research/PRIVATE_HOUSE.md)에 기록합니다.
+| 경로 | 책임 | 변경 권한 |
+| --- | --- | --- |
+| `src/` | Slack 상호작용, 회원 상태, 이벤트 lifecycle, DB 접근을 포함한 Core Worker | Core |
+| `migrations/` | 순방향 PostgreSQL schema와 권한 계약 | Core |
+| `event-site/`와 이벤트 시간표 allowlist | 비밀 없는 공개 이벤트 시간표 Worker | Open |
+| `site/`의 allowlist 밖 경로 | 가입·공개 홈페이지·Maintainer 현황 페이지 | Core |
+| `automation/runner/` | 변경 분류, Codex 작업, 승인된 병합·배포 Broker | Core |
+| `ops/genquant/` | Broker의 systemd 운영 파일과 비밀 없는 예시 설정 | Core |
+| `qa/` | 외부 변경을 만들지 않는 합성 회귀와 명시적 별도 통합 검사 | 변경 경로에 따름 |
+| `scripts/` | 빌드·검사·제한된 운영 도구 | Core |
+| `docs/` | 현재 계약·운영 절차·역사·조사 자료 | Core 검토 |
 
-## 현재 제품
+`node_modules/`, `.output/`, `.wrangler/`, `.dev.vars`, `error.log`, `bugs/`는 로컬 생성물 또는 비공개 작업 영역이며 소스가 아닙니다. 운영 비밀, 회원 원문, 로그 원문을 저장소에 넣지 않습니다.
 
-Slack 봇은 매일의 ONE THING 등록, 완료 상태와 후기, 누적 잔디, 자연어 수정과 운영 안내를 지원합니다.
-
-현재 Slack 동작은 [실행 명세](docs/SPEC.md)를 기준으로 합니다. 버전 출시 상태와 향후 계획은 [로드맵](docs/ROADMAP.md)·[업데이트 이력](docs/UPDATE_HISTORY.md)에서 확인합니다.
-
-**[문서 시작하기 →](docs/README.md)**
-
-[기여 시작하기](CONTRIBUTING.md) · [사용법](docs/USER_GUIDE.md) · [운영](docs/OPERATIONS.md) · [개발](docs/DEVELOPMENT.md) · [로드맵](docs/ROADMAP.md)
+실제 경로 분류의 실행 원본은 `automation/runner/change-policy.mjs`입니다. 설명과 코드가 다르면 배포를 멈추고 코드·문서·회귀 검사를 같은 변경에서 맞춥니다.
 
 ```sh
 bun install --frozen-lockfile
 bun run check
 ```
 
-공개 코드: https://github.com/Betalgeuse/ot1l
+공개 저장소: https://github.com/Betalgeuse/ot1l

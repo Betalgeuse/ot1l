@@ -10,7 +10,7 @@ const RUNNER_PATHS = (path) =>
 const OPEN_EVENT_PATHS = new Set([
   "site/dist/event-schedule.html",
   "site/dist/event-schedule.js",
-  "site/dist/styles.css",
+  "site/dist/event-schedule.css",
   "site/qa/event-schedule.mjs",
 ]);
 

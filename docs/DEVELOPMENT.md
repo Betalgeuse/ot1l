@@ -1,6 +1,6 @@
 # 개발 가이드
 
-Townhall 이벤트 사용법, Maintainer의 Open/Core 승인 경계와 배포 점검은 [Townhall 이벤트와 Maintainer 운영](EVENTS_AND_MAINTAINERS.md)을 기준으로 합니다.
+Townhall 이벤트 사용법은 [Townhall 이벤트](EVENTS.md), Maintainer의 Open/Core 승인 경계와 배포 점검은 [Maintainer 작업 흐름](MAINTAINER_WORKFLOW.md)을 기준으로 합니다.
 
 처음 기여하는 사람이나 AI 개발 도구는 루트의 [기여 시작하기](../CONTRIBUTING.md)와 [`AGENTS.md`](../AGENTS.md)부터 읽습니다. 공개 저장소이므로 GitHub 초대 없이 fork와 PR로 작업하며, upstream push와 운영 배포 권한은 별도로 두지 않습니다.
 
@@ -42,32 +42,19 @@ exact SHA `4f05ae75f93ad5f7bca6ebfcb7c3613fbe8dae20`은 과거 예외에서 Chro
 
 ## DB 설치와 이관
 
-신규 설치는 **공개 저장소의 빈 DB용 migration**을 사용합니다. 운영 저장소의 비공개 이관 파일에는 당시 원본 대조와 운영 매핑이 포함될 수 있으므로 다른 커뮤니티에 그대로 적용하지 않습니다.
+신규 설치는 **공개 저장소의 빈 폐기 가능 DB**에 `migrations/`의 `NNN_*.sql`을 파일명 순서대로 모두 적용합니다. 번호의 빈칸은 역사적으로 사용하지 않은 번호이므로 임의 파일로 채우지 않습니다. 적용된 migration은 수정하지 않고 새 번호를 추가합니다. 정적 문서에 “최신 migration 목록”을 다시 복사하지 않습니다. 디렉터리와 각 파일의 `otl.schema_migrations` 기록이 실행 원본입니다.
+
+로컬의 빈 DB에서만 다음처럼 전체 순서를 검증할 수 있습니다. 운영 DB에는 이 반복문을 사용하지 않습니다.
 
 ```sh
-psql -X -v ON_ERROR_STOP=1 -f migrations/001_initial.sql -f migrations/005_community.sql
-psql -X --single-transaction -v ON_ERROR_STOP=1 -f migrations/006_normalized_foundation.sql -f migrations/007_normalized_legacy.sql
-psql -X -v ON_ERROR_STOP=1 -f migrations/008_default_reminders.sql
-psql -X -v ON_ERROR_STOP=1 -f migrations/009_welcome_guides.sql -f migrations/010_first_registration.sql
-psql -X -v ON_ERROR_STOP=1 -f migrations/011_member_introductions.sql -f migrations/012_introduction_public_details.sql -f migrations/013_multiline_introductions.sql
-psql -X --single-transaction -v ON_ERROR_STOP=1 -f migrations/014_bug_ledger.sql
-psql -X --single-transaction -v ON_ERROR_STOP=1 -f migrations/015_bug_deliveries.sql
-psql -X --single-transaction -v ON_ERROR_STOP=1 -f migrations/016_bug_delivery_scheduler.sql
-psql -X --single-transaction -v ON_ERROR_STOP=1 -f migrations/017_bug_expiry_job_guard.sql
-psql -X --single-transaction -v ON_ERROR_STOP=1 -f migrations/018_bug_integrity.sql
-psql -X --single-transaction -v ON_ERROR_STOP=1 -f migrations/019_bug_team_scope.sql
-psql -X --single-transaction -v ON_ERROR_STOP=1 -f migrations/020_bug_private_atomic.sql
-psql -X --single-transaction -v ON_ERROR_STOP=1 -f migrations/021_bug_private_backfill.sql
-psql -X --single-transaction -v ON_ERROR_STOP=1 -f migrations/022_bug_private_read.sql
-psql -X --single-transaction -v ON_ERROR_STOP=1 -f migrations/023_current_channel_membership.sql
-psql -X --single-transaction -v ON_ERROR_STOP=1 -f migrations/024_durable_garden_publication.sql -f migrations/025_garden_projection_consistency.sql -f migrations/026_welcome_guide_images.sql
-psql -X --single-transaction -v ON_ERROR_STOP=1 -f migrations/027_membership_reminder_audit.sql
-psql -X --single-transaction -v ON_ERROR_STOP=1 -f migrations/028_welcome_guide_roles.sql
+for migration in migrations/[0-9][0-9][0-9]_*.sql; do
+  psql "$OTL1_LOCAL_DATABASE_URL" -X -v ON_ERROR_STOP=1 -f "$migration"
+done
 ```
 
-번호 순서는 001부터 028까지 유지합니다. 이 설치 프로필은 초대 정책을 쓰지 않으므로 002~004를 건너뛰며, 006·007은 반드시 한 트랜잭션으로 적용합니다. 014 ledger부터 023 현재 채널 회원 스냅샷까지의 순서를 바꾸지 않고, 024 잔디 delivery → 025 projection → 026 welcome 발행본 → 027 회원·안내 delivery 감사 경계 → 028 welcome DB 역할 분리 순서로 적용합니다. 특히 016을 적용하기 전에는 delivery retry를 활성화하지 않습니다. 워크스페이스의 `primary_goal_channel_id`는 실제 공개 목표 채널로 명시적으로 연결하며 QA 채널을 추측해 넣지 않습니다.
+운영 migration은 Founder가 승인한 exact SHA와 변경 경로에 포함된 파일만 Deployment Broker가 적용합니다. `automation/runner/migration-deployer.mjs`가 파일 형식, 단일 version 기록, 선행 migration 적용 여부와 readback을 검사합니다. DB 소유자 연결은 migration과 역할 부트스트랩에만 사용합니다.
 
-GenQuant 자동 개선 실행기를 활성화하려면 048 뒤에 `049_bug_runner_handoff.sql`부터 `064_verified_operator_recovery.sql`까지 번호 순서대로 적용합니다. 063은 수정 결과 검증이 실패하면 새 Codex 작업으로 최대 세 번 재시도하고, 마지막 실패는 `fix_failed`와 Slack 알림으로 끝내 접수 스레드가 `fixing`에 멈추지 않게 합니다. 064는 자동 경로가 이미 소진된 뒤 운영자가 같은 변경을 main 병합·배포·검증한 경우에만 감사 근거와 Slack 완료 알림을 묶어 `resolved`로 복구합니다. DB 소유자 연결은 migration과 `bootstrap-bug-runner-db-role.mjs`에서만 사용합니다. 부트스트랩은 무작위 비밀번호의 `otl_bug_runner_login`을 만들고, 완성된 URL을 `BUG_RUNNER_SECRET_SINK`의 표준입력으로만 전달합니다. URL을 명령 인자·로그·Git에 쓰지 않습니다. 실행기 로그인은 runner 함수만 호출할 수 있고 bug·member·agent table을 직접 읽을 수 없습니다.
+GenQuant 실행기 역할은 `scripts/bootstrap-bug-runner-db-role.mjs`로 만들고 완성된 URL을 `BUG_RUNNER_SECRET_SINK`의 표준입력으로만 전달합니다. URL을 명령 인자·로그·Git에 쓰지 않습니다. 실행기 로그인은 runner 함수만 호출할 수 있고 bug·member·agent table을 직접 읽을 수 없습니다.
 
 Founder가 승인한 migration을 Broker가 적용할 때는 `scripts/bootstrap-migration-db-role.mjs`로 `otl_migration_login`과 NOLOGIN `otl_migration_owner`를 만듭니다. 로그인은 `NOINHERIT`이고 평소에는 otl schema를 직접 읽거나 쓸 수 없습니다. Broker는 승인 digest에 묶인 migration 파일, 선행 버전과 파일 계약을 확인한 뒤 같은 DB 세션에서만 `SET ROLE otl_migration_owner`를 실행합니다. 생성된 URL은 `MIGRATION_SECRET_SINK`의 표준입력으로 GenQuant mode-0600 환경 파일에 설치하며 로그·Git·명령 인자에 넣지 않습니다.
 

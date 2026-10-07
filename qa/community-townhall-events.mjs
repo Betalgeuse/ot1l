@@ -189,6 +189,8 @@ const submission = (id, callbackId, privateMetadata, values, userId = "UMEMBER")
 try {
   const launcher = townhallEventLauncher();
   assert.match(launcher.text, /날짜가 정해졌다면/);
+  assert.match(launcher.text, /시간 미정 이벤트/);
+  assert.doesNotMatch(launcher.text, /시간 같이 정하기/);
   assert.deepEqual(launcher.blocks[1].elements.map((item) => item.action_id), [
     "community_event_open_fixed",
     "community_event_open_poll",

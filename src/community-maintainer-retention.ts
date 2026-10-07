@@ -4,7 +4,7 @@ import type { CommunityContext, CommunityEnv } from "./community-runtime";
 import { callSlack } from "./community-social";
 import { InputError, type Json, object, string } from "./input";
 
-export const MAINTAINER_RETENTION_VERSION = "v0.2.0";
+export const MAINTAINER_RETENTION_VERSION = "v0.2.1";
 
 function requestButton(label: string, mode: "question" | "qna" | "ot"): Json {
   return {
@@ -17,7 +17,7 @@ function requestButton(label: string, mode: "question" | "qna" | "ot"): Json {
 
 export function maintainerRetentionGuide(maintainersChannelId?: string) {
   const workChannel = maintainersChannelId ? `<#${maintainersChannelId}>` : "#maintainers";
-  const text = `*OT1L Maintainer 시작 안내* · ${MAINTAINER_RETENTION_VERSION}\n\nMaintainer는 코드를 잘 알아야 얻는 역할이 아닙니다. 실제 회원의 문제를 더 쉽게 만들고, 질문에 답하고, 모임을 열고, AI와 함께 작은 변화를 끝내며 배울 수 있어요.\n\n• 궁금한 점은 *질문 남기기*로 바로 물어보세요.\n• 같이 배우거나 살펴보고 싶다면 *Q&A 허들 요청*을 남겨주세요.\n• 첫 기여를 혼자 시작하기 어렵다면 *첫 기여 OT 요청*으로 동료를 찾으세요.\n• 바꾸고 싶은 것이 생기면 *작업 제안하기*로 ${workChannel}의 DRI·진행 카드에 연결합니다.\n\nAI는 실행을 도울 수 있지만 결과를 확인하고 서로 설명하는 사람 DRI는 남습니다. 허들은 도움을 맡은 Maintainer가 정해진 뒤 이 채널에서 시작합니다.\n\n<https://github.com/Betalgeuse/ot1l/blob/main/CONTRIBUTING.md|직접 만들어 보고 싶을 때> · <https://github.com/Betalgeuse/ot1l/blob/main/docs/MAINTAINER_LINEAR.md|작업이 반영되는 흐름>`;
+  const text = `*OT1L Maintainer 시작 안내* · ${MAINTAINER_RETENTION_VERSION}\n\nMaintainer는 코드를 잘 알아야 얻는 역할이 아닙니다. 실제 회원의 문제를 더 쉽게 만들고, 질문에 답하고, 모임을 열고, AI와 함께 작은 변화를 끝내며 배울 수 있어요.\n\n• 궁금한 점은 *질문 남기기*로 바로 물어보세요.\n• 같이 배우거나 살펴보고 싶다면 *Q&A 허들 요청*을 남겨주세요.\n• 첫 기여를 혼자 시작하기 어렵다면 *첫 기여 OT 요청*으로 동료를 찾으세요.\n• 바꾸고 싶은 것이 생기면 *작업 제안하기*로 ${workChannel}의 DRI·진행 카드에 연결합니다.\n\nAI는 실행을 도울 수 있지만 결과를 확인하고 서로 설명하는 사람 DRI는 남습니다. 허들은 도움을 맡은 Maintainer가 정해진 뒤 이 채널에서 시작합니다.\n\n<https://github.com/Betalgeuse/ot1l/blob/main/CONTRIBUTING.md|직접 만들어 보고 싶을 때> · <https://github.com/Betalgeuse/ot1l/blob/main/docs/MAINTAINER_WORKFLOW.md|작업이 반영되는 흐름>`;
   return {
     text,
     blocks: [

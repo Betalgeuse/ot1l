@@ -3,8 +3,14 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 const root = resolve(import.meta.dirname, "..");
-const roadmap = readFileSync(resolve(root, "docs/ROADMAP.md"), "utf8");
-const history = readFileSync(resolve(root, "docs/UPDATE_HISTORY.md"), "utf8");
+const roadmap = readFileSync(
+  resolve(root, "docs/archive/ROADMAP-legacy-2026-10-06.md"),
+  "utf8",
+);
+const history = readFileSync(
+  resolve(root, "docs/archive/UPDATE_HISTORY-legacy-2026-10-06.md"),
+  "utf8",
+);
 const required = [
   ["v0.0.56", "의미 있는 진전"],
   ["v0.0.57", "봇 소유 welcome"],
@@ -56,7 +62,7 @@ function assertRoadmap(document) {
 }
 
 function assertHistory(document) {
-  assert.match(document, /현재 운영 기능 기준은 \*\*v0\.0\.56\*\*/);
+  assert.match(document, /\*\*v0\.0\.56\*\* 기준.*보관 시점의 역사/);
   assert.match(document, /## 2026-09-20 미출시 초대 한도·관심 문의 삽입 재정렬/);
   for (const [version] of required) assert.match(document, new RegExp(`\\| ${version} \\|`));
   assert.match(document, /미출시 welcome·친구 초대·본명·초대 페이지 원자적 재정렬/);
@@ -79,5 +85,5 @@ assert.throws(() =>
 );
 
 console.log(
-  "PASS version map keeps one planned outcome per v0.0.56-v0.0.71 and preserves release lineage",
+  "PASS archived version map preserves its historical v0.0.56-v0.0.71 lineage",
 );
