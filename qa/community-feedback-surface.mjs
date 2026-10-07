@@ -12,6 +12,7 @@ import {
   startCodexFeedback,
 } from "../src/community-feedback.ts";
 import { memberActionBlocks } from "../src/community-member-actions.ts";
+import { canonicalFeedbackContext } from "../src/community-feedback-route.ts";
 import { withFeedbackAction } from "../src/community-social.ts";
 
 const augmented = withFeedbackAction("chat.postMessage", {
@@ -157,6 +158,80 @@ globalThis.fetch = async (url, options = {}) => {
   throw new Error(`unexpected ${method}`);
 };
 try {
+  const report = {
+    messages: [
+      { id: "form:actual", text: "현재 공개 복사본이 생겨요." },
+      { id: "form:expected", text: "PO 작업 스레드에만 남겨 주세요." },
+    ],
+    candidates: [],
+  };
+  for (const [channelId, source, thread] of [
+    ["CMAINTAIN", "100.000001", "100.000001"],
+    ["CPOWORK", "101.000002", "101.000001"],
+  ]) {
+    const poContext = {
+      env: {
+        SLACK_BOT_TOKEN: "fake",
+        COMMUNITY_FEEDBACK_CHANNEL_ID: "CFEEDBACK",
+        COMMUNITY_MAINTAINERS_CHANNEL_ID: "CMAINTAIN",
+        COMMUNITY_MAINTAINER_WORKSTREAM_CHANNEL_IDS: " CPOWORK, COTHER ",
+      },
+      scope: { teamId: "TQA", channelId, userId: "UPO" },
+      source,
+      thread,
+    };
+    const publicCallsBefore = calls.filter(
+      (call) =>
+        ["chat.postMessage", "chat.update"].includes(call.method) &&
+        call.body.channel === "CFEEDBACK",
+    ).length;
+    assert.equal(await canonicalFeedbackContext(poContext, report, "BUG-PO-ROUTE"), poContext);
+    assert.equal(
+      await canonicalFeedbackContext(poContext, report, "BUG-PO-ROUTE"),
+      poContext,
+      "a retry of the same PO bug must retain the exact canonical context",
+    );
+    assert.equal(
+      calls.filter(
+        (call) =>
+          ["chat.postMessage", "chat.update"].includes(call.method) &&
+          call.body.channel === "CFEEDBACK",
+      ).length,
+      publicCallsBefore,
+      "PO-origin feedback must never create or update a public projection",
+    );
+  }
+  const feedbackContext = {
+    env: { SLACK_BOT_TOKEN: "fake", COMMUNITY_FEEDBACK_CHANNEL_ID: "CFEEDBACK" },
+    scope: { teamId: "TQA", channelId: "CORIGIN", userId: "UMEMBER" },
+    source: "200.000001",
+    thread: "200.000001",
+  };
+  for (const prior of [
+    { ts: "201.000001", text: "기존 공개 원문\n버그 키: BUG-PUBLIC-ROUTE" },
+    {
+      ts: "202.000001",
+      thread_ts: "202.000001",
+      text: "기존 공개 원문\n버그 키: BUG-PUBLIC-ROUTE",
+    },
+  ]) {
+    historyMessages = [prior];
+    const canonical = await canonicalFeedbackContext(feedbackContext, report, "BUG-PUBLIC-ROUTE");
+    assert.equal(canonical.scope.channelId, "CFEEDBACK");
+    assert.equal(canonical.thread, prior.ts);
+    assert.equal(
+      calls.filter(
+        (call) =>
+          call.method === "chat.postMessage" &&
+          call.body.channel === "CFEEDBACK" &&
+          call.body.text.includes("BUG-PUBLIC-ROUTE"),
+      ).length,
+      0,
+      "root representations with an absent or self thread_ts must not create duplicates",
+    );
+  }
+  historyMessages = [];
+
   const promptRecords = new Map();
   const promptStore = {
     async putRecord(input) {
@@ -367,7 +442,9 @@ try {
     calls.filter((call) => call.method === "chat.postMessage").length,
     approvalPostsBefore,
   );
-  const approvalUpdate = calls.find((call) => call.method === "chat.update");
+  const approvalUpdate = calls.find(
+    (call) => call.method === "chat.update" && call.body.text?.includes("병합 승인됨"),
+  );
   assert.equal(approvalUpdate.body.ts, "123.100");
   assert.equal(
     approvalUpdate.body.blocks.some((block) => block.type === "actions"),

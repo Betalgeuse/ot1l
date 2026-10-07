@@ -72,7 +72,14 @@ try {
   assert.equal(updates.length, 1);
   assert.equal(updates.some((call) => call.body.channel === "CFEEDBACK"), false);
   const maintainerUpdate = updates.find((call) => call.body.channel === "CMAIN");
+  assert.match(maintainerUpdate.body.blocks[0].text.text, /\*As-Is\*\n현재/);
+  assert.match(maintainerUpdate.body.blocks[0].text.text, /\*To-Be\*\n원하는 상태/);
   assert.match(maintainerUpdate.body.blocks[0].text.text, /DRI  <@UMAIN>/);
+  assert.match(maintainerUpdate.body.blocks[0].text.text, /제안  <@UREPORT>/);
+  assert.match(
+    maintainerUpdate.body.blocks[0].text.text,
+    /<https:\/\/app\.slack\.com\/client\/TQA\/CFEEDBACK\/thread\/CFEEDBACK-1\.000001\|처음 남긴 위치>/,
+  );
   assert.match(maintainerUpdate.body.blocks[0].text.text, /버그 키  BUG-QA/);
   assert.deepEqual(
     maintainerUpdate.body.blocks.at(-1).elements.map((element) => element.action_id),
