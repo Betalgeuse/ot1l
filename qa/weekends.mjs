@@ -90,7 +90,13 @@ try {
   assert.match(sent[1].text, /발표 자료 준비하기.*발표 자료 1~5쪽 초안을 완성해 동료에게 공유하기/s);
   const navigation = sent[0].blocks.find((block) => block.type === "actions" && block.elements.some((element) => element.text.text === "사용설명서 보기"));
   assert.deepEqual(navigation.elements.map((element) => element.text.text), ["사용설명서 보기", "밀린 후기 기록하기", "친구 초대하기"]);
-  assert.equal(sent[0].blocks.at(-1).elements[0].text.text, "피드백 남기기");
+  assert.deepEqual(
+    sent[0].blocks.at(-1).elements.map((element) => [element.action_id, element.text.text]),
+    [
+      ["community_bug_open", "피드백 남기기"],
+      ["community_maintainer_activate", "Product Owner 되기"],
+    ],
+  );
   assert.equal(dueCalls, 0);
   await runCommunitySchedule(env, store, new Date("2026-09-14T01:00:00Z"));
   assert.equal(sent.length, 3);

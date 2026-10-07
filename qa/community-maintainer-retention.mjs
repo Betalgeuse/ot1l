@@ -40,6 +40,7 @@ try {
     guide.blocks[1].elements.map((item) => item.text.text),
     ["질문 남기기", "Q&A 허들 요청", "첫 기여 OT 요청", "작업 제안하기"],
   );
+  assert.equal(guide.blocks[1].elements.at(-1).style, "primary");
   assert.equal(new Set(guide.blocks[1].elements.map((item) => item.action_id)).size, 4);
   await publishMaintainerRetentionGuide({
     SLACK_BOT_TOKEN: "fake",
@@ -55,6 +56,8 @@ try {
     workGuide.body.blocks[1].elements.slice(1, 3).map((item) => item.text.text),
     ["전문 그룹 설정", "@po 부르기"],
   );
+  assert.equal(workGuide.body.blocks[1].elements[0].text.text, "피드백·작업 제안");
+  assert.equal(workGuide.body.blocks[1].elements[0].style, "primary");
   await openMaintainerHelpModal(context, "trigger", "qna");
   const modal = calls.find((call) => call.method === "views.open").body.view;
   assert.equal(modal.callback_id, "community_maintainer_help_submit");

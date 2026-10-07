@@ -40,7 +40,13 @@ try {
   assert.equal(goalReply.thread_ts, "123.000");
   const navigation = goalReply.blocks.find((block) => block.type === "actions" && block.elements.some((element) => element.text.text === "사용설명서 보기"));
   assert.deepEqual(navigation.elements.map((element) => element.text.text), ["사용설명서 보기", "밀린 후기 기록하기", "친구 초대하기"]);
-  assert.equal(goalReply.blocks.at(-1).elements[0].text.text, "피드백 남기기");
+  assert.deepEqual(
+    goalReply.blocks.at(-1).elements.map((element) => [element.action_id, element.text.text]),
+    [
+      ["community_bug_open", "피드백 남기기"],
+      ["community_maintainer_activate", "Product Owner 되기"],
+    ],
+  );
 
   let acceptedText = "";
   let posts = 0;

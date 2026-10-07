@@ -381,6 +381,7 @@ export async function sendDailyMaintainerPrompt(
             {
               type: "button",
               text: { type: "plain_text", text: "피드백·작업 제안" },
+              style: "primary",
               action_id: "community_bug_open",
               value: JSON.stringify({ ownerId: "actor", key: "new" }),
             },

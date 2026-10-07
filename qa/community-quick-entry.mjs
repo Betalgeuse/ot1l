@@ -83,7 +83,7 @@ globalThis.fetch = async (url, options = {}) => {
 };
 
 try {
-  const [core, navigation] = memberActionBlocks({}, "2026-09-23");
+  const [core, navigation, participation] = memberActionBlocks({}, "2026-09-23");
   assert.deepEqual(
     core.elements.map((element) => [element.action_id, element.style]),
     [
@@ -95,6 +95,13 @@ try {
   assert.deepEqual(
     navigation.elements.map((element) => element.text.text),
     ["밀린 후기 기록하기", "친구 초대하기"],
+  );
+  assert.deepEqual(
+    participation.elements.map((element) => [element.action_id, element.text.text]),
+    [
+      ["community_bug_open", "피드백 남기기"],
+      ["community_maintainer_activate", "Product Owner 되기"],
+    ],
   );
 
   await openQuickEntryModal(context, "GOAL-TRIGGER", "goal");

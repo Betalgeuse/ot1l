@@ -181,6 +181,7 @@ try {
     (call) => call.method === "chat.postMessage" && call.body.channel === "CMAINTAIN",
   );
   assert.equal(maintainerPrompt.body.blocks.at(-1).elements[0].text.text, "피드백·작업 제안");
+  assert.equal(maintainerPrompt.body.blocks.at(-1).elements[0].style, "primary");
   const dailyPrompt = calls.find(
     (call) => call.method === "chat.postMessage" && call.body.channel === "CFEEDBACK",
   );
