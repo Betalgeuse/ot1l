@@ -24,6 +24,7 @@ import {
   openPastReviewPickerModal,
   pastReviewBinding,
 } from "./community-past-review";
+import { openPoSpecialties, openPoSummon } from "./community-po-groups";
 import { openQuickEntryModal } from "./community-quick-entry";
 import { processRecordAction } from "./community-record-interactions";
 import { type CommunityContext, ephemeral } from "./community-runtime";
@@ -171,6 +172,11 @@ export async function handleCommunityAction(input: ActionInteraction): Promise<R
         });
       }),
     );
+    return new Response(null, { status: 200 });
+  }
+  if (input.id === "community_po_specialties" || input.id === "community_po_summon") {
+    const open = input.id === "community_po_specialties" ? openPoSpecialties : openPoSummon;
+    await open(context, string(input.data.trigger_id));
     return new Response(null, { status: 200 });
   }
   if (input.id === "community_maintainer_linear_connect") {

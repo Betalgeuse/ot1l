@@ -1,5 +1,6 @@
 import { feedbackButton } from "./community-feedback-button";
 import { escapeSlackText } from "./community-messages";
+import { poSpecialtyButton, summonPoButton } from "./community-po-groups";
 import type { CommunityContext, CommunityEnv } from "./community-runtime";
 import { callSlack } from "./community-social";
 import { InputError, type Json, object, string } from "./input";
@@ -36,7 +37,7 @@ export function maintainerRetentionGuide(maintainersChannelId?: string) {
 }
 
 export function maintainerWorkGuide() {
-  const text = `*OT1L Maintainer 작업 시작* · ${MAINTAINER_RETENTION_VERSION}\n\n불편했던 점, 해보고 싶은 변화, 같이 배우고 싶은 일, 열어보고 싶은 활동을 아래에서 시작하세요. 코딩하지 않아도 재현·QA·문구·디자인·질문 정리·모임 진행으로 참여할 수 있습니다. 직접 맡으면 기본 DRI가 되고, 같이할 사람을 찾거나 다른 Maintainer에게 넘길 수도 있어요. AI는 구현을 돕고 사람 DRI가 실제 결과를 확인합니다.\n\n<https://ot1l.hyuk.me/maintainers|지금 함께 만드는 일 보기>`;
+  const text = `*OT1L Product Owner 작업 시작* · ${MAINTAINER_RETENTION_VERSION}\n\n불편했던 점, 해보고 싶은 변화, 같이 배우고 싶은 일, 열어보고 싶은 활동을 아래에서 시작하세요. 코딩하지 않아도 재현·QA·문구·디자인·질문 정리·모임 진행으로 참여할 수 있습니다. 직접 맡으면 기본 DRI가 되고, 같이할 사람을 찾거나 다른 Product Owner에게 넘길 수도 있어요. 전문 그룹은 본인이 언제든 바꿀 수 있고, 필요한 동료는 이유와 함께 같은 스레드로 부릅니다.\n\n<https://ot1l.hyuk.me/po|지금 함께 만드는 일 보기>`;
   return {
     text,
     blocks: [
@@ -45,6 +46,8 @@ export function maintainerWorkGuide() {
         type: "actions",
         elements: [
           feedbackButton("피드백·작업 제안"),
+          poSpecialtyButton(),
+          summonPoButton(),
           {
             type: "button",
             text: { type: "plain_text", text: "Linear 연결" },

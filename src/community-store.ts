@@ -411,6 +411,27 @@ export class CommunityStore extends CommunityScheduleStore {
   async deactivateMaintainer(teamId: string, actorId: string): Promise<boolean> {
     return bool(await this.maintainerCall("deactivate", { teamId, actorId }));
   }
+  async setMaintainerSpecialties(
+    teamId: string,
+    actorId: string,
+    specialties: readonly ("designer" | "dev")[],
+  ): Promise<void> {
+    await this.db.queryJson("SELECT otl.community_maintainer_set_specialties($1::jsonb)", [
+      JSON.stringify({ teamId, actorId, specialties }),
+    ]);
+  }
+  async maintainerAudiences(
+    teamId: string,
+    actorId: string,
+  ): Promise<{ readonly po: string[]; readonly designer: string[]; readonly dev: string[] }> {
+    const value = object(
+      await this.db.queryJson("SELECT otl.community_maintainer_audiences($1::jsonb)", [
+        JSON.stringify({ teamId, actorId }),
+      ]),
+    );
+    const ids = (key: "po" | "designer" | "dev") => list(value[key]).map((item) => string(item));
+    return { po: ids("po"), designer: ids("designer"), dev: ids("dev") };
+  }
   private townhallEventCall(operation: string, payload: Json): Promise<Json> {
     return this.db.queryJson("SELECT otl.townhall_event_execute($1,$2::jsonb)", [
       operation,

@@ -55,7 +55,7 @@ OT1L (*ONE THING* 1 Line)에 오신 것을 환영합니다! Slack 채널 구조�
   ◦ 피드백은 #all-freetalk-qna-feedback와 #maintainers 양쪽에서 시작할 수 있으며 같은 Linear 이슈와 작업 카드로 연결됩니다.
   ◦ Maintainer가 제안한 작업은 본인이 기본 DRI가 됩니다. #maintainers 카드에서 다른 Maintainer에게 넘길 수 있고 Linear 담당자와 동기화됩니다.
   ◦ Open 변경과 Core 변경의 승인 버튼은 모두 #maintainers 작업 스레드에 나타납니다. Open은 활성 Maintainer 또는 Founder, Core는 Founder 본인만 승인할 수 있습니다.
-  ◦ #maintainers에서 기능 제안, 담당자, 진행 단계, 검증 결과, 승인과 병합·배포 영수증을 확인합니다. <https://ot1l.hyuk.me/maintainers|함께 만드는 중>에서는 공개 가능한 작업의 단계만 선택해서 볼 수 있습니다.
+  ◦ #maintainers에서 기능 제안, 담당자, 진행 단계, 검증 결과, 승인과 병합·배포 영수증을 확인합니다. <https://ot1l.hyuk.me/po|PO 작업 현황>에서는 공개 가능한 작업의 단계만 선택해서 볼 수 있습니다.
   ◦ #maintainers-dev: 개발환경 없이도 AI·동료와 실제 기능을 만들고 QA하며 배울 수 있는 빌드 스튜디오입니다.
   ◦ #maintainers-design: 코딩 없이도 화면·콘텐츠·접근성을 만들고 실제 제품에 반영하는 디자인 스튜디오입니다.
   ◦ #maintainers-retention: 질문, Q&A 허들, 첫 기여 OT와 모임을 통해 사람을 돕고 커뮤니티 운영을 경험합니다.
