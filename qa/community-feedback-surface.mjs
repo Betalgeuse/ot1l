@@ -170,11 +170,11 @@ try {
   assert.equal(await sendDailyMaintainerPrompt(promptEnv, promptStore, "2026-09-23", "18:03"), false);
   assert.match(
     calls.find((call) => call.method === "chat.postMessage")?.body.text ?? "",
-    /피드백을 남겨주시면 봇이 자동으로 수정안을 만들고, Maintainer가 확인한 뒤 배포해요!$/,
+    /Product Owner\(PO\)는 코딩 여부와 관계없이 회원 문제를 발견하고 개선을 끝까지 맡는 역할/,
   );
   assert.equal(
     dailyFeedbackPromptText("2026-09-23"),
-    "2026-09-23 오늘 OT1L을 쓰면서 불편했거나 바랐던 점이 있었나요? 작은 의견도 괜찮아요. 아래 버튼으로 편하게 남겨주세요. 피드백을 남겨주시면 봇이 자동으로 수정안을 만들고, Maintainer가 확인한 뒤 배포해요!",
+    "2026-09-23 오늘 OT1L을 쓰면서 불편했거나 바랐던 점이 있었나요? 작은 의견도 괜찮아요. 아래 버튼으로 편하게 남겨주세요. Product Owner(PO)는 코딩 여부와 관계없이 회원 문제를 발견하고 개선을 끝까지 맡는 역할이에요.",
   );
   assert.match(dailyMaintainerPromptText("2026-09-23"), /같이 배우거나 열어보고 싶은 활동/);
   const maintainerPrompt = calls.find(

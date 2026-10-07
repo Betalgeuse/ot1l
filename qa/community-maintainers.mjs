@@ -20,7 +20,9 @@ try{
  assert.ok(calls.filter(c=>c.method==='conversations.invite').every(c=>c.body.users==='UMEMBER'));
  await activateMaintainer(context);
  assert.equal(calls.filter(c=>c.method==='chat.postMessage').length,1);
- assert.match(calls.filter(c=>c.method==='chat.postEphemeral').at(-1).body.text,/이미 Maintainer/);
+ assert.match(calls.filter(c=>c.method==='chat.postEphemeral').at(-1).body.text,/이미 Product Owner/);
+ assert.match(maintainerButton().text.text,/Product Owner/);
+ assert.match(calls.filter(c=>c.method==='chat.postEphemeral').at(-1).body.text,/코딩 여부와 관계없이 회원 문제를 발견하고 개선을 끝까지 맡는 역할/);
  failInvite=true; const before=transitions.filter(t=>t[0]==='activate').length;
  await assert.rejects(()=>activateMaintainer(context),/missing_scope/);
  assert.equal(transitions.filter(t=>t[0]==='activate').length,before);

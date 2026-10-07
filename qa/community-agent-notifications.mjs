@@ -91,7 +91,13 @@ try {
   assert.match(readyPost.body.blocks[0].text.text, /변경 내용 보기/);
   assert.match(readyPost.body.blocks[0].text.text, /Open/);
   assert.equal(readyPost.body.thread_ts, "1790252999.000001");
-  assert.equal(readyPost.body.blocks[1].elements[0].text.text, "Maintainer 병합·배포 승인");
+  assert.equal(readyPost.body.blocks[1].elements[0].text.text, "Product Owner 병합·배포 승인");
+  assert.equal(
+    calls.some(
+      (call) => call.url.includes("chat.postMessage") && call.body.channel === "CFEEDBACK",
+    ),
+    false,
+  );
   assert.equal(readyPost.body.blocks[1].elements[0].action_id, "community_feedback_merge_approve");
   assert.equal(JSON.parse(readyPost.body.blocks[1].elements[0].value).headSha, "a".repeat(40));
   assert.equal(
@@ -118,7 +124,7 @@ try {
   const founderPost = calls.find(
     (call) => call.url.includes("chat.postMessage") && call.body.channel === "DFOUNDER",
   );
-  assert.match(founderPost.body.text, /Maintainer 작업 스레드에서 Founder 병합·배포 승인하기/);
+  assert.match(founderPost.body.text, /Product Owner 작업 스레드에서 Founder 병합·배포 승인하기/);
   assert.equal(founderPost.body.blocks, undefined);
 
   calls.length = 0;
@@ -140,6 +146,12 @@ try {
   assert.deepEqual(deployed, { claimed: 1, sent: 1, failed: 0 });
   const deployedPost = calls.find((call) => call.url.includes("chat.postMessage"));
   assert.match(deployedPost.body.text, /운영 배포와 실제 동작 확인을 완료했어요/);
+  assert.equal(
+    calls.filter(
+      (call) => call.url.includes("chat.postMessage") && call.body.channel === "CFEEDBACK",
+    ).length,
+    1,
+  );
   const deployedReactionMethods = calls
     .filter((call) => call.url.includes("reactions."))
     .map((call) => new URL(call.url).pathname.split("/").at(-1));
@@ -163,6 +175,12 @@ try {
   assert.deepEqual(manual, { claimed: 1, sent: 1, failed: 0 });
   const manualPost = calls.find((call) => call.url.includes("chat.postMessage"));
   assert.match(manualPost.body.text, /안전한 순서로 운영 반영하고 있어요/);
+  assert.equal(
+    calls.some(
+      (call) => call.url.includes("chat.postMessage") && call.body.channel === "CFEEDBACK",
+    ),
+    false,
+  );
   const manualReactionMethods = calls
     .filter((call) => call.url.includes("reactions."))
     .map((call) => new URL(call.url).pathname.split("/").at(-1));

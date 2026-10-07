@@ -98,6 +98,7 @@ const env = {
   COMMUNITY_PUBLIC_CHANNEL_ID: "CPUBLIC",
   COMMUNITY_RELEASE_CHANNEL_ID: "CRELEASE",
   COMMUNITY_FEEDBACK_CHANNEL_ID: "CFEEDBACK",
+  COMMUNITY_MAINTAINERS_CHANNEL_ID: "CPOWORK",
   BUG_RUNNER_ENABLED: "true",
   COMMUNITY_CODEX_REPOSITORY: "Betalgeuse/ot1l",
   COMMUNITY_CODEX_BRANCH: "main",
@@ -2023,7 +2024,7 @@ try {
   await Promise.all(routedPending);
   const routedPosts = calls.filter((call) => call.target.endsWith("/chat.postMessage"));
   const feedbackRoot = routedPosts.find(
-    (call) => call.body.channel === "CFEEDBACK" && call.body.thread_ts === undefined,
+    (call) => call.body.channel === "CPOWORK" && call.body.thread_ts === undefined,
   );
   assert.match(feedbackRoot.body.text, /<@UMEMBER>/);
   assert.match(feedbackRoot.body.text, /자기소개 모음과 프로필 정보가 달라요/);
@@ -2033,11 +2034,11 @@ try {
   );
   assert.equal(
     feedbackRoot.body.blocks.at(-1).elements[0].text.text,
-    "Maintainer가 되어 직접 고치기",
+    "Product Owner로 직접 개선하기",
   );
   const feedbackThread = "20.000001";
   const routedReplies = routedPosts.filter(
-    (call) => call.body.channel === "CFEEDBACK" && call.body.thread_ts === feedbackThread,
+    (call) => call.body.channel === "CPOWORK" && call.body.thread_ts === feedbackThread,
   );
   assert.equal(routedReplies.length, 1, "clear feedback starts branch preparation immediately");
   assert.match(routedReplies[0].body.text, /수정안과 검증 결과를 준비/);
@@ -2046,7 +2047,7 @@ try {
   assert.notEqual(routedDraft, undefined, "the canonical feedback thread is the dialogue source");
   assert.deepEqual(
     [routedDraft.source.channelId, routedDraft.source.thread],
-    ["CFEEDBACK", feedbackThread],
+    ["CPOWORK", feedbackThread],
   );
   assert.equal(routedDraft.questions.length, 0, "clear feedback asks no mechanical questions");
   assert.equal(routedDraft.currentRevision.schemaVersion, "feedback_packet.v1");

@@ -132,7 +132,7 @@ function mergeReadyMessage(input: Notification, includeButton = true) {
       type: "section",
       text: {
         type: "mrkdwn",
-        text: `*변경 등급*\n${input.changeClass === "open" ? "Open · 활성 Maintainer 또는 Founder가 승인하면 병합과 배포가 연속 실행됩니다." : "Core · Founder 승인 뒤 병합과 배포가 연속 실행됩니다."}\n\n*As-Is*\n${escapeSlackText(input.asIs)}\n\n*To-Be*\n${escapeSlackText(input.toBe)}\n\n*수정 결과*\n${escapeSlackText(input.summary ?? "전체 검사를 통과했습니다.")}\n\n<${input.prUrl}|변경 내용 보기>`,
+        text: `*변경 등급*\n${input.changeClass === "open" ? "Open · 활성 Product Owner 또는 Founder가 승인하면 병합과 배포가 연속 실행됩니다." : "Core · Founder 승인 뒤 병합과 배포가 연속 실행됩니다."}\n\n*As-Is*\n${escapeSlackText(input.asIs)}\n\n*To-Be*\n${escapeSlackText(input.toBe)}\n\n*수정 결과*\n${escapeSlackText(input.summary ?? "전체 검사를 통과했습니다.")}\n\n<${input.prUrl}|변경 내용 보기>`,
       },
     },
   ];
@@ -145,7 +145,9 @@ function mergeReadyMessage(input: Notification, includeButton = true) {
           text: {
             type: "plain_text",
             text:
-              input.changeClass === "core" ? "Founder 병합·배포 승인" : "Maintainer 병합·배포 승인",
+              input.changeClass === "core"
+                ? "Founder 병합·배포 승인"
+                : "Product Owner 병합·배포 승인",
           },
           style: "primary",
           action_id: "community_feedback_merge_approve",
@@ -240,7 +242,7 @@ async function sendMaintainerNotification(
   const directChannelId = string(object(direct.channel).id);
   await callSlack(env.SLACK_BOT_TOKEN, "chat.postMessage", {
     channel: directChannelId,
-    text: `<https://app.slack.com/client/${env.SLACK_TEAM_ID}/${channelId}/thread/${channelId}-${threadTs}|Maintainer 작업 스레드에서 Founder 병합·배포 승인하기>\n${input.bugId}`,
+    text: `<https://app.slack.com/client/${env.SLACK_TEAM_ID}/${channelId}/thread/${channelId}-${threadTs}|Product Owner 작업 스레드에서 Founder 병합·배포 승인하기>\n${input.bugId}`,
   });
 }
 
@@ -286,14 +288,11 @@ export async function sendAgentNotifications(
         item.kind === "merge_ready"
       ) {
         const sourceIsMaintainer = item.channelId === env.COMMUNITY_MAINTAINERS_CHANNEL_ID;
-        if (!sourceIsMaintainer)
+        if (!sourceIsMaintainer && item.kind === "change_deployed")
           await callSlack(env.SLACK_BOT_TOKEN, "chat.postMessage", {
             channel: item.channelId,
             thread_ts: item.threadTs,
-            text:
-              item.kind === "merge_ready"
-                ? `수정안과 검증이 준비되어 <#${env.COMMUNITY_MAINTAINERS_CHANNEL_ID}>에 승인을 요청했어요. · ${item.bugId}`
-                : notificationText(item),
+            text: notificationText(item),
           });
       }
       if (

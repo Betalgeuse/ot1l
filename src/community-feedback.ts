@@ -10,7 +10,7 @@ import {
 import { CommunityBugStore } from "./community-bug-store";
 import type { BugState } from "./community-bug-types";
 import { MaintainerOpsStore } from "./community-maintainer-store";
-import { maintainerButton } from "./community-maintainers";
+import { maintainerButton, PRODUCT_OWNER_DESCRIPTION } from "./community-maintainers";
 import { escapeSlackText } from "./community-messages";
 import { sha256Hex } from "./community-referral-service-auth";
 import type { CommunityContext, CommunityEnv } from "./community-runtime";
@@ -253,7 +253,7 @@ export function feedbackPromptDue(minute: string): boolean {
 }
 
 export function dailyFeedbackPromptText(date: string): string {
-  return `${date} 오늘 OT1L을 쓰면서 불편했거나 바랐던 점이 있었나요? 작은 의견도 괜찮아요. 아래 버튼으로 편하게 남겨주세요. 피드백을 남겨주시면 봇이 자동으로 수정안을 만들고, Maintainer가 확인한 뒤 배포해요!`;
+  return `${date} 오늘 OT1L을 쓰면서 불편했거나 바랐던 점이 있었나요? 작은 의견도 괜찮아요. 아래 버튼으로 편하게 남겨주세요. ${PRODUCT_OWNER_DESCRIPTION}`;
 }
 
 export function dailyMaintainerPromptText(date: string): string {

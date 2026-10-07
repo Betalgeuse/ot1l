@@ -121,7 +121,10 @@ function workCard(
       });
     blocks.push({ type: "actions", elements });
   } else {
-    blocks.push({ type: "actions", elements: [maintainerButton("Maintainer가 되어 직접 고치기")] });
+    blocks.push({
+      type: "actions",
+      elements: [maintainerButton("Product Owner로 직접 개선하기")],
+    });
   }
   return { text: `${title} · ${stage} · DRI ${dri} · 버그 키 ${key}`, blocks };
 }

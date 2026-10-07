@@ -54,8 +54,8 @@ export async function canonicalFeedbackContext(
   parsed: ParsedBugReport,
   bugId: string,
 ): Promise<CommunityContext> {
-  const channelId = context.env.COMMUNITY_FEEDBACK_CHANNEL_ID;
-  if (!channelId) throw new InputError("피드백 채널을 확인해 주세요.");
+  const channelId = context.env.COMMUNITY_MAINTAINERS_CHANNEL_ID;
+  if (!channelId) throw new InputError("Product Owner 작업 채널을 확인해 주세요.");
   const existing = await existingFeedbackThread(context, channelId, bugId);
   const actual = field(parsed, "form:actual") || parsed.messages[0]?.text.trim() || "피드백";
   const expected = field(parsed, "form:expected");
@@ -65,7 +65,7 @@ export async function canonicalFeedbackContext(
     text,
     blocks: [
       { type: "section", text: { type: "mrkdwn", text } },
-      { type: "actions", elements: [maintainerButton("Maintainer가 되어 직접 고치기")] },
+      { type: "actions", elements: [maintainerButton("Product Owner로 직접 개선하기")] },
     ],
     unfurl_links: false,
     unfurl_media: false,
