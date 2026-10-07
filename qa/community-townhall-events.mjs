@@ -141,7 +141,9 @@ mock.module("../src/store.ts", () => ({
 }));
 
 const { communityInteraction } = await import("../src/community-interactions.ts");
-const { townhallEventLauncher } = await import("../src/community-townhall-events.ts");
+const { townhallEventLauncher, townhallEventMessage } = await import(
+  "../src/community-townhall-events.ts"
+);
 const env = {
   COMMUNITY_ENABLED: "true",
   SLACK_TEAM_ID: "TQA",
@@ -273,6 +275,28 @@ try {
   );
   assert.equal(cardPollButton.text.text, "시간 미정 이벤트 열기");
   assert.equal(cardPollButton.accessibility_label, "Townhall에서 시간 미정 이벤트 열기");
+  const manyOptions = Array.from({ length: 322 }, (_, index) => ({
+    startsAt: new Date(Date.UTC(2026, 9, 7, 0, index * 30)).toISOString(),
+    votes: 0,
+  }));
+  const summarized = townhallEventMessage({
+    ...eventView(events.get("VEVENT-1"), "UMEMBER"),
+    poll: {
+      startDate: "2026-10-07",
+      endDate: "2026-10-20",
+      dayStart: "09:00",
+      dayEnd: "20:30",
+      stepMinutes: 30,
+      timezone: "Asia/Seoul",
+    },
+    options: manyOptions,
+  });
+  assert.match(
+    summarized.text,
+    /2026-10-07 ~ 2026-10-20 · 매일 09:00–20:30 · 30분 단위 · 322개/,
+  );
+  assert.doesNotMatch(summarized.text, /가능 0명/);
+  assert.ok(summarized.text.length < 3000);
   const cardOpen = action(
     cardPollButton.action_id,
     "UOTHER",
