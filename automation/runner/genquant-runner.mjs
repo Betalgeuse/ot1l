@@ -72,6 +72,25 @@ function boundedCommandOutput(binary, args, options = {}) {
   }
 }
 
+export function fetchApprovedPullRequestHead(
+  repository,
+  prNumber,
+  approvedHeadSha,
+  runCommand = command,
+) {
+  runCommand("git", [
+    "-C",
+    repository,
+    "fetch",
+    "--no-tags",
+    "origin",
+    `pull/${prNumber}/head`,
+  ], { timeout: 180_000 });
+  const fetchedHeadSha = runCommand("git", ["-C", repository, "rev-parse", "FETCH_HEAD"]);
+  if (fetchedHeadSha !== approvedHeadSha)
+    throw new Error("fetched pull request head differs from approved SHA");
+}
+
 function sqlClient(connectionString) {
   const url = new URL(connectionString);
   if (!["postgres:", "postgresql:"].includes(url.protocol) || !url.hostname.endsWith(".neon.tech"))
@@ -420,6 +439,7 @@ async function processApprovedMerge(db, config, workerId) {
     throw new Error("merge claim identity invalid");
   const repositorySlug = githubRepositorySlug(config.CODEX_REPOSITORY_URL);
   const prUrl = `https://github.com/${repositorySlug}/pull/${prNumber}`;
+  const mergeViewFields = "headRefOid,files";
   try {
     const pr = JSON.parse(
       command("gh", [
@@ -429,12 +449,15 @@ async function processApprovedMerge(db, config, workerId) {
         "--repo",
         repositorySlug,
         "--json",
-        "headRefOid,files",
+        `${mergeViewFields},number`,
       ]),
     );
+    const viewedPrNumber = Number(pr.number);
     const paths = pr.files?.map(({ path }) => path).sort();
-    if (pr.headRefOid !== claim.headSha || !Array.isArray(paths))
+    if (viewedPrNumber !== prNumber || pr.headRefOid !== claim.headSha || !Array.isArray(paths))
       throw new Error("merge candidate identity invalid");
+    const repository = await ensureRepository(config.BUG_RUNNER_ROOT, config.CODEX_REPOSITORY_URL);
+    fetchApprovedPullRequestHead(repository, viewedPrNumber, claim.headSha);
     const classification = classifyChangePaths(paths);
     if (
       classification.changeClass !== claim.changeClass ||
@@ -444,10 +467,6 @@ async function processApprovedMerge(db, config, workerId) {
       ) !== claim.classificationDigest
     )
       throw new Error("merge candidate paths differ from approved classification");
-    const repository = await ensureRepository(config.BUG_RUNNER_ROOT, config.CODEX_REPOSITORY_URL);
-    command("git", ["-C", repository, "fetch", "--no-tags", "origin", claim.headSha], {
-      timeout: 180_000,
-    });
     assertOpenPresentationBoundary(paths, (path) =>
       command("git", ["-C", repository, "show", `${claim.headSha}:${path}`]),
     );
