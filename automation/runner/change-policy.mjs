@@ -14,6 +14,8 @@ const OPEN_EVENT_PATHS = new Set([
   "site/qa/event-schedule.mjs",
 ]);
 
+const MIGRATION_PATH = /^migrations\/([0-9]{3})_[a-z0-9_]+[.]sql$/;
+
 const CORE_WORKER_PATH = (path) =>
   path.startsWith("src/") ||
   path.startsWith("qa/") ||
@@ -47,4 +49,8 @@ export function classifyChangePaths(paths) {
   if (ordered.some((path) => path.startsWith("migrations/")) && ordered.every(PRODUCTION_PATH))
     return { changeClass: "core", adapter: "production", paths: ordered };
   return { changeClass: "core", adapter: "manual", paths: ordered };
+}
+
+export function includesMigration(paths, version) {
+  return paths.some((path) => MIGRATION_PATH.exec(path)?.[1] === version);
 }

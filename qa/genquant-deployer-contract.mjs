@@ -45,6 +45,7 @@ assert.equal(validateDeployerConfig({
   BUG_DEPLOY_SERVICE: "otl1-bug-runner.service",
   OTL1_MIGRATION_DATABASE_URL: "postgresql://otl_migration_login:secret@test.neon.tech/db",
   BUG_DEPLOY_SITE_HEALTH_URL: "https://site.example/health",
+  BUG_DEPLOY_APPROVAL_SCOPE_MIGRATION: "085",
 }).BUG_DEPLOY_SERVICE, "otl1-bug-runner.service");
 assert.throws(() => migrationConnection("postgresql://postgres:secret@test.neon.tech/db"),
   /invalid migration database URL/);
@@ -54,6 +55,12 @@ const digest = classificationDigest(policy);
 verifyApprovedPaths({ changedPaths: policy.paths, classificationDigest: digest }, policy);
 assert.throws(() => verifyApprovedPaths({ changedPaths: ["src/index.ts"], classificationDigest: digest }, policy),
   /approved_paths_mismatch/);
+const bootstrapPolicy = classifyRunnerDeploymentPaths([
+  "automation/runner/genquant-deployer.mjs",
+  "migrations/085_deployment_approval_scope.sql",
+]);
+verifyApprovedPaths({}, bootstrapPolicy, "085");
+assert.throws(() => verifyApprovedPaths({}, policy, "085"), /approved_paths_mismatch/);
 
 const checkout = mkdtempSync(join(tmpdir(), "otl1-migration-"));
 mkdirSync(join(checkout, "migrations"));
@@ -75,5 +82,31 @@ assert.equal(calls[0].connection.PGUSER, "otl_migration_login");
 assert.equal(calls[0].connection.PGPASSWORD, "do-not-log");
 assert.throws(() => applyForwardMigrations(checkout, ["migrations/down.sql"],
   "postgresql://otl_migration_login:secret@test.neon.tech/db", () => ""), /invalid migration path/);
+
+writeFileSync(join(checkout, "migrations/083_first.sql"),
+  "BEGIN; INSERT INTO otl.schema_migrations(version) VALUES('083-first'); COMMIT;\n");
+writeFileSync(join(checkout, "migrations/084_second.sql"),
+  "BEGIN; INSERT INTO otl.schema_migrations(version) VALUES('084-second'); COMMIT;\n");
+let appliedVersions = new Set(["082-forward"]);
+let failSecond = true;
+const retryExecute = (_connection, sql) => {
+  if (sql.includes("SELECT version")) return [...appliedVersions].sort().join("\n");
+  if (sql.includes("084-second") && failSecond) throw new Error("interrupted");
+  const version = sql.match(/VALUES\('([^']+)'\)/)?.[1];
+  if (version) appliedVersions.add(version);
+  return "";
+};
+assert.throws(() => applyForwardMigrations(checkout,
+  ["migrations/083_first.sql", "migrations/084_second.sql"],
+  "postgresql://otl_migration_login:secret@test.neon.tech/db", retryExecute), /interrupted/);
+failSecond = false;
+assert.deepEqual(applyForwardMigrations(checkout,
+  ["migrations/083_first.sql", "migrations/084_second.sql"],
+  "postgresql://otl_migration_login:secret@test.neon.tech/db", retryExecute), ["084-second"]);
+
+appliedVersions = new Set(["082-forward"]);
+assert.throws(() => applyForwardMigrations(checkout, ["migrations/084_second.sql"],
+  "postgresql://otl_migration_login:secret@test.neon.tech/db", retryExecute),
+  /migration predecessor missing/);
 
 console.log("PASS GenQuant deployer approval, migration, path policy and configuration contract");

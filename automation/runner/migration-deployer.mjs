@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
-import { basename, join } from "node:path";
+import { readdirSync, readFileSync } from "node:fs";
+import { basename, dirname, join } from "node:path";
 
 const MIGRATION = /^migrations\/[0-9]{3}_[a-z0-9_]+[.]sql$/;
 
@@ -36,6 +36,10 @@ function versionOf(sql, path) {
   return match[1];
 }
 
+function migrationNumber(path) {
+  return Number(basename(path).slice(0, 3));
+}
+
 export function applyForwardMigrations(checkout, paths, databaseUrl, execute = psql) {
   const migrationPaths = paths.filter((path) => path.startsWith("migrations/"));
   if (migrationPaths.some((path) => !MIGRATION.test(path))) throw new Error("invalid migration path");
@@ -49,9 +53,20 @@ export function applyForwardMigrations(checkout, paths, databaseUrl, execute = p
     return { path, sql, version: versionOf(sql, path) };
   });
   const pending = migrations.filter(({ version }) => !applied.has(version));
-  if (pending.length !== migrations.length) throw new Error("migration already applied");
-  for (const migration of pending)
+  const planned = new Set(applied);
+  const migrationDirectory = join(checkout, dirname(migrationPaths[0]));
+  const files = readdirSync(migrationDirectory).filter((path) => MIGRATION.test(`migrations/${path}`));
+  for (const migration of pending) {
+    const predecessorNumber = migrationNumber(migration.path) - 1;
+    const predecessor = files.find((path) => migrationNumber(path) === predecessorNumber);
+    if (predecessor) {
+      const predecessorPath = join(migrationDirectory, predecessor);
+      const predecessorVersion = versionOf(readFileSync(predecessorPath, "utf8"), predecessorPath);
+      if (!planned.has(predecessorVersion)) throw new Error("migration predecessor missing");
+    }
     execute(connection, `SET ROLE otl_migration_owner;\n${migration.sql}\n`);
+    planned.add(migration.version);
+  }
   const verified = new Set(execute(connection,
     "SET ROLE otl_migration_owner; SELECT version FROM otl.schema_migrations ORDER BY version;\n")
     .split("\n").filter(Boolean));

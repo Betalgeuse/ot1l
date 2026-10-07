@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { join, resolve } from "node:path";
-import { classifyChangePaths } from "./change-policy.mjs";
+import { classifyChangePaths, includesMigration } from "./change-policy.mjs";
 import { githubRepositorySlug, sha256 } from "./contract.mjs";
 import { applyForwardMigrations, migrationConnection } from "./migration-deployer.mjs";
 
@@ -122,7 +122,9 @@ export function classificationDigest(policy) {
   return sha256(JSON.stringify({ version: 1, changeClass: policy.changeClass, paths: policy.paths }));
 }
 
-export function verifyApprovedPaths(claim, policy) {
+export function verifyApprovedPaths(claim, policy, bootstrapMigration) {
+  const legacyClaim = claim.changedPaths == null && claim.classificationDigest == null;
+  if (legacyClaim && bootstrapMigration && includesMigration(policy.paths, bootstrapMigration)) return;
   if (!Array.isArray(claim.changedPaths) || claim.classificationDigest !== classificationDigest(policy) ||
       JSON.stringify([...claim.changedPaths].sort()) !== JSON.stringify(policy.paths))
     throw new Error("approved_paths_mismatch");
@@ -143,6 +145,7 @@ export function validateDeployerConfig(env) {
     "BUG_DEPLOY_SERVICE",
     "OTL1_MIGRATION_DATABASE_URL",
     "BUG_DEPLOY_SITE_HEALTH_URL",
+    "BUG_DEPLOY_APPROVAL_SCOPE_MIGRATION",
   ])
     if (typeof env[name] !== "string" || !env[name].trim())
       throw new Error(`missing deployer config: ${name}`);
@@ -154,6 +157,8 @@ export function validateDeployerConfig(env) {
   if (!/^[A-Za-z0-9_.@-]+[.]service$/.test(env.BUG_DEPLOY_SERVICE))
     throw new Error("invalid deploy service");
   migrationConnection(env.OTL1_MIGRATION_DATABASE_URL);
+  if (!/^[0-9]{3}$/.test(env.BUG_DEPLOY_APPROVAL_SCOPE_MIGRATION))
+    throw new Error("invalid approval scope migration");
   return env;
 }
 
@@ -225,7 +230,7 @@ export async function deployOnce(environment = process.env) {
   try {
     const range = deploymentRange(checkout, mergeSha, config.CODEX_BASE_BRANCH);
     const policy = classifyRunnerDeploymentPaths(range.paths);
-    verifyApprovedPaths(claim, policy);
+    verifyApprovedPaths(claim, policy, config.BUG_DEPLOY_APPROVAL_SCOPE_MIGRATION);
     if (!policy.automatic) {
       await db("bug_runner_fail_deployment", {
         teamId: config.SLACK_TEAM_ID,
