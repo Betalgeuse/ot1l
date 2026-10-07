@@ -141,7 +141,9 @@ mock.module("../src/store.ts", () => ({
 }));
 
 const { communityInteraction } = await import("../src/community-interactions.ts");
-const { townhallEventLauncher } = await import("../src/community-townhall-events.ts");
+const { townhallEventLauncher, townhallEventMessage } = await import(
+  "../src/community-townhall-events.ts",
+);
 const env = {
   COMMUNITY_ENABLED: "true",
   SLACK_TEAM_ID: "TQA",
@@ -264,6 +266,33 @@ try {
     ["나도 일정 정해서 열기", "시간 미정 이벤트 열기"],
   );
   assert.doesNotMatch(post.body.text, /관심 \d+명/);
+
+  const largePollOptions = Array.from({ length: 322 }, (_, index) => ({
+    startsAt: new Date(
+      Date.parse("2026-10-12T00:00:00.000Z") + index * 30 * 60_000,
+    ).toISOString(),
+    position: index + 1,
+    votes: 0,
+  }));
+  const largePollCard = townhallEventMessage({
+    ...events.get("VEVENT-1"),
+    ...eventView(events.get("VEVENT-1"), "UMEMBER"),
+    options: largePollOptions,
+    poll: {
+      startDate: "2026-10-12",
+      endDate: "2026-10-25",
+      dayStart: "09:00",
+      dayEnd: "20:30",
+      stepMinutes: 30,
+      timezone: "Asia/Seoul",
+    },
+  });
+  assert.ok(largePollCard.text.length < 3000);
+  assert.match(
+    largePollCard.text,
+    /2026-10-12~2026-10-25 · 매일 09:00~20:30 · 30분 간격 · 총 322개/,
+  );
+  assert.doesNotMatch(largePollCard.text, /가능 0명/);
 
   calls.length = 0;
   const cardPollButton = post.body.blocks[1].elements.find(
