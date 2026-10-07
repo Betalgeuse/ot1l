@@ -61,6 +61,7 @@ async function activeMaintainers(env: WorkEnv): Promise<readonly Record<string, 
 }
 
 function workCard(
+  env: WorkEnv,
   work: Record<string, unknown>,
   maintainers: readonly Record<string, unknown>[],
   surface: "member" | "maintainer",
@@ -80,10 +81,13 @@ function workCard(
   const url = nullable(work, "linear_url", "linearUrl");
   const actual = text(work, "actual");
   const expected = text(work, "expected");
+  const sourceChannel = text(work, "source_channel", "sourceChannel");
+  const sourceThread = text(work, "source_thread", "sourceThread");
   const dri = driId
     ? `<@${driId}>${nullable(work, "dri_user_id", "driUserId") ? "" : " · Linear 연결 대기"}`
     : "아직 정해지지 않음";
-  const summary = `*${escapeSlackText(title)}*\n\n*As-Is*\n${escapeSlackText(actual)}\n\n*To-Be*\n${escapeSlackText(expected)}\n\n현재 단계  *${escapeSlackText(stage)}*\nDRI  ${dri}\n제안  <@${reporterId}>${identifier ? `\n작업  ${identifier}` : ""}\n버그 키  ${escapeSlackText(key)}`;
+  const source = slackUrl(env, sourceChannel, sourceThread);
+  const summary = `*${escapeSlackText(title)}*\n\n*As-Is*\n${escapeSlackText(actual)}\n\n*To-Be*\n${escapeSlackText(expected)}\n\n현재 단계  *${escapeSlackText(stage)}*\nDRI  ${dri}\n제안  <@${reporterId}>${identifier ? `\n작업  ${identifier}` : ""}\n원본  <${source}|처음 남긴 위치>\n버그 키  ${escapeSlackText(key)}`;
   const blocks: Json[] = [{ type: "section", text: { type: "mrkdwn", text: summary } }];
   if (surface === "maintainer") {
     const options = maintainers.slice(0, 100).map((member) => {
@@ -138,7 +142,7 @@ async function upsertSurface(
   const workKey = text(work, "work_key", "workKey");
   const stored = await store.execute("surface_get", { workKey, channelId });
   const messageTs = typeof stored === "string" ? stored : preferredTs;
-  const payload = { channel: channelId, ...workCard(work, maintainers, surface) };
+  const payload = { channel: channelId, ...workCard(env, work, maintainers, surface) };
   if (messageTs) {
     await callSlack(env.SLACK_BOT_TOKEN, "chat.update", { ...payload, ts: messageTs });
     await store.execute("surface_put", { workKey, channelId, messageTs });

@@ -28,6 +28,16 @@ function sourceUrl(context: CommunityContext): string {
   return `https://app.slack.com/client/${teamId}/${channelId}/thread/${channelId}-${context.thread}`;
 }
 
+function isMaintainerOrigin(context: CommunityContext): boolean {
+  const channels = [
+    context.env.COMMUNITY_MAINTAINERS_CHANNEL_ID,
+    ...(context.env.COMMUNITY_MAINTAINER_WORKSTREAM_CHANNEL_IDS?.split(",").map((id) =>
+      id.trim(),
+    ) ?? []),
+  ];
+  return channels.includes(context.scope.channelId);
+}
+
 async function existingFeedbackThread(
   context: CommunityContext,
   channelId: string,
@@ -54,6 +64,10 @@ export async function canonicalFeedbackContext(
   parsed: ParsedBugReport,
   bugId: string,
 ): Promise<CommunityContext> {
+  // Maintainer proposals are already on their canonical work thread. In particular, do not
+  // project them into the public feedback channel: subsequent intake replies and updates must
+  // remain attached to the PO's original card.
+  if (isMaintainerOrigin(context)) return context;
   const channelId = context.env.COMMUNITY_FEEDBACK_CHANNEL_ID;
   if (!channelId) throw new InputError("피드백 채널을 확인해 주세요.");
   const existing = await existingFeedbackThread(context, channelId, bugId);
