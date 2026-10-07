@@ -7,6 +7,7 @@ globalThis.fetch = async (url, options = {}) => {
   const path = new URL(url).pathname;
   const body = options.body ? JSON.parse(options.body) : {};
   if (path.endsWith("conversations.replies")) {
+    assert.equal(new URL(url).searchParams.get("include_all_metadata"), "true");
     if (mode === "missing") return Response.json({ok:false,error:"thread_not_found"});
     if (mode === "unavailable") return Response.json({ok:false,error:"internal_error"});
     return Response.json({ok:true,messages:[{ts:"1.1",text:"canonical root"}, ...(reply ? [reply] : [])]});

@@ -11,6 +11,7 @@ export async function notificationThread(token: string, channel: string, ts: str
         channel,
         ts,
         limit: 100,
+        include_all_metadata: "true",
         ...(cursor ? { cursor } : {}),
       });
     } catch (error) {
