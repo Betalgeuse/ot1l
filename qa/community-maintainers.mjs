@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { activateMaintainer, maintainerButton } from '../src/community-maintainers.ts';
 const calls=[]; const transitions=[]; let changed=true; let failInvite=false; let revoked=false;
-const context={env:{SLACK_BOT_TOKEN:'fake',COMMUNITY_MAINTAINERS_CHANNEL_ID:'CMAIN',COMMUNITY_MAINTAINER_WORKSTREAM_CHANNEL_IDS:'CEVENT, CWEB,CWELCOME,CEVENT',COMMUNITY_SYS_ALERT_CHANNEL_ID:'CALERT'},scope:{teamId:'TQA',channelId:'CFEEDBACK',userId:'UMEMBER'},store:{
+const context={env:{SLACK_BOT_TOKEN:'fake',COMMUNITY_PO_CHANNEL_ID:'CPO',COMMUNITY_MAINTAINERS_CHANNEL_ID:'CWORK',COMMUNITY_MAINTAINER_WORKSTREAM_CHANNEL_IDS:'CDEV,CDESIGN,CRETENTION',COMMUNITY_SYS_ALERT_CHANNEL_ID:'CALERT'},scope:{teamId:'TQA',channelId:'CFEEDBACK',userId:'UMEMBER'},store:{
  async maintainerStatus(){return revoked?{state:'revoked'}:null},
  async syncMaintainerProfile(team,actor,name){transitions.push(['profile',team,actor,name])},
  async activateMaintainer(team,actor){transitions.push(['activate',team,actor]);const was=changed;changed=false;return{userId:actor,changed:was,state:'active'}},
@@ -16,11 +16,11 @@ try{
  assert.equal(JSON.parse(maintainerButton().value).ownerId,'actor');
  await activateMaintainer(context);
  assert.deepEqual(transitions,[['profile','TQA','UMEMBER','Member'],['activate','TQA','UMEMBER']]);
- assert.deepEqual(calls.filter(c=>c.method==='conversations.invite').map(c=>c.body.channel),['CMAIN','CEVENT','CWEB','CWELCOME','CALERT']);
+ assert.deepEqual(calls.filter(c=>c.method==='conversations.invite').map(c=>c.body.channel),['CPO','CWORK','CDEV','CDESIGN','CALERT']);
  assert.ok(calls.filter(c=>c.method==='conversations.invite').every(c=>c.body.users==='UMEMBER'));
  await activateMaintainer(context);
  assert.equal(calls.filter(c=>c.method==='chat.postMessage').length,1);
- assert.match(calls.filter(c=>c.method==='chat.postEphemeral').at(-1).body.text,/이미 Maintainer/);
+ assert.match(calls.filter(c=>c.method==='chat.postEphemeral').at(-1).body.text,/이미 Product Owner/);
  failInvite=true; const before=transitions.filter(t=>t[0]==='activate').length;
  await assert.rejects(()=>activateMaintainer(context),/missing_scope/);
  assert.equal(transitions.filter(t=>t[0]==='activate').length,before);

@@ -19,10 +19,12 @@ const env = {
   ASSETS: { async fetch() { return new Response("not found", { status: 404 }); } },
   RATE_LIMITER: { async limit() { return { success: true }; } },
 };
-const response = await worker.fetch(new Request("https://ot1l.hyuk.me/maintainers"), env);
+const response = await worker.fetch(new Request("https://ot1l.hyuk.me/po"), env);
 assert.equal(response.status, 200);
 const html = await response.text();
 assert.match(html, /회원의 의견이/);
+assert.match(html, /#po-work/);
+assert.match(html, /Product Owner 작업 현황/);
 assert.match(html, /이벤트 시간 수정/);
 assert.match(html, /작업 중/);
 assert.match(html, /OT1-12/);

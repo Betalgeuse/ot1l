@@ -371,7 +371,7 @@ function maintainerBoard(items: readonly MaintainerStatusItem[]): string {
     }).join("");
     return `<section class="work-column ${stageClass(stage)}" aria-labelledby="stage-${encodeURIComponent(stage)}"><header><h2 id="stage-${encodeURIComponent(stage)}">${escapeHtml(stage)}</h2><span>${items.filter((item) => item.stage === stage).length}</span></header>${cards}</section>`;
   }).join("");
-  return columns || '<p class="work-empty">아직 공개된 Maintainer 작업이 없습니다.</p>';
+  return columns || '<p class="work-empty">아직 공개된 Product Owner 작업이 없습니다.</p>';
 }
 
 async function maintainerStatusPage(env: SiteEnv): Promise<Response> {
@@ -399,7 +399,7 @@ async function maintainerStatusPage(env: SiteEnv): Promise<Response> {
   } catch (error) {
     if (!(error instanceof Error)) throw error;
   }
-  const html = `<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><meta name="description" content="OT1L 회원 피드백이 실제 기능으로 반영되는 과정을 확인합니다."><title>OT1L · 함께 만드는 중</title><link rel="stylesheet" href="/styles.css"></head><body class="work-page"><a class="skip-link" href="#work-main">본문으로 건너뛰기</a><header class="work-header"><a class="wordmark" href="/"><img src="/assets/otl1-avatar.jpg" width="40" height="40" alt=""><span>ONE THING 1 LINE</span></a><a href="/">모임 소개</a></header><main id="work-main"><div class="work-intro"><p class="eyebrow">함께 만드는 OT1L</p><h1>회원의 의견이<br>어디까지 왔는지 보여드려요.</h1><p>피드백과 대화는 Slack에서 이어집니다. 이 화면은 공개 가능한 작업의 현재 단계만 보여줍니다.</p></div><div class="work-board" aria-label="Maintainer 작업 현황">${maintainerBoard(items)}</div></main></body></html>`;
+  const html = `<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><meta name="description" content="OT1L 회원 피드백이 실제 기능으로 반영되는 과정을 확인합니다."><title>OT1L · Product Owner</title><link rel="stylesheet" href="/styles.css"><link rel="canonical" href="${CANONICAL_ORIGIN}/po"></head><body class="work-page"><a class="skip-link" href="#work-main">본문으로 건너뛰기</a><header class="work-header"><a class="wordmark" href="/"><img src="/assets/otl1-avatar.jpg" width="40" height="40" alt=""><span>ONE THING 1 LINE</span></a><a href="/">모임 소개</a></header><main id="work-main"><div class="work-intro"><p class="eyebrow">OT1L Product Owner</p><h1>회원의 의견이<br>어디까지 왔는지 보여드려요.</h1><p>대화는 Slack #po에서, DRI·상태·승인·배포 작업은 #po-work에서 이어집니다. 이 화면은 공개 가능한 작업의 현재 단계만 보여줍니다.</p></div><div class="work-board" aria-label="Product Owner 작업 현황">${maintainerBoard(items)}</div></main></body></html>`;
   return new Response(html, { headers: { "content-type": "text/html;charset=UTF-8" } });
 }
 async function referralPage(request: Request, env: SiteEnv, token: string): Promise<Response> {
@@ -752,7 +752,7 @@ const siteWorker = {
         renderInterestSlots(html, env).replace("<!-- __REFERRAL_SLOT__ -->", ""),
         { headers: { "content-type": "text/html;charset=UTF-8" } },
       );
-    } else if (request.method === "GET" && url.pathname === "/maintainers")
+    } else if (request.method === "GET" && (url.pathname === "/po" || url.pathname === "/maintainers"))
       response = await maintainerStatusPage(env);
     else if (
       url.pathname === "/interest.html" ||
