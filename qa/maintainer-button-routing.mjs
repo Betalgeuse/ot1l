@@ -16,7 +16,9 @@ try{
  await click('CFEEDBACK','UMEMBER');
  assert.deepEqual(profiles,['UMEMBER']);assert.ok(active.has('UMEMBER'));
  assert.deepEqual(effects.filter(e=>e.method==='conversations.invite').map(e=>e.body.channel),['CMAIN','CEVENT','CWEB','CMAINWELCOME','CALERT']);
- assert.match(effects.find(e=>e.method==='chat.postEphemeral').body.text,/활성화됐어요/);
+ const activation=effects.find(e=>e.method==='chat.postEphemeral').body.text;
+ assert.match(activation,/Product Owner가 활성화됐어요/);
+ assert.match(activation,/Product Owner\(PO\)는 코딩 여부와 관계없이 회원 문제를 발견하고 개선을 끝까지 맡는 역할이에요\./);
  inviteFailure=true;await click('CWELCOME','UNEW');assert.equal(active.has('UNEW'),false);
  const errorNotice=effects.filter(e=>e.method==='chat.postEphemeral').at(-1);assert.equal(errorNotice.body.user,'UNEW');assert.match(errorNotice.body.text,/완료하지 못했어요/);
  console.log('PASS ordinary-member feedback button reaches activation, and invite failure returns a private result');
