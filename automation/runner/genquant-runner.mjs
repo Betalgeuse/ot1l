@@ -4,7 +4,7 @@ import { closeSync, constants, mkdtempSync, openSync, readFileSync, rmSync } fro
 import { lstat, mkdir, open, readFile, unlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { isAbsolute, join, resolve } from "node:path";
-import { classifyChangePaths } from "./change-policy.mjs";
+import { assertOpenPresentationBoundary, classifyChangePaths } from "./change-policy.mjs";
 import {
   buildFixBranch,
   buildFixPrompt,
@@ -277,6 +277,7 @@ async function fixTaskArtifact(config, lease, taskId, runId) {
         path.startsWith("bugs/runner/"),
     );
     if (forbidden) throw new Error("fix touched a forbidden path");
+    assertOpenPresentationBoundary(paths, (path) => readFileSync(join(worktree, path), "utf8"));
     command("git", ["-C", worktree, "add", "-N", "--", ...paths]);
     const diff = command("git", ["-C", worktree, "diff", "--binary", "--", ...paths], {
       timeout: 60_000,
@@ -299,6 +300,21 @@ async function fixTaskArtifact(config, lease, taskId, runId) {
       `Fix ${lease.bugId}`,
     ]);
     const headSha = command("git", ["-C", worktree, "rev-parse", "HEAD"]);
+    const committedPaths = command("git", [
+      "-C",
+      worktree,
+      "diff",
+      "--name-only",
+      lease.baseSha,
+      headSha,
+    ])
+      .split("\n")
+      .filter(Boolean);
+    if (JSON.stringify(committedPaths.sort()) !== JSON.stringify([...paths].sort()))
+      throw new Error("committed paths differ from checked fix paths");
+    assertOpenPresentationBoundary(committedPaths, (path) =>
+      command("git", ["-C", worktree, "show", `${headSha}:${path}`]),
+    );
     command("git", ["-C", worktree, "push", "origin", `HEAD:refs/heads/${branch}`], {
       timeout: 180_000,
     });
@@ -324,11 +340,38 @@ async function fixTaskArtifact(config, lease, taskId, runId) {
       { cwd: worktree, timeout: 120_000 },
     ).trim();
     const pr = JSON.parse(
-      command("gh", ["pr", "view", prUrl, "--repo", repositorySlug, "--json", "number,url"], {
-        cwd: worktree,
-      }),
+      command(
+        "gh",
+        [
+          "pr",
+          "view",
+          prUrl,
+          "--repo",
+          repositorySlug,
+          "--json",
+          "number,url,headRefOid,files",
+        ],
+        { cwd: worktree },
+      ),
     );
-    return { artifactDigest, branch, headSha, prNumber: pr.number, prUrl: pr.url, paths };
+    const prPaths = pr.files?.map(({ path }) => path).sort();
+    if (
+      pr.headRefOid !== headSha ||
+      !Array.isArray(prPaths) ||
+      JSON.stringify(prPaths) !== JSON.stringify(committedPaths)
+    )
+      throw new Error("pull request paths differ from checked fix paths");
+    assertOpenPresentationBoundary(prPaths, (path) =>
+      command("git", ["-C", worktree, "show", `${headSha}:${path}`]),
+    );
+    return {
+      artifactDigest,
+      branch,
+      headSha,
+      prNumber: pr.number,
+      prUrl: pr.url,
+      paths: prPaths,
+    };
   } finally {
     try {
       command("git", ["-C", repository, "worktree", "remove", "--force", worktree]);
@@ -378,6 +421,36 @@ async function processApprovedMerge(db, config, workerId) {
   const repositorySlug = githubRepositorySlug(config.CODEX_REPOSITORY_URL);
   const prUrl = `https://github.com/${repositorySlug}/pull/${prNumber}`;
   try {
+    const pr = JSON.parse(
+      command("gh", [
+        "pr",
+        "view",
+        prUrl,
+        "--repo",
+        repositorySlug,
+        "--json",
+        "headRefOid,files",
+      ]),
+    );
+    const paths = pr.files?.map(({ path }) => path).sort();
+    if (pr.headRefOid !== claim.headSha || !Array.isArray(paths))
+      throw new Error("merge candidate identity invalid");
+    const classification = classifyChangePaths(paths);
+    if (
+      classification.changeClass !== claim.changeClass ||
+      JSON.stringify(paths) !== JSON.stringify([...(claim.changedPaths ?? [])].sort()) ||
+      sha256(
+        JSON.stringify({ version: 1, changeClass: classification.changeClass, paths }),
+      ) !== claim.classificationDigest
+    )
+      throw new Error("merge candidate paths differ from approved classification");
+    const repository = await ensureRepository(config.BUG_RUNNER_ROOT, config.CODEX_REPOSITORY_URL);
+    command("git", ["-C", repository, "fetch", "--no-tags", "origin", claim.headSha], {
+      timeout: 180_000,
+    });
+    assertOpenPresentationBoundary(paths, (path) =>
+      command("git", ["-C", repository, "show", `${claim.headSha}:${path}`]),
+    );
     command("gh", ["pr", "ready", prUrl, "--repo", repositorySlug]);
     command("gh", ["pr", "merge", prUrl, "--repo", repositorySlug, "--squash", "--delete-branch"], {
       timeout: 180_000,
