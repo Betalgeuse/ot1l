@@ -1,5 +1,12 @@
 import assert from "node:assert/strict";
-import { classifyRunnerDeploymentPaths, validateDeployerConfig } from "../automation/runner/genquant-deployer.mjs";
+import {
+  approvedPathDigest,
+  classifyRunnerDeploymentPaths,
+  runCoreStack,
+  validateDeployerConfig,
+  verifyApprovedPaths,
+} from "../automation/runner/genquant-deployer.mjs";
+import { deployMigrations } from "../automation/runner/migration-deployer.mjs";
 
 assert.equal(classifyRunnerDeploymentPaths([
   "automation/runner/contract.mjs",
@@ -17,8 +24,45 @@ assert.deepEqual(classifyRunnerDeploymentPaths([
 });
 assert.equal(classifyRunnerDeploymentPaths(["src/community-townhall-events.ts"]).adapter, "core-worker");
 assert.equal(classifyRunnerDeploymentPaths(["package.json"]).adapter, "core-worker");
-for (const path of ["migrations/061.sql", "site/src/index.ts"])
-  assert.equal(classifyRunnerDeploymentPaths([path]).automatic, false, path);
+assert.equal(
+  classifyRunnerDeploymentPaths([
+    "migrations/081_core.sql",
+    "src/index.ts",
+    "site/src/index.ts",
+  ]).adapter,
+  "core-stack",
+);
+const paths = ["migrations/081_core.sql", "site/src/index.ts", "src/index.ts"];
+const digest = approvedPathDigest("core", paths);
+assert.equal(
+  verifyApprovedPaths(
+    { changedPaths: paths, changeClass: "core", classificationDigest: digest },
+    paths,
+  ).adapter,
+  "core-stack",
+);
+assert.throws(
+  () =>
+    verifyApprovedPaths(
+      { changedPaths: paths.slice(1), changeClass: "core", classificationDigest: digest },
+      paths,
+    ),
+  /approved_paths_mismatch/,
+);
+const order = [];
+runCoreStack({ migrations: () => order.push("migration"), core: () => order.push("core"), site: () => order.push("site") });
+assert.deepEqual(order, ["migration", "core", "site"]);
+const calls = [];
+assert.deepEqual(
+  deployMigrations(
+    "/tmp/checkout",
+    ["src/index.ts", "migrations/082_second.sql", "migrations/081_first.sql"],
+    { OTL1_PRODUCTION_DATABASE_URL: "postgresql://example.invalid/db" },
+    (...args) => calls.push(args),
+  ),
+  ["migrations/081_first.sql", "migrations/082_second.sql"],
+);
+assert.deepEqual(calls.map((call) => call[1].at(-1)), ["migrations/081_first.sql", "migrations/082_second.sql"]);
 assert.deepEqual(classifyRunnerDeploymentPaths([]), { automatic: false, adapter: "manual", paths: [] });
 assert.throws(() => validateDeployerConfig({}), /missing deployer config/);
 assert.equal(validateDeployerConfig({

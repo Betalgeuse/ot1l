@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { join, resolve } from "node:path";
 import { classifyChangePaths } from "./change-policy.mjs";
 import { githubRepositorySlug, sha256 } from "./contract.mjs";
+import { deployMigrations } from "./migration-deployer.mjs";
 
 const SHA = /^[a-f0-9]{40}$/;
 const SAFE_ERROR = /^[a-z0-9_]{1,120}$/;
@@ -106,6 +107,30 @@ export function classifyRunnerDeploymentPaths(paths) {
   return { automatic: policy.adapter !== "manual", adapter: policy.adapter, paths: policy.paths };
 }
 
+export function approvedPathDigest(changeClass, paths) {
+  return sha256(JSON.stringify({ version: 1, changeClass, paths: [...new Set(paths)].sort() }));
+}
+
+export function verifyApprovedPaths(claim, actualPaths) {
+  const policy = classifyChangePaths(actualPaths);
+  if (!Array.isArray(claim.changedPaths) || claim.changeClass !== policy.changeClass)
+    throw new Error("approved_paths_missing_or_mismatched");
+  const approved = [...new Set(claim.changedPaths)].sort();
+  if (JSON.stringify(approved) !== JSON.stringify(policy.paths))
+    throw new Error("approved_paths_mismatch");
+  if (claim.classificationDigest !== approvedPathDigest(policy.changeClass, policy.paths))
+    throw new Error("approved_paths_digest_mismatch");
+  return { ...policy, automatic: policy.adapter !== "manual" };
+}
+
+export function runCoreStack(steps) {
+  const evidence = {};
+  evidence.migrations = steps.migrations();
+  evidence.core = steps.core();
+  evidence.site = steps.site();
+  return evidence;
+}
+
 export function validateDeployerConfig(env) {
   for (const name of [
     "BUG_RUNNER_DATABASE_URL",
@@ -194,7 +219,7 @@ export async function deployOnce(environment = process.env) {
   const checkout = resolve(config.BUG_DEPLOY_CHECKOUT);
   try {
     const range = deploymentRange(checkout, mergeSha, config.CODEX_BASE_BRANCH);
-    const policy = classifyRunnerDeploymentPaths(range.paths);
+    const policy = verifyApprovedPaths(claim, range.paths);
     if (!policy.automatic) {
       await db("bug_runner_fail_deployment", {
         teamId: config.SLACK_TEAM_ID,
@@ -219,7 +244,24 @@ export async function deployOnce(environment = process.env) {
     let workerVersion;
     let environmentEvidence;
     let observationEvidence;
-    if (policy.adapter === "open-events" || policy.adapter === "core-worker") {
+    if (policy.adapter === "core-stack") {
+      const stack = runCoreStack({
+        migrations: () => deployMigrations(checkout, policy.paths, config),
+        core: () => deployCoreWorker(checkout, config),
+        site: () => {
+          command("node", ["scripts/deploy-production-site.mjs", "--apply"], {
+            cwd: checkout,
+            timeout: 10 * 60_000,
+            env: { ...process.env, CLOUDFLARE_API_TOKEN: config.CLOUDFLARE_API_TOKEN },
+          });
+          return { deployed: true };
+        },
+      });
+      workerVersion = stack.core.version;
+      environmentEvidence = { host: "genquant", checkout, mergeSha, deployedSha,
+        adapter: policy.adapter, workerVersion, migrations: stack.migrations, site: stack.site.deployed };
+      observationEvidence = { health: stack.core.health.status, configured: stack.core.health.configured };
+    } else if (policy.adapter === "open-events" || policy.adapter === "core-worker") {
       const worker = policy.adapter === "open-events"
         ? deployOpenEvents(checkout, config)
         : deployCoreWorker(checkout, config);
@@ -275,7 +317,7 @@ export async function deployOnce(environment = process.env) {
       observationReceipt: sha256(JSON.stringify(observationEvidence)),
       liveArtifacts: JSON.stringify({ environmentEvidence, observationEvidence }),
       summary:
-        policy.adapter === "open-events" || policy.adapter === "core-worker"
+        policy.adapter === "open-events" || policy.adapter === "core-worker" || policy.adapter === "core-stack"
           ? `승인한 ${policy.adapter === "open-events" ? "Open" : "Core"} 변경 ${mergeSha.slice(0, 7)}을 Worker에 자동 배포하고 health를 확인했습니다.`
           : `GenQuant runner를 ${mergeSha.slice(0, 7)}로 자동 배포하고 계약 테스트·서비스 active·OT1 브랜치 규칙을 확인했습니다.`,
     });
