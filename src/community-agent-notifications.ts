@@ -1,7 +1,8 @@
 import { setMaintainerWorkReleaseStage } from "./community-maintainer-work";
 import { escapeSlackText } from "./community-messages";
+import { notificationThread, postNotificationReply } from "./community-notification-thread";
 import type { CommunityEnv } from "./community-runtime";
-import { addReactions, callSlack, removeReactions } from "./community-social";
+import { addReactions, CommunitySlackError, callSlack, removeReactions } from "./community-social";
 import { type Json, list, object, string } from "./input";
 import { NeonStore } from "./store";
 
@@ -54,7 +55,7 @@ function parseNotification(value: unknown, repository: string): Notification {
       "change_deployed",
       "deployment_manual",
     ].includes(kind) ||
-    (["task_started", "task_ready", "task_failed", "merge_ready"].includes(kind) &&
+    (["task_started", "task_ready"].includes(kind) &&
       (!taskUrl ||
         !/^https:\/\/chatgpt[.]com\/codex\/tasks\/task_[a-z]_[a-f0-9]{32}$/.test(taskUrl))) ||
     (taskUrl !== null &&
@@ -111,7 +112,7 @@ function notificationText(input: Notification): string {
     return `${mentions}\nmain 병합은 완료됐고, migration·Core·사이트를 안전한 순서로 운영 반영하고 있어요.\n${input.summary ?? input.bugId}`;
   if (input.kind === "merge_ready")
     return `수정안과 검증이 준비됐어요. 변경 내용을 확인한 뒤 병합을 승인해 주세요.\n${input.summary ?? "전체 검사를 통과했습니다."}`;
-  return `${input.bugId} 자동 개선을 완료하지 못했어요. 운영자가 확인할게요.`;
+  return `${input.bugId} ${input.summary ?? "자동 개선을 완료하지 못했어요. 운영자가 확인할게요."}`;
 }
 
 function mergeReadyMessage(input: Notification, includeButton = true) {
@@ -184,10 +185,12 @@ async function maintainerFeedbackThread(
     if (
       (message.thread_ts === undefined || message.thread_ts === message.ts) &&
       typeof message.text === "string" &&
-      message.text.includes(`버그 키: ${input.bugId}`)
+      (message.text.includes(`버그 키: ${input.bugId}`) ||
+        message.text.includes(`버그 키 ${input.bugId}`))
     )
       return string(message.ts);
   }
+  if (!input.asIs || !input.toBe) throw new Error("canonical maintainer feedback unavailable");
   const sourceUrl = `https://app.slack.com/client/${env.SLACK_TEAM_ID}/${input.channelId}/thread/${input.channelId}-${input.threadTs}`;
   const text = `${input.reporterId ? `<@${input.reporterId}>님의 피드백\n\n` : ""}*As-Is*\n${escapeSlackText(input.asIs ?? "현재 상태 확인 필요")}\n\n*To-Be*\n${escapeSlackText(input.toBe ?? "원하는 상태 확인 필요")}\n\n<${sourceUrl}|원본 피드백 보기>\n버그 키: ${input.bugId}`;
   return string(
@@ -206,34 +209,51 @@ async function sendMaintainerNotification(
     "SLACK_TEAM_ID" | "SLACK_BOT_TOKEN" | "COMMUNITY_MAINTAINERS_CHANNEL_ID" | "COMMUNITY_ADMIN_ID"
   >,
   input: Notification,
+  roots: Map<string, string>,
 ): Promise<void> {
   const channelId = env.COMMUNITY_MAINTAINERS_CHANNEL_ID;
   if (!channelId) throw new TypeError("maintainer channel missing");
-  const threadTs = await maintainerFeedbackThread(env, input);
+  const threadTs = roots.get(input.bugId) ?? (await maintainerFeedbackThread(env, input));
+  roots.set(input.bugId, threadTs);
   if (input.kind !== "merge_ready") {
-    await callSlack(env.SLACK_BOT_TOKEN, "chat.postMessage", {
-      channel: channelId,
-      thread_ts: threadTs,
-      text: notificationText(input),
-    });
+    if (
+      !(await postNotificationReply(
+        env.SLACK_BOT_TOKEN,
+        channelId,
+        threadTs,
+        input.notificationId,
+        {
+          text: notificationText(input),
+        },
+      ))
+    )
+      throw new Error("maintainer notification root missing");
     return;
   }
   if (input.changeClass === "open") {
-    await callSlack(env.SLACK_BOT_TOKEN, "chat.postMessage", {
-      channel: channelId,
-      thread_ts: threadTs,
-      ...mergeReadyMessage(input),
-    });
+    if (
+      !(await postNotificationReply(
+        env.SLACK_BOT_TOKEN,
+        channelId,
+        threadTs,
+        input.notificationId,
+        {
+          ...mergeReadyMessage(input),
+        },
+      ))
+    )
+      throw new Error("maintainer notification root missing");
     return;
   }
   const founderId = env.COMMUNITY_ADMIN_ID;
   if (!founderId) throw new TypeError("founder missing");
-  await callSlack(env.SLACK_BOT_TOKEN, "chat.postMessage", {
-    channel: channelId,
-    thread_ts: threadTs,
-    ...mergeReadyMessage(input),
-    text: `<@${founderId}> ${notificationText(input)}\nCore 변경은 Founder 본인만 승인할 수 있습니다.`,
-  });
+  if (
+    !(await postNotificationReply(env.SLACK_BOT_TOKEN, channelId, threadTs, input.notificationId, {
+      ...mergeReadyMessage(input),
+      text: `<@${founderId}> ${notificationText(input)}\nCore 변경은 Founder 본인만 승인할 수 있습니다.`,
+    }))
+  )
+    throw new Error("maintainer notification root missing");
   const direct = await callSlack(env.SLACK_BOT_TOKEN, "conversations.open", {
     users: founderId,
   });
@@ -256,6 +276,7 @@ export async function sendAgentNotifications(
   if (!Array.isArray(claimed)) throw new TypeError("invalid agent notification batch");
   let sent = 0;
   let failed = 0;
+  const roots = new Map<string, string>();
   const repository = env.COMMUNITY_CODEX_REPOSITORY;
   if (!repository || !/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repository))
     throw new TypeError("invalid agent repository");
@@ -280,18 +301,22 @@ export async function sendAgentNotifications(
         continue;
       }
       if (item.kind === "change_deployed" && item.channelId === env.COMMUNITY_FEEDBACK_CHANNEL_ID)
-        await callSlack(env.SLACK_BOT_TOKEN, "chat.postMessage", {
-          channel: item.channelId,
-          thread_ts: item.threadTs,
-          text: "요청한 개선이 운영에 반영됐어요. ✅",
-        });
+        await postNotificationReply(
+          env.SLACK_BOT_TOKEN,
+          item.channelId,
+          item.threadTs,
+          item.notificationId,
+          {
+            text: "요청한 개선이 운영에 반영됐어요. ✅",
+          },
+        );
       if (
         item.kind === "task_failed" ||
         item.kind === "change_deployed" ||
         item.kind === "deployment_manual" ||
         item.kind === "merge_ready"
       )
-        await sendMaintainerNotification(env, item);
+        await sendMaintainerNotification(env, item, roots);
       const releaseStage =
         item.kind === "merge_ready"
           ? "검토·승인 중"
@@ -303,28 +328,39 @@ export async function sendAgentNotifications(
                 ? "확인 필요"
                 : null;
       if (releaseStage) await setMaintainerWorkReleaseStage(env, item.bugId, releaseStage);
-      if (item.kind === "change_deployed") {
-        await removeReactions(env.SLACK_BOT_TOKEN, {
-          channel: item.channelId,
-          ts: item.threadTs,
-          names: ["loading"],
-        });
-        await addReactions(env.SLACK_BOT_TOKEN, {
-          channel: item.channelId,
-          ts: item.threadTs,
-          names: ["white_check_mark"],
-        });
-      } else if (item.kind === "task_failed") {
-        await removeReactions(env.SLACK_BOT_TOKEN, {
-          channel: item.channelId,
-          ts: item.threadTs,
-          names: ["loading"],
-        });
-        await addReactions(env.SLACK_BOT_TOKEN, {
-          channel: item.channelId,
-          ts: item.threadTs,
-          names: ["warning"],
-        });
+      try {
+        const sourceExists =
+          (item.kind === "change_deployed" || item.kind === "task_failed") &&
+          (await notificationThread(env.SLACK_BOT_TOKEN, item.channelId, item.threadTs));
+        if (item.kind === "change_deployed" && sourceExists) {
+          await removeReactions(env.SLACK_BOT_TOKEN, {
+            channel: item.channelId,
+            ts: item.threadTs,
+            names: ["loading"],
+          });
+          await addReactions(env.SLACK_BOT_TOKEN, {
+            channel: item.channelId,
+            ts: item.threadTs,
+            names: ["white_check_mark"],
+          });
+        } else if (item.kind === "task_failed" && sourceExists) {
+          await removeReactions(env.SLACK_BOT_TOKEN, {
+            channel: item.channelId,
+            ts: item.threadTs,
+            names: ["loading"],
+          });
+          await addReactions(env.SLACK_BOT_TOKEN, {
+            channel: item.channelId,
+            ts: item.threadTs,
+            names: ["warning"],
+          });
+        }
+      } catch (error) {
+        if (
+          !(error instanceof CommunitySlackError) ||
+          !["message_not_found", "thread_not_found"].includes(error.code)
+        )
+          throw error;
       }
       await db.queryJson("SELECT otl.bug_runner_finish_notification($1::jsonb)", [
         JSON.stringify({

@@ -34,7 +34,7 @@ Slack 리액션은 자유로운 반응이며 제품 상태로 집계하지 않�
 - Deployment Broker는 승인된 SHA만 fast-forward하고 전체 검사, 배포, health 확인 뒤 영수증을 남깁니다. Maintainer에게 GenQuant SSH나 Cloudflare token을 전달하지 않습니다.
 - 공개 `#sys-alert`에는 GitHub·홈페이지·Worker의 배포 실패와 장애 요약만 게시합니다. 요청 본문, 토큰, 쿠키, 이메일, IP, 원본 stack trace와 DB 주소는 게시하지 않습니다.
 
-현재 Broker의 자동 큐는 OT1L 피드백 흐름에서 만든 PR을 기준으로 합니다. Maintainer가 자신의 fork에서 만든 PR을 자동 큐에 등록하는 버튼은 아직 없습니다. 직접 만든 PR은 `#maintainers`에 링크해 Founder가 피드백 항목과 정확한 SHA에 연결한 뒤 같은 승인 경계로 반영합니다. 단순히 public PR이 열렸다는 이유만으로 병합하거나 배포하지 않습니다.
+직접 만든 PR은 `#po-work`의 **PR 연결하기**에서 작업 키와 함께 연결합니다. fork PR도 지원합니다. 기존 봇 작업과의 충돌을 검사하고, Broker의 격리 검사 후 원래 작업 스레드에서 정확한 SHA를 승인합니다. 자세한 흐름과 실패 후 재시도는 [기여 안내](../CONTRIBUTING.md)를 따릅니다.
 
 Open 경로의 기준은 `automation/runner/change-policy.mjs`이며 fail-closed입니다. 현재는 `event-site/**`와 이벤트 시간표의 정적 자산·QA만 Open입니다. `src/**`, `migrations/**`, 가입·개인정보·보안 경로는 Core입니다. 경로가 섞이면 Core로 분류합니다.
 

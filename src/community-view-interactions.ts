@@ -9,6 +9,7 @@ import { escapeSlackText } from "./community-messages";
 import { submitCommunityPalette } from "./community-palette";
 import { parsePastReviewSubmission, pastReviewChange } from "./community-past-review";
 import { submitPoSpecialties, submitPoSummon } from "./community-po-groups";
+import { submitPullRequestBinding } from "./community-pull-request";
 import { parseQuickEntrySubmission, submitQuickEntry } from "./community-quick-entry";
 import { applyChange } from "./community-records";
 import { type CommunityContext, type CommunityEnv, ephemeral, post } from "./community-runtime";
@@ -37,6 +38,19 @@ type ViewInteraction = {
 export async function handleCommunityView(input: ViewInteraction): Promise<Response> {
   const bugResponse = await handleBugView(input.id, input.view, input.context, input.waitUntil);
   if (bugResponse) return bugResponse;
+  if (input.id === "community_pull_request_submit") {
+    input.waitUntil(
+      submitPullRequestBinding(input.context, input.view).catch(async (error: unknown) => {
+        await ephemeral(input.context, {
+          text:
+            error instanceof InputError
+              ? error.message
+              : "PR 연결을 완료하지 못했어요. 잠시 후 다시 시도해 주세요.",
+        });
+      }),
+    );
+    return Response.json({ response_action: "clear" });
+  }
   if (input.id === "community_po_specialties_submit") {
     input.waitUntil(submitPoSpecialties(input.context, input.view));
     return Response.json({ response_action: "clear" });

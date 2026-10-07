@@ -6,6 +6,8 @@ let notificationKind = "merge_ready";
 let changeClass = "open";
 let includeTaskUrl = true;
 let notificationChannel = "CFEEDBACK";
+let missingSource = false;
+const acceptedReplies = new Map();
 const originalFetch = globalThis.fetch;
 globalThis.fetch = async (url, options = {}) => {
   const parsed = new URL(url);
@@ -64,10 +66,19 @@ globalThis.fetch = async (url, options = {}) => {
         text: "Maintainer 작업\n버그 키: BUG-ABCDEF123456",
       }],
     });
+  if (parsed.pathname.endsWith("/conversations.replies")) {
+    const channel = parsed.searchParams.get("channel");
+    const ts = parsed.searchParams.get("ts");
+    if (missingSource && channel === "CFEEDBACK") return Response.json({ ok: false, error: "thread_not_found" });
+    return Response.json({ ok: true, messages: [{ ts, text: "버그 키: BUG-ABCDEF123456" }, ...(acceptedReplies.get(`${channel}:${ts}`) ?? [])] });
+  }
   if (parsed.pathname.endsWith("/conversations.open"))
     return Response.json({ ok: true, channel: { id: "DFOUNDER" } });
-  if (parsed.pathname.endsWith("/chat.postMessage"))
-    return Response.json({ ok: true, ts: "1790253000.000001" });
+  if (parsed.pathname.endsWith("/chat.postMessage")) {
+    const key = `${body.channel}:${body.thread_ts}`;
+    acceptedReplies.set(key, [...(acceptedReplies.get(key) ?? []), { ...body, ts: "1790253000.000001", bot_id: "BTEST" }]);
+    return Response.json({ ok: true, ts: "1790253000.000001", message: { thread_ts: body.thread_ts } });
+  }
   if (parsed.pathname.endsWith("/reactions.remove") || parsed.pathname.endsWith("/reactions.add"))
     return Response.json({ ok: true });
   throw new Error(`unexpected request ${parsed.pathname}`);
@@ -107,6 +118,7 @@ try {
   );
 
   calls.length = 0;
+  acceptedReplies.clear();
   changeClass = "core";
   const coreReady = await sendAgentNotifications(env, new Date("2026-09-24T12:59:30Z"));
   assert.deepEqual(coreReady, { claimed: 1, sent: 1, failed: 0 });
@@ -129,6 +141,7 @@ try {
   assert.equal(founderPost.body.blocks, undefined);
 
   calls.length = 0;
+  acceptedReplies.clear();
   changeClass = "open";
   notificationKind = "change_merged";
   includeTaskUrl = false;
@@ -143,6 +156,7 @@ try {
   const finish = calls.find((call) => call.body.query?.includes("bug_runner_finish_notification"));
   assert.match(finish.body.params[0], /"status":"sent"/);
   calls.length = 0;
+  acceptedReplies.clear();
   notificationKind = "change_deployed";
   const deployed = await sendAgentNotifications(env, new Date("2026-09-24T13:01:00Z"));
   assert.deepEqual(deployed, { claimed: 1, sent: 1, failed: 0 });
@@ -159,6 +173,18 @@ try {
     .map((call) => new URL(call.url).pathname.split("/").at(-1));
   assert.deepEqual(deployedReactionMethods, ["reactions.remove", "reactions.add"]);
   calls.length = 0;
+  assert.deepEqual(await sendAgentNotifications(env), { claimed: 1, sent: 1, failed: 0 });
+  assert.equal(calls.some(call => call.url.includes("chat.postMessage")), false, "retry reconciles both public and PO receipts");
+  calls.length = 0;
+  acceptedReplies.clear();
+  missingSource = true;
+  assert.deepEqual(await sendAgentNotifications(env), { claimed: 1, sent: 1, failed: 0 });
+  assert.equal(calls.some(call => call.url.includes("chat.postMessage") && call.body.channel === "CFEEDBACK"), false);
+  assert.equal(calls.some(call => call.url.includes("reactions.")), false);
+  assert.equal(calls.filter(call => call.url.includes("chat.postMessage") && call.body.channel === "CMAINTAIN").length, 1);
+  missingSource = false;
+  calls.length = 0;
+  acceptedReplies.clear();
   notificationChannel = "CMAINTAIN";
   const directMaintainerDeployment = await sendAgentNotifications(
     env,
@@ -171,6 +197,7 @@ try {
   assert.equal(directMaintainerPost.body.thread_ts, "1790252981.933479");
   assert.match(directMaintainerPost.body.text, /운영 배포와 실제 동작 확인을 완료했어요/);
   calls.length = 0;
+  acceptedReplies.clear();
   notificationChannel = "CFEEDBACK";
   notificationKind = "deployment_manual";
   const manual = await sendAgentNotifications(env, new Date("2026-09-24T13:02:00Z"));

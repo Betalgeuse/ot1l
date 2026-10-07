@@ -93,6 +93,8 @@ const memberActions = new Set([
   "community_feedback_dri_select",
   "community_maintainer_linear_connect",
   "community_maintainer_linear_members",
+  "community_pull_request_open",
+  "community_pull_request_submit",
   "community_maintainer_help_open_question",
   "community_maintainer_help_open_qna",
   "community_maintainer_help_open_ot",
