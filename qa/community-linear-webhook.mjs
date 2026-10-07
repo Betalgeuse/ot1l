@@ -26,7 +26,7 @@ globalThis.fetch = async (url, options = {}) => {
     if (op === "receipt_claim") { value = firstReceipt; firstReceipt = false; }
     else if (op === "work_by_issue" || op === "work_sync" || op === "work_get") value = work;
     else if (op === "members") value = [{ userId: "UMAIN", displayName: "Main", linearUserId, linearState: "linked" }];
-    else if (op === "surface_get") value = body.params[1].includes("CFEEDBACK") ? "1.000001" : "2.000002";
+    else if (op === "surface_get") value = "2.000002";
     else if (op === "surface_put") value = "1.000001";
     else throw new Error(`unexpected op ${op}`);
     return Response.json({ rows: [[JSON.stringify(value)]] });
@@ -69,14 +69,9 @@ try {
   assert.match(sync.body.params[1], /"issueState":"검토·승인 중"/);
   assert.match(sync.body.params[1], /"driUserId":"UMAIN"/);
   const updates = calls.filter((call) => call.pathname.endsWith("/chat.update"));
-  assert.equal(updates.length, 2);
-  const memberUpdate = updates.find((call) => call.body.channel === "CFEEDBACK");
+  assert.equal(updates.length, 1);
+  assert.equal(updates.some((call) => call.body.channel === "CFEEDBACK"), false);
   const maintainerUpdate = updates.find((call) => call.body.channel === "CMAIN");
-  assert.match(memberUpdate.body.text, /버그 키 BUG-QA/);
-  assert.deepEqual(
-    memberUpdate.body.blocks.at(-1).elements.map((element) => element.action_id),
-    ["community_maintainer_activate"],
-  );
   assert.match(maintainerUpdate.body.blocks[0].text.text, /DRI  <@UMAIN>/);
   assert.match(maintainerUpdate.body.blocks[0].text.text, /버그 키  BUG-QA/);
   assert.deepEqual(
@@ -90,7 +85,7 @@ try {
   const before = calls.length;
   assert.equal((await request(payload)).status, 200);
   assert.equal(calls.slice(before).some((call) => call.pathname.endsWith("/chat.update")), false);
-  console.log("PASS signed Linear webhook: team boundary, deduplication, DRI mapping and both Slack surfaces");
+  console.log("PASS signed Linear webhook: team boundary, deduplication, DRI mapping and Maintainer-only work surface");
 } finally {
   globalThis.fetch = original;
 }

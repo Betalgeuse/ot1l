@@ -149,19 +149,13 @@ async function upsertSurface(
   return created;
 }
 
-export async function refreshMaintainerWorkSurfaces(
-  env: WorkEnv,
-  workKey: string,
-  preferredMemberTs: string | null = null,
-): Promise<void> {
+export async function refreshMaintainerWorkSurfaces(env: WorkEnv, workKey: string): Promise<void> {
   if (!configured(env)) return;
   const store = new MaintainerOpsStore(env);
   const work = await store.getWork(workKey);
   if (!work) return;
   const maintainers = await activeMaintainers(env);
-  const feedback = env.COMMUNITY_FEEDBACK_CHANNEL_ID;
   const maintainer = env.COMMUNITY_MAINTAINERS_CHANNEL_ID;
-  if (feedback) await upsertSurface(env, work, feedback, preferredMemberTs, "member", maintainers);
   if (maintainer) await upsertSurface(env, work, maintainer, null, "maintainer", maintainers);
 }
 
@@ -237,7 +231,7 @@ export async function syncFeedbackToLinear(
       }),
     );
   }
-  await refreshMaintainerWorkSurfaces(env, input.feedbackId, context.thread);
+  await refreshMaintainerWorkSurfaces(env, input.feedbackId);
   void work;
 }
 
