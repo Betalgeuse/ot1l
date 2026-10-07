@@ -26,6 +26,11 @@ const CORE_WORKER_PATH = (path) =>
   path === "slack-manifest.json" ||
   path.startsWith("scripts/");
 
+const PRODUCTION_PATH = (path) =>
+  path.startsWith("migrations/") ||
+  CORE_WORKER_PATH(path) ||
+  (path.startsWith("site/") && !openEventPath(path));
+
 function openEventPath(path) {
   return path.startsWith("event-site/") || OPEN_EVENT_PATHS.has(path);
 }
@@ -39,5 +44,7 @@ export function classifyChangePaths(paths) {
     return { changeClass: "core", adapter: "runner", paths: ordered };
   if (ordered.every(CORE_WORKER_PATH))
     return { changeClass: "core", adapter: "core-worker", paths: ordered };
+  if (ordered.some((path) => path.startsWith("migrations/")) && ordered.every(PRODUCTION_PATH))
+    return { changeClass: "core", adapter: "production", paths: ordered };
   return { changeClass: "core", adapter: "manual", paths: ordered };
 }

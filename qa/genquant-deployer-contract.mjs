@@ -1,5 +1,17 @@
 import assert from "node:assert/strict";
-import { classifyRunnerDeploymentPaths, validateDeployerConfig } from "../automation/runner/genquant-deployer.mjs";
+import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import {
+  classificationDigest,
+  classifyRunnerDeploymentPaths,
+  validateDeployerConfig,
+  verifyApprovedPaths,
+} from "../automation/runner/genquant-deployer.mjs";
+import {
+  applyForwardMigrations,
+  migrationConnection,
+} from "../automation/runner/migration-deployer.mjs";
 
 assert.equal(classifyRunnerDeploymentPaths([
   "automation/runner/contract.mjs",
@@ -17,8 +29,11 @@ assert.deepEqual(classifyRunnerDeploymentPaths([
 });
 assert.equal(classifyRunnerDeploymentPaths(["src/community-townhall-events.ts"]).adapter, "core-worker");
 assert.equal(classifyRunnerDeploymentPaths(["package.json"]).adapter, "core-worker");
-for (const path of ["migrations/061.sql", "site/src/index.ts"])
-  assert.equal(classifyRunnerDeploymentPaths([path]).automatic, false, path);
+assert.equal(classifyRunnerDeploymentPaths(["migrations/082_forward.sql"]).adapter, "production");
+assert.equal(classifyRunnerDeploymentPaths(["site/src/index.ts"]).adapter, "manual");
+assert.equal(classifyRunnerDeploymentPaths([
+  "migrations/082_forward.sql", "src/index.ts", "site/src/index.ts",
+]).adapter, "production");
 assert.deepEqual(classifyRunnerDeploymentPaths([]), { automatic: false, adapter: "manual", paths: [] });
 assert.throws(() => validateDeployerConfig({}), /missing deployer config/);
 assert.equal(validateDeployerConfig({
@@ -28,5 +43,37 @@ assert.equal(validateDeployerConfig({
   CODEX_BASE_BRANCH: "main",
   BUG_DEPLOY_CHECKOUT: "/home/opc/otl1-bug-runner/current",
   BUG_DEPLOY_SERVICE: "otl1-bug-runner.service",
+  OTL1_MIGRATION_DATABASE_URL: "postgresql://otl_migration_login:secret@test.neon.tech/db",
+  BUG_DEPLOY_SITE_HEALTH_URL: "https://site.example/health",
 }).BUG_DEPLOY_SERVICE, "otl1-bug-runner.service");
-console.log("PASS GenQuant deployer path policy and configuration contract");
+assert.throws(() => migrationConnection("postgresql://postgres:secret@test.neon.tech/db"),
+  /invalid migration database URL/);
+
+const policy = classifyRunnerDeploymentPaths(["migrations/082_forward.sql", "src/index.ts"]);
+const digest = classificationDigest(policy);
+verifyApprovedPaths({ changedPaths: policy.paths, classificationDigest: digest }, policy);
+assert.throws(() => verifyApprovedPaths({ changedPaths: ["src/index.ts"], classificationDigest: digest }, policy),
+  /approved_paths_mismatch/);
+
+const checkout = mkdtempSync(join(tmpdir(), "otl1-migration-"));
+mkdirSync(join(checkout, "migrations"));
+writeFileSync(join(checkout, "migrations/082_forward.sql"),
+  "BEGIN; SELECT 1; INSERT INTO otl.schema_migrations(version) VALUES('082-forward'); COMMIT;\n");
+const calls = [];
+let applied = false;
+const versions = applyForwardMigrations(checkout, ["migrations/082_forward.sql"],
+  "postgresql://otl_migration_login:do-not-log@test.neon.tech/db", (connection, sql) => {
+    calls.push({ connection, sql });
+    if (sql.includes("INSERT INTO")) applied = true;
+    return applied ? "082-forward" : "";
+  });
+assert.deepEqual(versions, ["082-forward"]);
+assert.equal(calls.length, 3);
+assert.ok(calls.every(({ sql }) => sql.startsWith("SET ROLE otl_migration_owner;")));
+assert.ok(calls.every(({ sql }) => !sql.includes("do-not-log")));
+assert.equal(calls[0].connection.PGUSER, "otl_migration_login");
+assert.equal(calls[0].connection.PGPASSWORD, "do-not-log");
+assert.throws(() => applyForwardMigrations(checkout, ["migrations/down.sql"],
+  "postgresql://otl_migration_login:secret@test.neon.tech/db", () => ""), /invalid migration path/);
+
+console.log("PASS GenQuant deployer approval, migration, path policy and configuration contract");
