@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+
 const RUNNER_PATHS = (path) =>
   path.startsWith("automation/runner/") ||
   path === "qa/genquant-runner-contract.mjs" ||
@@ -13,6 +15,15 @@ const OPEN_EVENT_PATHS = new Set([
   "site/dist/styles.css",
   "site/qa/event-schedule.mjs",
 ]);
+
+const OPEN_PRESENTATION_PATH = /^src\/slack-presentation\/[a-z0-9-]+[.]ts$/;
+const FORBIDDEN_PRESENTATION_SOURCE = [
+  [/(?:^|\n)\s*(?:import|export\s+[^\n]*\s+from)\b|\brequire\s*\(/i, "dependency"],
+  [/\b(?:process[.]env|env|fetch|secret|token|password|credential)\b/i, "environment or secret"],
+  [/\b(?:database|postgres|neon|sql|query|api|route|router|request|response|webhook)\b/i, "data or API"],
+  [/\b(?:actor|member|role|email|phone|address|user(?:name|id)?|person|pii)\b/i, "identity or PII"],
+  [/\b(?:broker|deploy|merge|github|slack-api)\b/i, "Broker or deployment"],
+];
 
 const MIGRATION_PATH = /^migrations\/([0-9]{3})_[a-z0-9_]+[.]sql$/;
 
@@ -37,11 +48,27 @@ function openEventPath(path) {
   return path.startsWith("event-site/") || OPEN_EVENT_PATHS.has(path);
 }
 
+function openPresentationPath(path) {
+  return OPEN_PRESENTATION_PATH.test(path);
+}
+
+export function assertOpenPresentationBoundary(paths, readSource = readFileSync) {
+  for (const path of paths.filter(openPresentationPath)) {
+    const source = readSource(path, "utf8");
+    for (const [pattern, boundary] of FORBIDDEN_PRESENTATION_SOURCE) {
+      if (pattern.test(source))
+        throw new Error(`open presentation file crosses the ${boundary} boundary: ${path}`);
+    }
+  }
+}
+
 export function classifyChangePaths(paths) {
   const ordered = [...new Set(paths)].sort();
   if (ordered.length === 0) return { changeClass: "core", adapter: "manual", paths: ordered };
   if (ordered.every(openEventPath))
     return { changeClass: "open", adapter: "open-events", paths: ordered };
+  if (ordered.every(openPresentationPath))
+    return { changeClass: "open", adapter: "core-worker", paths: ordered };
   if (ordered.every(RUNNER_PATHS))
     return { changeClass: "core", adapter: "runner", paths: ordered };
   if (ordered.every(CORE_WORKER_PATH))

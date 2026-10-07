@@ -23,6 +23,7 @@ const suites = [
   "community-agent-notifications",
   "genquant-runner-contract",
   "genquant-deployer-contract",
+  "slack-presentation-boundary",
   "maintainer-deployment-policy",
   "maintainer-status-site",
   "open-events-worker",

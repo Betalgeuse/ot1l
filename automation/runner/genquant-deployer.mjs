@@ -1,7 +1,12 @@
 import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
+import { readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { classifyChangePaths, includesMigration } from "./change-policy.mjs";
+import {
+  assertOpenPresentationBoundary,
+  classifyChangePaths,
+  includesMigration,
+} from "./change-policy.mjs";
 import { githubRepositorySlug, sha256 } from "./contract.mjs";
 import { applyForwardMigrations, migrationConnection } from "./migration-deployer.mjs";
 
@@ -236,6 +241,9 @@ export async function deployOnce(environment = process.env) {
     const range = deploymentRange(checkout, mergeSha, config.CODEX_BASE_BRANCH);
     const policy = classifyRunnerDeploymentPaths(range.paths);
     verifyApprovedPaths(claim, policy, config.BUG_DEPLOY_APPROVAL_SCOPE_MIGRATION);
+    assertOpenPresentationBoundary(policy.paths, (path) =>
+      command("git", ["show", `${mergeSha}:${path}`], { cwd: checkout }),
+    );
     if (!policy.automatic) {
       await db("bug_runner_fail_deployment", {
         teamId: config.SLACK_TEAM_ID,
@@ -257,6 +265,17 @@ export async function deployOnce(environment = process.env) {
       command("git", ["merge", "--ff-only", mergeSha], { cwd: checkout, timeout: 180_000 });
     const deployedSha = command("git", ["rev-parse", "HEAD"], { cwd: checkout });
     if (deployedSha !== mergeSha) throw new Error("deployed_sha_mismatch");
+    const deployedPaths = command("git", ["diff", "--name-only", range.current, deployedSha], {
+      cwd: checkout,
+    })
+      .split("\n")
+      .filter(Boolean)
+      .sort();
+    if (JSON.stringify(deployedPaths) !== JSON.stringify(policy.paths))
+      throw new Error("post_merge_paths_mismatch");
+    assertOpenPresentationBoundary(deployedPaths, (path) =>
+      readFileSync(join(checkout, path), "utf8"),
+    );
     let workerVersion;
     let environmentEvidence;
     let observationEvidence;
