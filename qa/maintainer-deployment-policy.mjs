@@ -24,6 +24,36 @@ assert.deepEqual(classifyChangePaths(["src/community-runtime.ts"]), {
   adapter: "core-worker",
   paths: ["src/community-runtime.ts"],
 });
+assert.deepEqual(
+  classifyChangePaths([
+    "src/slack-presentation/merge-ready.ts",
+    "qa/slack-presentation/merge-ready.mjs",
+  ]),
+  {
+    changeClass: "open",
+    adapter: "slack-presentation",
+    paths: [
+      "qa/slack-presentation/merge-ready.mjs",
+      "src/slack-presentation/merge-ready.ts",
+    ],
+  },
+);
+for (const path of [
+  "src/community-interactions.ts",
+  "src/community-runtime.ts",
+  "src/community-maintainer-store.ts",
+  "migrations/086_product_owner_groups.sql",
+  "wrangler.jsonc",
+  "automation/runner/genquant-runner.mjs",
+]) assert.equal(classifyChangePaths([path]).changeClass, "core", `${path} must remain Core`);
+assert.equal(
+  classifyChangePaths([
+    "src/slack-presentation/merge-ready.ts",
+    "src/community-interactions.ts",
+  ]).changeClass,
+  "core",
+  "presentation mixed with interaction routing must fail closed",
+);
 assert.equal(
   classifyChangePaths(["event-site/src/index.ts", "migrations/067_flexible_townhall_event.sql"])
     .changeClass,

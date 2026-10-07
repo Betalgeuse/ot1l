@@ -30,10 +30,11 @@ GitHub collaborator 초대는 Maintainer 활성화의 일부가 아닙니다. Gi
 ## 어느 Worker를 고쳐야 하나요?
 
 - `event-site/**`, `site/dist/event-schedule.*`, `site/qa/event-schedule.mjs`: 공개 이벤트 시간표 Worker `otl1-time`. 비밀이 없는 Open 변경입니다.
+- `src/slack-presentation/**`, `qa/slack-presentation/**`: Slack 문구·레이아웃·버튼 색처럼 동작 권한을 바꾸지 않는 순수 표시 코드와 전용 QA입니다. 활성 Product Owner가 정확한 SHA를 승인할 수 있는 Open 변경입니다.
 - `src/**`, `migrations/**`, 루트 `wrangler.jsonc`: Slack, 회원 상태, DB, Core Worker `otl1-onething-garden`. Founder 승인이 필요한 Core 변경입니다.
 - `site/**`의 이벤트 시간표 외 경로: 가입·공개 사이트 영역입니다. 현재 자동 Open 배포 대상이 아닙니다.
 - `automation/runner/**`, `ops/genquant/**`: 배포·수정 브로커 자체입니다. Core로 취급합니다.
 
-경로가 섞이면 더 강한 쪽인 Core로 분류됩니다. 실제 분류 기준은 [`automation/runner/change-policy.mjs`](automation/runner/change-policy.mjs)이며 문서보다 코드가 우선합니다.
+interaction routing·actor binding·회원/역할 권한·PII·DB/migration·secret·Worker config·Broker 경로는 계속 Core입니다. Open 경로와 다른 경로가 섞이면 더 강한 쪽인 Core로 분류됩니다. 실제 분류 기준은 [`automation/runner/change-policy.mjs`](automation/runner/change-policy.mjs)이며 문서보다 코드가 우선합니다.
 
 운영 설정 예시는 placeholder입니다. `.dev.vars`, production Wrangler config, 토큰, DB URL, SSH key를 커밋하거나 PR·로그·AI 프롬프트에 붙이지 마세요. 로컬 검증은 `bun run check`까지만 수행하며 운영 배포는 Slack 승인과 Broker에 맡깁니다.

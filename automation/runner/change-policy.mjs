@@ -14,6 +14,11 @@ const OPEN_EVENT_PATHS = new Set([
   "site/qa/event-schedule.mjs",
 ]);
 
+// This boundary intentionally contains rendering only.  Slack interaction IDs,
+// actor binding, persistence and delivery stay outside it and therefore Core.
+const OPEN_SLACK_PRESENTATION_PATH = (path) =>
+  path.startsWith("src/slack-presentation/") || path.startsWith("qa/slack-presentation/");
+
 const MIGRATION_PATH = /^migrations\/([0-9]{3})_[a-z0-9_]+[.]sql$/;
 
 const CORE_WORKER_PATH = (path) =>
@@ -42,6 +47,8 @@ export function classifyChangePaths(paths) {
   if (ordered.length === 0) return { changeClass: "core", adapter: "manual", paths: ordered };
   if (ordered.every(openEventPath))
     return { changeClass: "open", adapter: "open-events", paths: ordered };
+  if (ordered.every(OPEN_SLACK_PRESENTATION_PATH))
+    return { changeClass: "open", adapter: "slack-presentation", paths: ordered };
   if (ordered.every(RUNNER_PATHS))
     return { changeClass: "core", adapter: "runner", paths: ordered };
   if (ordered.every(CORE_WORKER_PATH))

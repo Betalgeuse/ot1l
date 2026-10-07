@@ -24,6 +24,7 @@ const suites = [
   "genquant-runner-contract",
   "genquant-deployer-contract",
   "maintainer-deployment-policy",
+  "slack-presentation/merge-approval",
   "maintainer-status-site",
   "open-events-worker",
   "log-alert-worker",
