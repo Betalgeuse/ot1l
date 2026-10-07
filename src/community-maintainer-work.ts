@@ -187,17 +187,7 @@ export async function refreshMaintainerWorkSurfaces(
   const work = await store.getWork(workKey);
   if (!work) return;
   const maintainers = await activeMaintainers(env);
-  const feedback = env.COMMUNITY_FEEDBACK_CHANNEL_ID;
   const maintainer = env.COMMUNITY_MAINTAINERS_CHANNEL_ID;
-  if (feedback)
-    await upsertSurface(
-      env,
-      work,
-      feedback,
-      preferredSurface?.channelId === feedback ? preferredSurface.messageTs : null,
-      "member",
-      maintainers,
-    );
   if (maintainer)
     await upsertSurface(
       env,
@@ -237,10 +227,7 @@ export async function syncFeedbackToMaintainerWork(
     sourceChannel: input.sourceChannel,
     sourceThread: input.sourceThread,
   });
-  await refreshMaintainerWorkSurfaces(env, input.feedbackId, {
-    channelId: input.sourceChannel,
-    messageTs: input.sourceThread,
-  });
+  await refreshMaintainerWorkSurfaces(env, input.feedbackId);
 }
 
 export async function exportMaintainerWorkToLinear(

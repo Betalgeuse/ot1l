@@ -157,8 +157,12 @@ try {
   notificationKind = "change_deployed";
   const deployed = await sendAgentNotifications(env, new Date("2026-09-24T13:01:00Z"));
   assert.deepEqual(deployed, { claimed: 1, sent: 1, failed: 0 });
-  const deployedPost = calls.find((call) => call.url.includes("chat.postMessage"));
-  assert.match(deployedPost.body.text, /운영 배포와 실제 동작 확인을 완료했어요/);
+  const deployedPosts = calls.filter((call) => call.url.includes("chat.postMessage"));
+  const memberCompletion = deployedPosts.find((call) => call.body.channel === "CFEEDBACK");
+  assert.match(memberCompletion.body.text, /요청한 개선이 운영에 반영됐어요/);
+  assert.equal(memberCompletion.body.thread_ts, "1790252981.933479");
+  const poDeployment = deployedPosts.find((call) => call.body.channel === "CMAINTAIN");
+  assert.match(poDeployment.body.text, /운영 배포와 실제 동작 확인을 완료했어요/);
   const deployedReactionMethods = calls
     .filter((call) => call.url.includes("reactions."))
     .map((call) => new URL(call.url).pathname.split("/").at(-1));
@@ -181,7 +185,14 @@ try {
   const manual = await sendAgentNotifications(env, new Date("2026-09-24T13:02:00Z"));
   assert.deepEqual(manual, { claimed: 1, sent: 1, failed: 0 });
   const manualPost = calls.find((call) => call.url.includes("chat.postMessage"));
+  assert.equal(manualPost.body.channel, "CMAINTAIN");
   assert.match(manualPost.body.text, /운영자 배포가 필요합니다/);
+  assert.equal(
+    calls.some(
+      (call) => call.url.includes("chat.postMessage") && call.body.channel === "CFEEDBACK",
+    ),
+    false,
+  );
   const manualReactionMethods = calls
     .filter((call) => call.url.includes("reactions."))
     .map((call) => new URL(call.url).pathname.split("/").at(-1));

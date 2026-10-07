@@ -97,6 +97,15 @@ try {
   assert.equal(work.dri_user_id, "UMAIN", "Maintainer author must immediately become DRI");
   assert.equal(work.linear_issue_id, null);
   assert.equal(calls.some((call) => call.pathname === "/graphql"), false);
+  assert.equal(
+    calls.some(
+      (call) =>
+        (call.pathname.endsWith("/chat.postMessage") || call.pathname.endsWith("/chat.update")) &&
+        call.body.channel === "CFEEDBACK",
+    ),
+    false,
+    "PO work must flow from feedback into the private work surface, never back into feedback",
+  );
   const maintainerCard = calls.find(
     (call) => call.pathname.endsWith("/chat.postMessage") && call.body.channel === "CMAIN",
   );

@@ -301,22 +301,14 @@ export async function sendAgentNotifications(
         continue;
       }
       if (
-        item.kind === "task_failed" ||
-        item.kind === "change_deployed" ||
-        item.kind === "deployment_manual" ||
-        item.kind === "merge_ready"
-      ) {
-        const sourceIsMaintainer = item.channelId === env.COMMUNITY_MAINTAINERS_CHANNEL_ID;
-        if (!sourceIsMaintainer)
-          await callSlack(env.SLACK_BOT_TOKEN, "chat.postMessage", {
-            channel: item.channelId,
-            thread_ts: item.threadTs,
-            text:
-              item.kind === "merge_ready"
-                ? `수정안과 검증이 준비되어 <#${env.COMMUNITY_MAINTAINERS_CHANNEL_ID}>에 승인을 요청했어요. · ${item.bugId}`
-                : notificationText(item),
-          });
-      }
+        item.kind === "change_deployed" &&
+        item.channelId !== env.COMMUNITY_MAINTAINERS_CHANNEL_ID
+      )
+        await callSlack(env.SLACK_BOT_TOKEN, "chat.postMessage", {
+          channel: item.channelId,
+          thread_ts: item.threadTs,
+          text: `요청한 개선이 운영에 반영됐어요. :white_check_mark: · ${item.bugId}`,
+        });
       if (
         item.kind === "task_failed" ||
         item.kind === "change_deployed" ||
