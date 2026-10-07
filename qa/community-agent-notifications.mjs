@@ -92,7 +92,7 @@ try {
   assert.match(readyPost.body.blocks[0].text.text, /변경 내용 보기/);
   assert.match(readyPost.body.blocks[0].text.text, /Open/);
   assert.equal(readyPost.body.thread_ts, "1790252999.000001");
-  assert.equal(readyPost.body.blocks[1].elements[0].text.text, "Maintainer 병합·배포 승인");
+  assert.equal(readyPost.body.blocks[1].elements[0].text.text, "Product Owner 병합·배포 승인");
   assert.equal(readyPost.body.blocks[1].elements[0].action_id, "community_feedback_merge_approve");
   assert.equal(JSON.parse(readyPost.body.blocks[1].elements[0].value).headSha, "a".repeat(40));
   assert.equal(

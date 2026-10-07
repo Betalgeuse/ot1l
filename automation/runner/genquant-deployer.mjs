@@ -1,9 +1,12 @@
 import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { classifyChangePaths, includesMigration } from "./change-policy.mjs";
 import { githubRepositorySlug, sha256 } from "./contract.mjs";
 import { applyForwardMigrations, migrationConnection } from "./migration-deployer.mjs";
+import { verifySlackPresentationBoundary } from "./slack-presentation-boundary.mjs";
 
 const SHA = /^[a-f0-9]{40}$/;
 const SAFE_ERROR = /^[a-z0-9_]{1,120}$/;
@@ -214,6 +217,22 @@ function deploymentRange(checkout, mergeSha, baseBranch) {
   return { current, paths };
 }
 
+function verifyMergePresentation(checkout, mergeSha, paths) {
+  const root = mkdtempSync(join(tmpdir(), "otl1-presentation-"));
+  const directory = join(root, "checkout");
+  try {
+    command("git", ["worktree", "add", "--detach", directory, mergeSha], { cwd: checkout });
+    verifySlackPresentationBoundary(directory, paths);
+  } finally {
+    try {
+      command("git", ["worktree", "remove", "--force", directory], { cwd: checkout });
+    } catch {
+      rmSync(root, { recursive: true, force: true });
+    }
+    rmSync(root, { recursive: true, force: true });
+  }
+}
+
 export async function deployOnce(environment = process.env) {
   const config = validateDeployerConfig(environment);
   const db = sqlClient(config.BUG_RUNNER_DATABASE_URL);
@@ -236,6 +255,7 @@ export async function deployOnce(environment = process.env) {
     const range = deploymentRange(checkout, mergeSha, config.CODEX_BASE_BRANCH);
     const policy = classifyRunnerDeploymentPaths(range.paths);
     verifyApprovedPaths(claim, policy, config.BUG_DEPLOY_APPROVAL_SCOPE_MIGRATION);
+    verifyMergePresentation(checkout, mergeSha, policy.paths);
     if (!policy.automatic) {
       await db("bug_runner_fail_deployment", {
         teamId: config.SLACK_TEAM_ID,
@@ -257,6 +277,7 @@ export async function deployOnce(environment = process.env) {
       command("git", ["merge", "--ff-only", mergeSha], { cwd: checkout, timeout: 180_000 });
     const deployedSha = command("git", ["rev-parse", "HEAD"], { cwd: checkout });
     if (deployedSha !== mergeSha) throw new Error("deployed_sha_mismatch");
+    verifySlackPresentationBoundary(checkout, policy.paths);
     let workerVersion;
     let environmentEvidence;
     let observationEvidence;

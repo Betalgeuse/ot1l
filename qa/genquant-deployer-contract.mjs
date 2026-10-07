@@ -31,6 +31,12 @@ assert.deepEqual(classifyRunnerDeploymentPaths([
   paths: ["event-site/src/index.ts", "site/dist/event-schedule.js"],
 });
 assert.equal(classifyRunnerDeploymentPaths(["src/community-townhall-events.ts"]).adapter, "core-worker");
+assert.deepEqual(classifyRunnerDeploymentPaths(["src/slack-presentation/product-owner.ts"]), {
+  automatic: true,
+  changeClass: "open",
+  adapter: "core-worker",
+  paths: ["src/slack-presentation/product-owner.ts"],
+});
 assert.equal(classifyRunnerDeploymentPaths(["package.json"]).adapter, "core-worker");
 assert.equal(classifyRunnerDeploymentPaths(["migrations/082_forward.sql"]).adapter, "production");
 assert.equal(classifyRunnerDeploymentPaths(["site/src/index.ts"]).adapter, "manual");

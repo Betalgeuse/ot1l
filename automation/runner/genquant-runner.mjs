@@ -5,6 +5,7 @@ import { lstat, mkdir, open, readFile, unlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { isAbsolute, join, resolve } from "node:path";
 import { classifyChangePaths } from "./change-policy.mjs";
+import { verifySlackPresentationBoundary } from "./slack-presentation-boundary.mjs";
 import {
   buildFixBranch,
   buildFixPrompt,
@@ -284,6 +285,7 @@ async function fixTaskArtifact(config, lease, taskId, runId) {
     const artifactDigest = sha256(diff);
     command("bun", ["install", "--frozen-lockfile"], { cwd: worktree, timeout: 180_000 });
     command("bun", ["run", "check"], { cwd: worktree, timeout: 20 * 60_000 });
+    verifySlackPresentationBoundary(worktree, paths);
     const branch = buildFixBranch(lease.publicAlias, lease.jobId);
     command("git", ["-C", worktree, "switch", "-c", branch]);
     command("git", ["-C", worktree, "add", "--", ...paths]);
@@ -378,6 +380,24 @@ async function processApprovedMerge(db, config, workerId) {
   const repositorySlug = githubRepositorySlug(config.CODEX_REPOSITORY_URL);
   const prUrl = `https://github.com/${repositorySlug}/pull/${prNumber}`;
   try {
+    const changedPaths = command(
+      "gh",
+      ["pr", "diff", prUrl, "--repo", repositorySlug, "--name-only"],
+      { timeout: 120_000 },
+    ).split("\n").filter(Boolean).sort();
+    if (JSON.stringify(changedPaths) !== JSON.stringify([...(claim.changedPaths ?? [])].sort()))
+      throw new Error("merge_changed_paths_mismatch");
+    const repository = await ensureRepository(config.BUG_RUNNER_ROOT, config.CODEX_REPOSITORY_URL);
+    command("git", ["-C", repository, "fetch", "--no-tags", "origin", `pull/${prNumber}/head`], {
+      timeout: 180_000,
+    });
+    const mergeCheck = resolve(config.BUG_RUNNER_ROOT, "runs", `merge-${changeId}-${leaseToken}`);
+    command("git", ["-C", repository, "worktree", "add", "--detach", mergeCheck, "FETCH_HEAD"]);
+    try {
+      verifySlackPresentationBoundary(mergeCheck, changedPaths);
+    } finally {
+      command("git", ["-C", repository, "worktree", "remove", "--force", mergeCheck]);
+    }
     command("gh", ["pr", "ready", prUrl, "--repo", repositorySlug]);
     command("gh", ["pr", "merge", prUrl, "--repo", repositorySlug, "--squash", "--delete-branch"], {
       timeout: 180_000,

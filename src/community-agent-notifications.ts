@@ -3,6 +3,7 @@ import { escapeSlackText } from "./community-messages";
 import type { CommunityEnv } from "./community-runtime";
 import { addReactions, callSlack, removeReactions } from "./community-social";
 import { type Json, list, object, string } from "./input";
+import { approvalButtonText } from "./slack-presentation/product-owner";
 import { NeonStore } from "./store";
 
 type Notification = {
@@ -144,8 +145,7 @@ function mergeReadyMessage(input: Notification, includeButton = true) {
           type: "button",
           text: {
             type: "plain_text",
-            text:
-              input.changeClass === "core" ? "Founder 병합·배포 승인" : "Maintainer 병합·배포 승인",
+            text: approvalButtonText(input.changeClass),
           },
           style: "primary",
           action_id: "community_feedback_merge_approve",

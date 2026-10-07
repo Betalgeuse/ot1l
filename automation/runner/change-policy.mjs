@@ -15,6 +15,8 @@ const OPEN_EVENT_PATHS = new Set([
 ]);
 
 const MIGRATION_PATH = /^migrations\/([0-9]{3})_[a-z0-9_]+[.]sql$/;
+const OPEN_SLACK_PRESENTATION_PATH = (path) =>
+  /^src\/slack-presentation\/[a-z0-9-]+[.]ts$/.test(path);
 
 const CORE_WORKER_PATH = (path) =>
   path.startsWith("src/") ||
@@ -42,6 +44,8 @@ export function classifyChangePaths(paths) {
   if (ordered.length === 0) return { changeClass: "core", adapter: "manual", paths: ordered };
   if (ordered.every(openEventPath))
     return { changeClass: "open", adapter: "open-events", paths: ordered };
+  if (ordered.every(OPEN_SLACK_PRESENTATION_PATH))
+    return { changeClass: "open", adapter: "core-worker", paths: ordered };
   if (ordered.every(RUNNER_PATHS))
     return { changeClass: "core", adapter: "runner", paths: ordered };
   if (ordered.every(CORE_WORKER_PATH))

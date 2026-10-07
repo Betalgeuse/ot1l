@@ -18,6 +18,11 @@ import { addReactions, callSlack } from "./community-social";
 import type { CommunityStore } from "./community-store";
 import { InputError, list, object, string } from "./input";
 import { INTENT_MODEL, type IntentAI } from "./intent";
+import {
+  dailyFeedbackPresentation,
+  dailyProductOwnerPresentation,
+  PRODUCT_OWNER_PROPOSAL_BUTTON,
+} from "./slack-presentation/product-owner";
 import { NeonStore } from "./store";
 
 export const FEEDBACK_DOC_CONTRACT = {
@@ -252,13 +257,9 @@ export function feedbackPromptDue(minute: string): boolean {
   return /^18:0[0-5]$/.test(minute);
 }
 
-export function dailyFeedbackPromptText(date: string): string {
-  return `${date} 오늘 OT1L을 쓰면서 불편했거나 바랐던 점이 있었나요? 작은 의견도 괜찮아요. 아래 버튼으로 편하게 남겨주세요. 피드백을 남겨주시면 봇이 자동으로 수정안을 만들고, Product Owner가 확인한 뒤 배포해요! Product Owner(PO)는 코딩 여부와 관계없이 회원 문제를 발견하고 개선을 끝까지 맡는 역할이에요.`;
-}
+export const dailyFeedbackPromptText = dailyFeedbackPresentation;
 
-export function dailyMaintainerPromptText(date: string): string {
-  return `${date} 오늘 OT1L을 함께 만들며 불편했던 점, 해보고 싶은 변화, 같이 배우거나 열어보고 싶은 활동이 있었나요? 작은 아이디어·질문·도움 요청도 괜찮아요. 아래 버튼으로 남기면 함께할 사람을 찾고 AI의 도움을 받아 실제 변화로 이어갈 수 있어요.`;
-}
+export const dailyMaintainerPromptText = dailyProductOwnerPresentation;
 
 function maintainerFeedbackSourceUrl(context: CommunityContext): string {
   return `https://app.slack.com/client/${context.scope.teamId}/${context.scope.channelId}/thread/${context.scope.channelId}-${context.thread}`;
@@ -380,7 +381,8 @@ export async function sendDailyMaintainerPrompt(
           elements: [
             {
               type: "button",
-              text: { type: "plain_text", text: "피드백·작업 제안" },
+              text: { type: "plain_text", text: PRODUCT_OWNER_PROPOSAL_BUTTON.text },
+              style: PRODUCT_OWNER_PROPOSAL_BUTTON.style,
               action_id: "community_bug_open",
               value: JSON.stringify({ ownerId: "actor", key: "new" }),
             },
