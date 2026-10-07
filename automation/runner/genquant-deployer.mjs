@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { join, resolve } from "node:path";
 import { classifyChangePaths } from "./change-policy.mjs";
 import { githubRepositorySlug, sha256 } from "./contract.mjs";
+import { applyForwardMigrations, migrationConnection } from "./migration-deployer.mjs";
 
 const SHA = /^[a-f0-9]{40}$/;
 const SAFE_ERROR = /^[a-z0-9_]{1,120}$/;
@@ -101,6 +102,32 @@ function deployCoreWorker(checkout, config) {
   return { version, health };
 }
 
+function deploySite(checkout, config) {
+  for (const name of ["CLOUDFLARE_API_TOKEN", "BUG_DEPLOY_SITE_HEALTH_URL"])
+    if (typeof config[name] !== "string" || !config[name].trim())
+      throw new Error("site_deployer_unconfigured");
+  command("node", ["scripts/deploy-production-site.mjs", "--apply"], {
+    cwd: checkout,
+    timeout: 10 * 60_000,
+    env: { ...process.env, CLOUDFLARE_API_TOKEN: config.CLOUDFLARE_API_TOKEN },
+  });
+  const health = JSON.parse(command("curl", ["-fsS", config.BUG_DEPLOY_SITE_HEALTH_URL], {
+    timeout: 30_000,
+  }));
+  if (health.status !== "ok") throw new Error("site_health_failed");
+  return health;
+}
+
+export function classificationDigest(policy) {
+  return sha256(JSON.stringify({ version: 1, changeClass: policy.changeClass, paths: policy.paths }));
+}
+
+export function verifyApprovedPaths(claim, policy) {
+  if (!Array.isArray(claim.changedPaths) || claim.classificationDigest !== classificationDigest(policy) ||
+      JSON.stringify([...claim.changedPaths].sort()) !== JSON.stringify(policy.paths))
+    throw new Error("approved_paths_mismatch");
+}
+
 export function classifyRunnerDeploymentPaths(paths) {
   const policy = classifyChangePaths(paths);
   return { automatic: policy.adapter !== "manual", adapter: policy.adapter, paths: policy.paths };
@@ -114,6 +141,8 @@ export function validateDeployerConfig(env) {
     "CODEX_BASE_BRANCH",
     "BUG_DEPLOY_CHECKOUT",
     "BUG_DEPLOY_SERVICE",
+    "OTL1_MIGRATION_DATABASE_URL",
+    "BUG_DEPLOY_SITE_HEALTH_URL",
   ])
     if (typeof env[name] !== "string" || !env[name].trim())
       throw new Error(`missing deployer config: ${name}`);
@@ -124,6 +153,7 @@ export function validateDeployerConfig(env) {
   }
   if (!/^[A-Za-z0-9_.@-]+[.]service$/.test(env.BUG_DEPLOY_SERVICE))
     throw new Error("invalid deploy service");
+  migrationConnection(env.OTL1_MIGRATION_DATABASE_URL);
   return env;
 }
 
@@ -195,6 +225,7 @@ export async function deployOnce(environment = process.env) {
   try {
     const range = deploymentRange(checkout, mergeSha, config.CODEX_BASE_BRANCH);
     const policy = classifyRunnerDeploymentPaths(range.paths);
+    verifyApprovedPaths(claim, policy);
     if (!policy.automatic) {
       await db("bug_runner_fail_deployment", {
         teamId: config.SLACK_TEAM_ID,
@@ -219,7 +250,22 @@ export async function deployOnce(environment = process.env) {
     let workerVersion;
     let environmentEvidence;
     let observationEvidence;
-    if (policy.adapter === "open-events" || policy.adapter === "core-worker") {
+    if (policy.adapter === "production") {
+      const migrations = applyForwardMigrations(
+        checkout, policy.paths, config.OTL1_MIGRATION_DATABASE_URL,
+      );
+      const worker = deployCoreWorker(checkout, config);
+      const siteHealth = deploySite(checkout, config);
+      workerVersion = worker.version;
+      environmentEvidence = {
+        host: "genquant", checkout, mergeSha, deployedSha, adapter: policy.adapter,
+        migrations, workerVersion,
+      };
+      observationEvidence = {
+        migrationReadback: migrations, coreHealth: worker.health.status,
+        siteHealth: siteHealth.status,
+      };
+    } else if (policy.adapter === "open-events" || policy.adapter === "core-worker") {
       const worker = policy.adapter === "open-events"
         ? deployOpenEvents(checkout, config)
         : deployCoreWorker(checkout, config);
@@ -275,7 +321,7 @@ export async function deployOnce(environment = process.env) {
       observationReceipt: sha256(JSON.stringify(observationEvidence)),
       liveArtifacts: JSON.stringify({ environmentEvidence, observationEvidence }),
       summary:
-        policy.adapter === "open-events" || policy.adapter === "core-worker"
+        policy.adapter === "open-events" || policy.adapter === "core-worker" || policy.adapter === "production"
           ? `승인한 ${policy.adapter === "open-events" ? "Open" : "Core"} 변경 ${mergeSha.slice(0, 7)}을 Worker에 자동 배포하고 health를 확인했습니다.`
           : `GenQuant runner를 ${mergeSha.slice(0, 7)}로 자동 배포하고 계약 테스트·서비스 active·OT1 브랜치 규칙을 확인했습니다.`,
     });
