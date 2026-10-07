@@ -2,13 +2,36 @@ import { COMMUNITY_SCHEDULE_CLOCK_ROLE } from "./community-bug-clock-client";
 import { nextCommunityAlarm } from "./community-clock-client";
 import { nextGardenDue, nextMembershipDue } from "./community-membership-due";
 import type { CommunityEnv } from "./community-runtime";
-import { InputError } from "./input";
+import { CommunityStore } from "./community-store";
+import type { CommunityRecord } from "./community-types";
+import { InputError, object, string } from "./input";
 import { NeonStore } from "./store";
+
+type ClockScheduleStore = Pick<CommunityStore, "getRecord">;
+
+export function clockScheduleTimes(record: CommunityRecord | null): readonly string[] {
+  if (!record) return [];
+  const body = object(record.body);
+  if (body.enabled !== true) return [];
+  const times = [string(body.goalTime), string(body.reviewTime)];
+  if (!times.every((time) => /^([01]\d|2[0-3]):[0-5]\d$/.test(time)))
+    throw new InputError("Invalid schedule time");
+  return [...new Set(times)];
+}
+
+export function nextClockAlarm(
+  record: CommunityRecord | null,
+  durableDue: string | null,
+  now: number,
+): number | null {
+  return nextCommunityAlarm(clockScheduleTimes(record), durableDue, now);
+}
 
 export async function refreshCommunityQueueClock(
   env: CommunityEnv,
   storage: DurableObjectStorage,
   channelId: string,
+  scheduleStore: ClockScheduleStore = new CommunityStore(new NeonStore(env.DATABASE_URL)),
 ): Promise<{ readonly next: number | null }> {
   if (env.DATABASE_MAINTENANCE === "true") throw new InputError("Database maintenance");
   if (
@@ -36,7 +59,8 @@ export async function refreshCommunityQueueClock(
     userId: env.COMMUNITY_ADMIN_ID,
   };
   const observedNow = Date.now();
-  const [gardenDue, membershipDue] = await Promise.all([
+  const [scheduleRecord, gardenDue, membershipDue] = await Promise.all([
+    scheduleStore.getRecord({ ...scope, key: "group-schedule" }),
     nextGardenDue(
       new NeonStore(env.DATABASE_URL),
       scope.teamId,
@@ -45,8 +69,8 @@ export async function refreshCommunityQueueClock(
     ),
     nextMembershipDue(env, new NeonStore(env.DATABASE_URL), channelId),
   ]);
-  const next = nextCommunityAlarm(
-    [],
+  const next = nextClockAlarm(
+    scheduleRecord,
     [
       gardenDue === null ? null : new Date(gardenDue).toISOString(),
       membershipDue === null ? null : new Date(membershipDue).toISOString(),

@@ -1,6 +1,7 @@
 import { sendAgentNotifications } from "./community-agent-notifications";
 import { armBugDeliveryClock } from "./community-bug-clock-client";
 import { reconcileCommunityChapters } from "./community-chapters";
+import { armCommunityClock } from "./community-clock-client";
 import { runDueGardenDeliveries } from "./community-garden-delivery";
 import { reconcileMaintainerLinear } from "./community-maintainer-work";
 import { collectCurrentChannelMembers } from "./community-membership";
@@ -13,20 +14,71 @@ import { runTownhallEventDue } from "./community-townhall-events";
 import { NeonStore } from "./store";
 
 export async function communityCron(env: CommunityEnv, scheduledTime: number): Promise<void> {
-  try {
-    await armBugDeliveryClock(env, { reason: "cron", observedAt: scheduledTime });
-  } catch (error) {
-    console.error(
-      JSON.stringify({
-        event: "community.bug.clock.arm.failed",
-        scheduledTime,
-        code: "boundary_failure",
-        failure: error instanceof Error ? error.name : "UnknownError",
-      }),
-    );
+  const armBugClock = async (): Promise<void> => {
+    try {
+      await armBugDeliveryClock(env, { reason: "cron", observedAt: scheduledTime });
+    } catch (error) {
+      console.error(
+        JSON.stringify({
+          event: "community.bug.clock.arm.failed",
+          scheduledTime,
+          code: "boundary_failure",
+          failure: error instanceof Error ? error.name : "UnknownError",
+        }),
+      );
+    }
+  };
+  if (env.COMMUNITY_ENABLED !== "true" || env.DATABASE_MAINTENANCE === "true") {
+    await armBugClock();
+    return;
   }
-  if (env.COMMUNITY_ENABLED !== "true" || env.DATABASE_MAINTENANCE === "true") return;
-  if (!env.COMMUNITY_ADMIN_ID) return;
+  if (!env.COMMUNITY_ADMIN_ID) {
+    await armBugClock();
+    return;
+  }
+  const channels = [
+    ...new Set(
+      [env.COMMUNITY_PUBLIC_CHANNEL_ID, env.COMMUNITY_CHANNEL_ID].filter((value): value is string =>
+        Boolean(value),
+      ),
+    ),
+  ];
+  const scheduleResults = new Map<string, { readonly common: number; readonly personal: number }>();
+  const scheduleStores = new Map<string, CommunityStore>();
+  for (const channel of channels) {
+    const scheduleStore = new CommunityStore(new NeonStore(env.DATABASE_URL));
+    scheduleStores.set(channel, scheduleStore);
+    try {
+      const result = await runCommunitySchedule(
+        { ...env, COMMUNITY_CHANNEL_ID: channel, COMMUNITY_ADMIN_ID: env.COMMUNITY_ADMIN_ID },
+        scheduleStore,
+        new Date(scheduledTime),
+      );
+      scheduleResults.set(channel, result);
+    } catch (error) {
+      if (!(error instanceof Error)) throw error;
+      console.error(
+        JSON.stringify({
+          event: "community.scrum.schedule.failed",
+          source: "cron",
+          channel,
+          errorType: error.name,
+        }),
+      );
+    }
+    try {
+      await armCommunityClock(env, channel);
+    } catch (error) {
+      console.error(
+        JSON.stringify({
+          event: "community.clock.arm.failed",
+          channel,
+          errorType: error instanceof Error ? error.name : "Unknown",
+        }),
+      );
+    }
+  }
+  await armBugClock();
   if (env.MAINTAINER_LINEAR_ENABLED === "true")
     try {
       const linear = await reconcileMaintainerLinear(env);
@@ -87,10 +139,7 @@ export async function communityCron(env: CommunityEnv, scheduledTime: number): P
         }),
       );
     }
-  const channels = [env.COMMUNITY_CHANNEL_ID, env.COMMUNITY_PUBLIC_CHANNEL_ID].filter(
-    (v): v is string => Boolean(v),
-  );
-  for (const channel of new Set(channels)) {
+  for (const channel of channels) {
     let garden: { readonly processed: number } = { processed: 0 };
     try {
       garden = await runDueGardenDeliveries(env, channel, scheduledTime);
@@ -136,47 +185,30 @@ export async function communityCron(env: CommunityEnv, scheduledTime: number): P
         channel,
         membership.nextCursor,
       );
-    let result: { readonly common: number; readonly personal: number } = { common: 0, personal: 0 };
-    try {
-      const scheduleStore = new CommunityStore(new NeonStore(env.DATABASE_URL));
-      result = await runCommunitySchedule(
-        { ...env, COMMUNITY_CHANNEL_ID: channel, COMMUNITY_ADMIN_ID: env.COMMUNITY_ADMIN_ID },
-        scheduleStore,
-        new Date(scheduledTime),
-      );
-      if (result.common > 0 && channel === env.COMMUNITY_PUBLIC_CHANNEL_ID) {
-        try {
-          const snapshot = await collectCurrentChannelMembers(
-            env.SLACK_BOT_TOKEN,
-            channel,
-            env.COMMUNITY_BOT_USER_ID ?? "",
-            new Date(scheduledTime).toISOString(),
-          );
-          await scheduleStore.reconcileChannelMembers(
-            { teamId: env.SLACK_TEAM_ID, channelId: channel, userId: env.COMMUNITY_ADMIN_ID },
-            snapshot,
-          );
-        } catch (error) {
-          if (!(error instanceof Error)) throw error;
-          console.error(
-            JSON.stringify({
-              event: "community.cron.queue.failed",
-              queue: "membership_refresh",
-              errorType: error.name,
-            }),
-          );
-        }
+    const result = scheduleResults.get(channel) ?? { common: 0, personal: 0 };
+    const scheduleStore = scheduleStores.get(channel);
+    if (result.common > 0 && channel === env.COMMUNITY_PUBLIC_CHANNEL_ID && scheduleStore)
+      try {
+        const snapshot = await collectCurrentChannelMembers(
+          env.SLACK_BOT_TOKEN,
+          channel,
+          env.COMMUNITY_BOT_USER_ID ?? "",
+          new Date(scheduledTime).toISOString(),
+        );
+        await scheduleStore.reconcileChannelMembers(
+          { teamId: env.SLACK_TEAM_ID, channelId: channel, userId: env.COMMUNITY_ADMIN_ID },
+          snapshot,
+        );
+      } catch (error) {
+        if (!(error instanceof Error)) throw error;
+        console.error(
+          JSON.stringify({
+            event: "community.cron.queue.failed",
+            queue: "membership_refresh",
+            errorType: error.name,
+          }),
+        );
       }
-    } catch (error) {
-      if (!(error instanceof Error)) throw error;
-      console.error(
-        JSON.stringify({
-          event: "community.cron.queue.failed",
-          queue: "reminders",
-          errorType: error.name,
-        }),
-      );
-    }
     console.log(
       JSON.stringify({
         event: "community.cron",

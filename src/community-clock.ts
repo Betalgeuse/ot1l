@@ -17,6 +17,8 @@ import { refreshCommunityQueueClock } from "./community-clock-schedule";
 import { runDueGardenDeliveries } from "./community-garden-delivery";
 import { runMembershipDue } from "./community-membership-schedule";
 import type { CommunityEnv } from "./community-runtime";
+import { runCommunitySchedule } from "./community-scheduler";
+import { CommunityStore } from "./community-store";
 import { InputError } from "./input";
 import { NeonStore } from "./store";
 
@@ -24,8 +26,31 @@ export { armBugDeliveryClock, bugDeliveryClockName } from "./community-bug-clock
 
 export { armCommunityClock, nextAlarmTime } from "./community-clock-client";
 
+type ClockScheduleRunner = (
+  env: CommunityEnv,
+  channelId: string,
+  now: Date,
+) => Promise<{ readonly common: number; readonly personal: number }>;
+
+const runClockSchedule: ClockScheduleRunner = (env, channelId, now) => {
+  if (!env.COMMUNITY_ADMIN_ID) return Promise.resolve({ common: 0, personal: 0 });
+  return runCommunitySchedule(
+    { ...env, COMMUNITY_CHANNEL_ID: channelId, COMMUNITY_ADMIN_ID: env.COMMUNITY_ADMIN_ID },
+    new CommunityStore(new NeonStore(env.DATABASE_URL)),
+    now,
+  );
+};
+
 export class CommunityClock extends DurableObject<CommunityEnv> {
   private queue: Promise<void> = Promise.resolve();
+
+  constructor(
+    ctx: DurableObjectState,
+    env: CommunityEnv,
+    private readonly scheduleRunner: ClockScheduleRunner = runClockSchedule,
+  ) {
+    super(ctx, env);
+  }
 
   private serialize<T>(work: () => Promise<T>): Promise<T> {
     const result = this.queue.then(work);
@@ -140,6 +165,24 @@ export class CommunityClock extends DurableObject<CommunityEnv> {
       if (!role) await this.ctx.storage.put("role", COMMUNITY_SCHEDULE_CLOCK_ROLE);
       try {
         const now = new Date(Date.now());
+        let schedule: { readonly common: number; readonly personal: number };
+        try {
+          schedule = await this.scheduleRunner(this.env, channelId, now);
+        } catch (error) {
+          console.error(
+            JSON.stringify({
+              event: "community.scrum.schedule.failed",
+              errorType: error instanceof Error ? error.name : "UnknownError",
+            }),
+          );
+          await this.ctx.storage.put("lastRun", {
+            at: now.getTime(),
+            queue: "schedule",
+            failure: error instanceof Error ? error.name : "UnknownError",
+          });
+          await this.ctx.storage.setAlarm(now.getTime() + 10_000);
+          return;
+        }
         let garden: { readonly processed: number; readonly nextDue: number | null } = {
           processed: 0,
           nextDue: null,
@@ -204,6 +247,18 @@ export class CommunityClock extends DurableObject<CommunityEnv> {
           if (due !== null && (current === null || Math.max(now.getTime() + 1_000, due) < current))
             await this.ctx.storage.setAlarm(Math.max(now.getTime() + 1_000, due));
         }
+        await this.ctx.storage.put("lastRun", {
+          at: now.getTime(),
+          source: "alarm",
+          schedule,
+        });
+        console.log(
+          JSON.stringify({
+            event: "community.clock.schedule",
+            scheduledTime: now.getTime(),
+            ...schedule,
+          }),
+        );
       } catch (error) {
         await this.ctx.storage.put("lastRun", {
           at: Date.now(),

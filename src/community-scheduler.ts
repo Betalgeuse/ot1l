@@ -116,13 +116,36 @@ export async function runCommunitySchedule(
   const local = new Date(nowDate.getTime() + 9 * 60 * 60 * 1000).toISOString();
   const date = local.slice(0, 10);
   const minute = local.slice(11, 16);
-  await sendDailyFeedbackPrompt(env, store, date, minute);
-  await sendDailyMaintainerPrompt(env, store, date, minute);
-  if (
-    env.COMMUNITY_INTRO_CHANNEL_ID &&
-    env.COMMUNITY_PUBLIC_CHANNEL_ID === env.COMMUNITY_CHANNEL_ID
-  )
-    await sendDailyIntroductionReminders(env, store, date, minute);
+  const runAuxiliaryPrompts = async (): Promise<void> => {
+    await sendDailyFeedbackPrompt(env, store, date, minute).catch((error: unknown) =>
+      console.error(
+        JSON.stringify({
+          event: "community.feedback_prompt.failed",
+          errorType: error instanceof Error ? error.name : "Unknown",
+        }),
+      ),
+    );
+    await sendDailyMaintainerPrompt(env, store, date, minute).catch((error: unknown) =>
+      console.error(
+        JSON.stringify({
+          event: "community.maintainer_prompt.failed",
+          errorType: error instanceof Error ? error.name : "Unknown",
+        }),
+      ),
+    );
+    if (
+      env.COMMUNITY_INTRO_CHANNEL_ID &&
+      env.COMMUNITY_PUBLIC_CHANNEL_ID === env.COMMUNITY_CHANNEL_ID
+    )
+      await sendDailyIntroductionReminders(env, store, date, minute).catch((error: unknown) =>
+        console.error(
+          JSON.stringify({
+            event: "community.introduction_reminder.failed",
+            errorType: error instanceof Error ? error.name : "Unknown",
+          }),
+        ),
+      );
+  };
   const optionalDay = isOptionalDay(date);
   const settings = await store.getRecord({ ...scope, key: "group-schedule" });
   const minutes = (value: string) => Number(value.slice(0, 2)) * 60 + Number(value.slice(3));
@@ -144,6 +167,7 @@ export async function runCommunitySchedule(
       ? await store.reminderTriggerDue(scope.teamId, scope.channelId, now)
       : false;
   let common = 0;
+  const enqueuedKinds: Kind[] = [];
   const eligibleMembers =
     publicChannel && !optionalDay && scheduledKinds.length
       ? await store.members(scope.teamId, scope.channelId)
@@ -176,6 +200,7 @@ export async function runCommunitySchedule(
       kind,
       await commonText(env, date, kind, mentionedMembers, highlights),
     );
+    enqueuedKinds.push(kind);
   }
   common += await sendCommonDeliveries({
     token: env.SLACK_BOT_TOKEN,
@@ -186,16 +211,40 @@ export async function runCommunitySchedule(
     memberActions: publicChannel,
     navigation,
   });
-  if (optionalDay || (publicChannel && !targetedDue)) return { common, personal: 0 };
-  const personal = await sendReminderBatches({
-    token: env.SLACK_BOT_TOKEN,
-    teamId: scope.teamId,
-    channelId: scope.channelId,
-    now,
-    store,
-    reviewThreadV2: env.REVIEW_THREAD_V2 === "true",
-    memberActions: publicChannel,
-    navigation,
-  });
+  if (common > 0 && enqueuedKinds.length) {
+    const lagMinutes = Math.max(
+      ...enqueuedKinds.map((kind) => {
+        const due = optionalDay
+          ? "10:00"
+          : kind === "goal"
+            ? schedule?.goalTime
+            : schedule?.reviewTime;
+        return due ? minutes(minute) - minutes(due) : 0;
+      }),
+    );
+    if (lagMinutes >= 2)
+      console.error(
+        JSON.stringify({
+          event: "community.scrum.slo_missed",
+          errorType: "LateDelivery",
+          date,
+          kinds: enqueuedKinds,
+          lagMinutes,
+        }),
+      );
+  }
+  let personal = 0;
+  if (!optionalDay && !(publicChannel && !targetedDue))
+    personal = await sendReminderBatches({
+      token: env.SLACK_BOT_TOKEN,
+      teamId: scope.teamId,
+      channelId: scope.channelId,
+      now,
+      store,
+      reviewThreadV2: env.REVIEW_THREAD_V2 === "true",
+      memberActions: publicChannel,
+      navigation,
+    });
+  await runAuxiliaryPrompts();
   return { common, personal };
 }
