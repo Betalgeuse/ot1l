@@ -9,6 +9,7 @@ const suites = [
   "community-linear-webhook",
   "community-maintainer-retention",
   "community-pull-request",
+  "community-pull-request-routing",
   "community-maintainer-canvases",
   "maintainer-button-routing",
   "community-chapters",
