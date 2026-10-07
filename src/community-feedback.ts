@@ -9,6 +9,7 @@ import {
 } from "./community-bug-schema";
 import { CommunityBugStore } from "./community-bug-store";
 import type { BugState } from "./community-bug-types";
+import { feedbackButton } from "./community-feedback-button";
 import { MaintainerOpsStore } from "./community-maintainer-store";
 import { maintainerButton } from "./community-maintainers";
 import { escapeSlackText } from "./community-messages";
@@ -377,14 +378,7 @@ export async function sendDailyMaintainerPrompt(
         { type: "section", text: { type: "mrkdwn", text } },
         {
           type: "actions",
-          elements: [
-            {
-              type: "button",
-              text: { type: "plain_text", text: "피드백·작업 제안" },
-              action_id: "community_bug_open",
-              value: JSON.stringify({ ownerId: "actor", key: "new" }),
-            },
-          ],
+          elements: [feedbackButton("피드백·작업 제안", true), maintainerButton()],
         },
       ],
     });
