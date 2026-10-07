@@ -10,6 +10,7 @@ import { handleInterestIntakeRequest } from "./community-interest-intake";
 import { CommunityInterestStore } from "./community-interest-store";
 import { handleLinearWebhook } from "./community-linear-webhook";
 import { handleMaintainerPublicRequest } from "./community-maintainer-public";
+import { productOwnerBoard } from "./community-product-owners";
 import { handleReferralIntakeRequest } from "./community-referral-intake";
 import { CommunityReferralStore } from "./community-referral-store";
 import type { CommunityEnv } from "./community-runtime";
@@ -194,6 +195,15 @@ export async function handleRequest(
           return new Response(null, { status: 200 });
         }
       }
+    }
+    if (url.pathname === "/slack/commands" && new URLSearchParams(body).get("command") === "/po") {
+      const form = new URLSearchParams(body);
+      if (
+        form.get("team_id") !== env.SLACK_TEAM_ID ||
+        !/^[UW][A-Z0-9]+$/.test(form.get("user_id") ?? "")
+      )
+        return new Response("Forbidden", { status: 403 });
+      return Response.json(await productOwnerBoard(env));
     }
     if (url.pathname === "/slack/commands")
       return Response.json({

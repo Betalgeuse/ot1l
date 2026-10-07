@@ -1,7 +1,7 @@
+import { mock } from "bun:test";
 import assert from "node:assert/strict";
 import { createHmac } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
-import { mock } from "bun:test";
 
 mock.module("cloudflare:workers", () => ({ DurableObject: class {} }));
 const { handleRequest } = await import("../src/index.ts");
@@ -39,7 +39,16 @@ const response = await handleRequest(
 );
 assert.match((await response.json()).text, /슬래시 명령은 종료/);
 assert.equal(effects, 0);
-assert.equal(JSON.parse(readFileSync("slack-manifest.json", "utf8")).features.slash_commands, undefined);
+const slashCommands = JSON.parse(readFileSync("slack-manifest.json", "utf8")).features
+  .slash_commands;
+assert.equal(
+  slashCommands.some((entry) => entry.command === "/one"),
+  false,
+);
+assert.equal(
+  slashCommands.some((entry) => entry.command === "/po"),
+  true,
+);
 
 const retiredModules = [
   "src/invitations/process.ts",

@@ -27,6 +27,13 @@ Slack 리액션은 자유로운 반응이며 제품 상태로 집계하지 않�
 - 수정안과 검증이 준비되면 Open과 Core 승인 버튼 모두 같은 `#maintainers` 작업 스레드에 나타납니다. Open은 활성 Maintainer 또는 Founder, Core는 Founder 본인만 승인할 수 있고 DM은 작업 스레드 링크만 알립니다.
 - Linear 연결은 DRI를 맡을 Maintainer가 명시적으로 요청할 때 `ot1l` 전용 Guest로 진행합니다. `DEV` 팀, 워크스페이스 역할과 운영 비밀에는 접근시키지 않습니다. OT1L 앱은 무료 Delegate이며 사람 DRI를 대신하지 않습니다.
 - `#maintainers-retention`의 버전 안내에서 질문, Q&A 허들과 첫 기여 OT를 요청합니다. 허들은 요청 즉시 자동 시작하지 않고 담당자가 정해진 뒤 같은 채널과 스레드에서 엽니다.
+
+## Product Owner 협업 공간
+
+- Product Owner는 `#po`에서 제품 방향과 전체 공지를 공유하고 `#po-work`의 `/po` 보드에서 진행 중인 제안과 담당자를 확인합니다.
+- 전문 분야는 DB에 보존되며 `@po`, `@po-designer`, `@po-dev` 호출은 고정 사용자 목록이 아니라 현재 활성 역할을 조회합니다.
+- 활성화하면 `#po`, `#po-work`, `#po-designer`, `#po-dev`, `#maintainers-sys-alert` 다섯 채널에 초대됩니다. 디자인과 개발 상담은 각각의 전문 채널에서 시작하고 결정과 진행 상태는 `#po-work`에 남깁니다.
+- 호출 모달과 각 채널 Canvas에는 다섯 채널의 용도를 모두 안내해, 멘션을 보내기 전에 올바른 공개 공간을 선택할 수 있게 합니다.
 - 웹의 **함께 만드는 중**은 Plane의 낮은 밀도 보드 방식을 참고한 선택 화면입니다. Linear나 웹을 확인하지 않아도 일반 회원은 원래 Slack 스레드에서 담당자와 단계를 볼 수 있습니다.
 - 이벤트 공개 화면은 별도 `otl1-time` Worker에서 실행합니다. 이 Worker에는 Slack token, DB URL, SSH key가 없고 이벤트 전용 Core 서명키만 있습니다.
 - 가입, 개인정보, 보안, Slack 처리와 Core Worker 코드 변경은 Founder 승인 뒤에만 병합·배포합니다. DB migration과 일반 홈페이지처럼 별도 순서가 필요한 변경은 Founder 승인 뒤에도 자동 배포하지 않고 운영 절차로 넘깁니다.
