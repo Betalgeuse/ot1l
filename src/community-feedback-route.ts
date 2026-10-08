@@ -67,13 +67,14 @@ export async function canonicalFeedbackContext(
   // Maintainer proposals are already on their canonical work thread. In particular, do not
   // project them into the public feedback channel: subsequent intake replies and updates must
   // remain attached to the PO's original card.
-  if (isMaintainerOrigin(context)) return context;
-  const channelId = context.env.COMMUNITY_FEEDBACK_CHANNEL_ID;
+  const channelId = isMaintainerOrigin(context)
+    ? (context.env.COMMUNITY_MAINTAINERS_CHANNEL_ID ?? context.scope.channelId)
+    : context.env.COMMUNITY_FEEDBACK_CHANNEL_ID;
   if (!channelId) throw new InputError("피드백 채널을 확인해 주세요.");
   const existing = await existingFeedbackThread(context, channelId, bugId);
   const actual = field(parsed, "form:actual") || parsed.messages[0]?.text.trim() || "피드백";
   const expected = field(parsed, "form:expected");
-  const text = `<@${context.scope.userId}> 님이 피드백을 남겼어요.\n\n*As-Is*\n${escapeSlackText(actual)}\n\n*To-Be*\n${escapeSlackText(expected || "어떻게 바뀌면 좋을지 OT1L이 확인하고 있어요.")}\n\n<${sourceUrl(context)}|처음 남긴 위치>\n버그 키: ${bugId}`;
+  const text = `<@${context.scope.userId}> 님의 의견\n\n${escapeSlackText(actual)}${expected ? `\n\n*원하는 변화*\n${escapeSlackText(expected)}` : ""}\n\n<${sourceUrl(context)}|처음 남긴 위치>\n버그 키: ${bugId}`;
   const message = {
     channel: channelId,
     text,
@@ -95,5 +96,6 @@ export async function canonicalFeedbackContext(
     scope: { ...context.scope, channelId },
     source: thread,
     thread,
+    sourceIsWorkRoot: true,
   };
 }

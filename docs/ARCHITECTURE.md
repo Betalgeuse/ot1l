@@ -12,7 +12,7 @@ flowchart LR
   Router --> Parser[명시 형식 파서 / 필요한 경우 Qwen]
   Parser --> Decision[상태·후기 본문 분리]
   Decision --> Guard[날짜·소유자·revision·정보 손실 검사]
-  Router --> BugIntake[버그 제보 초안·한 질문]
+  Router --> BugIntake[피드백 접수·PO 작업 카드]
   BugIntake --> BugGuard[근거·제보자 확인·비공개 분기]
   BugGuard --> BugLedger[정규화 bug ledger·job outbox]
   BugLedger --> Delivery[Slack delivery outbox·lease·retry]
@@ -99,7 +99,7 @@ welcome 가이드는 일반 DB 연결과 분리합니다. Worker의 `otl_guide_r
 
 ## 버그 제보 경계 v0.0.54 구현 상태
 
-피드백은 하나의 짧은 모달에서 시작하고 feedback 채널의 제보자 멘션 글과 그 스레드에 정규화합니다. 최초 입력 위치는 링크로만 보존하고, 질문·관리자 승인은 canonical feedback thread에서 진행합니다. 동일한 제출 재시도는 결정적인 버그 키와 최근 Slack history를 대조해 기존 스레드를 재사용합니다. Qwen은 질문 필요 여부와 가장 값진 다음 질문 하나만 고릅니다. 사용자 문장을 사실로 추가하거나 확정하지 않습니다. `As-Is / To-Be`가 충분한 개선 요청은 즉시 `feedback_packet.v1`로 확정하고, 부족한 경우에만 맥락 질문과 답변 모달을 냅니다. 장애 제보의 `bug_packet.v1`과 개선 제안의 `feedback_packet.v1`을 분리해 개선 제안에 발생 시각·빈도·재현 단계를 강요하지 않습니다.
+일반 피드백은 한 줄 입력만으로 PO 작업 카드에 접수됩니다. 구현 명세가 아직 없다는 이유로 접수를 질문 절차에 묶지 않습니다. 현재 상황과 원하는 결과가 함께 있으면 `feedback_packet.v1`로 AI 작업을 시작하며, 의견·시안은 담당자와 함께 검토합니다. 일반 feedback은 PO로 전달하고 PO-origin은 PO 작업에만 둡니다. 요청마다 독립된 root를 보존하며 일일 안내 스레드를 모든 요청의 root로 재사용하지 않습니다. 작업·DRI의 원본은 DB와 Slack이며 Linear webhook과 자동 동기화는 종료했습니다. 현재 계약은 [함께 만드는 흐름](CONTRIBUTION_FLOW.md)을 따릅니다. 아래 버그 상세 질문·개인정보 outbox는 과거 이력과 명시적 기술 제보의 호환 경계입니다.
 
 원문과 답변은 revision·schema·키 버전을 추가 인증 데이터로 묶은 AES-GCM 비공개 객체에 둡니다. 최초 incoming record는 `bug_intake` 표식과 SHA-256 digest만 저장하며 raw·normalized text를 저장하지 않습니다. 정규화 PostgreSQL에는 opaque reference, 암호문 digest, wrapped data key, nonce와 제한된 비민감 필드만 두고, migration 022의 소유자 범위 read가 후속 역질문에 필요한 암호화 객체 복원 정보만 반환합니다. `privacy` 또는 보안·개인정보 영향은 `private_incident`로 전이하면서 관계형 필드의 원문을 지우고 공개 export를 막아 비공개 운영자 채널로만 인계합니다. 제보자 소유권, revision, idempotency, 확인 시각, canonical packet·evidence digest가 모두 맞을 때만 `bug_packet.v1` 확정 패킷을 저장합니다. 암호화 객체 저장소와 키 설정이 없으면 제보를 부분 저장하지 않고 실패합니다. 새 비공개 초안·답변은 상태 전환, 관계형 원문 제거, receipt·관리자 handoff를 같은 트랜잭션에 묶고, 과거 중간 상태는 팀 범위의 idempotent reconciliation으로 한 번만 복구합니다. migration 021의 순차 upgrade backfill은 암호화 객체의 opaque reference·digest와 append-only event를 보존하면서 기존 관계형 원문을 scrub하고 누락된 private receipt·관리자 handoff만 보정하며, 신규 설치에서는 0건이어야 합니다.
 

@@ -41,10 +41,13 @@ export async function exhaustBugReport(
     expectedRevision: draft.revision,
     idempotencyKey: `exhausted:${context.key}`,
   });
-  await deliverBugHandoff(context, {
-    bugId: draft.bugId,
-    reporterId: draft.reporterId,
-    packetRevision,
-  });
-  await postFeedbackAdminReview(context, { feedbackId: draft.bugId, packetRevision });
+  if (draft.source.opaqueRef.startsWith("slack-feedback:")) {
+    await postFeedbackAdminReview(context, { feedbackId: draft.bugId, packetRevision });
+  } else {
+    await deliverBugHandoff(context, {
+      bugId: draft.bugId,
+      reporterId: draft.reporterId,
+      packetRevision,
+    });
+  }
 }

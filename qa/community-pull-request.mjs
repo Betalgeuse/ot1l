@@ -25,12 +25,14 @@ await assert.rejects(
 assert.equal(maintainerWorkGuide().blocks[1].elements[1].text.text, "PR 연결하기");
 
 const calls = [];
+let isDraft = false;
 const run = (binary, args) => {
   calls.push([binary, args]);
   if (binary === "which") return process.execPath;
   if (binary === "gh")
     return JSON.stringify({
       state: "OPEN",
+      isDraft,
       baseRefName: "main",
       headRepository: { nameWithOwner: "Betalgeuse/ot1l" },
       headRefOid: "a".repeat(40),
@@ -58,6 +60,9 @@ const isolated = isolatedCheckArgs("/candidate", "/bun", "/node", false);
 assert(isolated.includes("--clearenv") && isolated.includes("--unshare-all"));
 assert.equal(isolated.includes("--share-net"), false);
 assert.equal(isolated.includes("/home/opc"), false);
+isDraft=true;
+assert.throws(()=>verifyBoundPullRequest("/repo","Betalgeuse/ot1l",{repository:"Betalgeuse/ot1l",pr_number:17,head_sha:"a".repeat(40),changed_paths:["event-site/src/index.ts"]},run),/identity or paths changed/);
+isDraft=false;
 assert.throws(
   () =>
     verifyBoundPullRequest(

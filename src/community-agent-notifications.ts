@@ -133,7 +133,7 @@ function mergeReadyMessage(input: Notification, includeButton = true) {
       type: "section",
       text: {
         type: "mrkdwn",
-        text: `*변경 등급*\n${input.changeClass === "open" ? "Open · 활성 Maintainer 또는 Founder가 승인하면 병합과 배포가 연속 실행됩니다." : "Core · Founder 승인 뒤 병합과 배포가 연속 실행됩니다."}\n\n*As-Is*\n${escapeSlackText(input.asIs)}\n\n*To-Be*\n${escapeSlackText(input.toBe)}\n\n*수정 결과*\n${escapeSlackText(input.summary ?? "전체 검사를 통과했습니다.")}\n\n<${input.prUrl}|변경 내용 보기>`,
+        text: `*변경 등급*\n${input.changeClass === "open" ? "Open · 활성 PO 또는 Founder가 승인하면 병합과 배포가 연속 실행됩니다." : "Core · Founder 승인 뒤 병합과 배포가 연속 실행됩니다."}\n\n*As-Is*\n${escapeSlackText(input.asIs)}\n\n*To-Be*\n${escapeSlackText(input.toBe)}\n\n*수정 결과*\n${escapeSlackText(input.summary ?? "전체 검사를 통과했습니다.")}\n\n<${input.prUrl}|변경 내용 보기>`,
       },
     },
   ];
@@ -146,7 +146,9 @@ function mergeReadyMessage(input: Notification, includeButton = true) {
           text: {
             type: "plain_text",
             text:
-              input.changeClass === "core" ? "Founder 병합·배포 승인" : "Maintainer 병합·배포 승인",
+              input.changeClass === "core"
+                ? "Founder 병합·배포 승인"
+                : "Product Owner 병합·배포 승인",
           },
           style: "primary",
           action_id: "community_feedback_merge_approve",
@@ -254,14 +256,6 @@ async function sendMaintainerNotification(
     }))
   )
     throw new Error("maintainer notification root missing");
-  const direct = await callSlack(env.SLACK_BOT_TOKEN, "conversations.open", {
-    users: founderId,
-  });
-  const directChannelId = string(object(direct.channel).id);
-  await callSlack(env.SLACK_BOT_TOKEN, "chat.postMessage", {
-    channel: directChannelId,
-    text: `<https://app.slack.com/client/${env.SLACK_TEAM_ID}/${channelId}/thread/${channelId}-${threadTs}|Maintainer 작업 스레드에서 Founder 병합·배포 승인하기>\n${input.bugId}`,
-  });
 }
 
 export async function sendAgentNotifications(

@@ -5,7 +5,7 @@ const suites = [
   "community-admin-access",
   "community-maintainers",
   "community-po-groups",
-  "community-linear",
+  "community-native-work",
   "community-linear-webhook",
   "community-maintainer-retention",
   "community-pull-request",

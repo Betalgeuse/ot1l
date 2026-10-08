@@ -1,4 +1,5 @@
 import type { ParsedBugReport } from "./community-bug-facts";
+import { redactBugDbText } from "./community-bug-facts";
 import { writeBugPrivateObject } from "./community-bug-private";
 import { readBugPrivateReport } from "./community-bug-private-report";
 import {
@@ -11,13 +12,13 @@ import { CommunityBugStore } from "./community-bug-store";
 import type { BugState } from "./community-bug-types";
 import { feedbackButton } from "./community-feedback-button";
 import { MaintainerOpsStore } from "./community-maintainer-store";
+import { setMaintainerWorkReleaseStage, syncFeedbackWork } from "./community-maintainer-work";
 import { maintainerButton } from "./community-maintainers";
-import { escapeSlackText } from "./community-messages";
 import { sha256Hex } from "./community-referral-service-auth";
 import type { CommunityContext, CommunityEnv } from "./community-runtime";
 import { addReactions, callSlack } from "./community-social";
-import type { CommunityStore } from "./community-store";
-import { InputError, list, object, string } from "./input";
+import { CommunityStore } from "./community-store";
+import { InputError, koreaDate, list, object, string } from "./input";
 import { INTENT_MODEL, type IntentAI } from "./intent";
 import { NeonStore } from "./store";
 
@@ -254,7 +255,7 @@ export function feedbackPromptDue(minute: string): boolean {
 }
 
 export function dailyFeedbackPromptText(date: string): string {
-  return `${date} 오늘 OT1L을 쓰면서 불편했거나 바랐던 점이 있었나요? 작은 의견도 괜찮아요. 아래 버튼으로 편하게 남겨주세요. 피드백을 남겨주시면 봇이 자동으로 수정안을 만들고, Product Owner가 확인한 뒤 배포해요! Product Owner(PO)는 코딩 여부와 관계없이 회원 문제를 발견하고 개선을 끝까지 맡는 역할이에요.`;
+  return `${date} OT1L을 쓰며 느낀 점이나 바라는 변화를 한 줄 남겨주세요. 질문에 계속 답하지 않아도 의견은 접수됩니다. PO가 함께 살펴보고, 구체적인 수정 요청은 AI의 도움으로 검증·승인 후 반영해요.`;
 }
 
 export function dailyMaintainerPromptText(date: string): string {
@@ -271,7 +272,7 @@ export async function publishMaintainerFeedbackCard(
 ): Promise<string | null> {
   const channelId = context.env.COMMUNITY_MAINTAINERS_CHANNEL_ID;
   if (!channelId) return null;
-  if (context.env.MAINTAINER_LINEAR_ENABLED === "true") {
+  {
     const stored = await new MaintainerOpsStore(context.env).execute("surface_get", {
       workKey: input.feedbackId,
       channelId,
@@ -586,42 +587,68 @@ export async function postFeedbackAdminReview(
   context: CommunityContext,
   input: { readonly feedbackId: string; readonly packetRevision: number },
 ): Promise<void> {
-  const channelId = context.env.COMMUNITY_FEEDBACK_CHANNEL_ID;
-  if (!channelId) throw new InputError("피드백 채널을 확인해 주세요.");
-  const scope = { ...context.scope, channelId };
-  const key = `feedback-admin-review:${input.feedbackId}:${input.packetRevision}`;
-  const draft = await new CommunityBugStore(new NeonStore(context.env.DATABASE_URL)).getDraft({
-    teamId: context.scope.teamId,
-    bugId: input.feedbackId,
-    reporterId: context.scope.userId,
-  });
-  const fields = draft.currentRevision.confirmedPacket?.fields ?? draft.sanitizedFields;
-  const asIs =
-    typeof fields.actual === "string" && fields.actual ? fields.actual : "현재 상태 확인 필요";
-  const toBe =
-    typeof fields.expected === "string" && fields.expected
-      ? fields.expected
-      : "원하는 상태 확인 필요";
-  await context.store.putRecord({ ...scope, key, kind: "feedback_admin_review", body: input });
-  if (!(await context.store.claimRecord({ ...scope, key }))) return;
-  try {
-    await callSlack(context.env.SLACK_BOT_TOKEN, "chat.postMessage", {
-      channel: channelId,
-      ...(channelId === context.scope.channelId ? { thread_ts: context.thread } : {}),
-      text: `OT1L 피드백 정보 확인 필요 · ${input.feedbackId}`,
-      blocks: [
-        {
-          type: "section",
-          text: {
-            type: "mrkdwn",
-            text: `*As-Is*\n${escapeSlackText(asIs)}\n\n*To-Be*\n${escapeSlackText(toBe)}\n\n자동 수정안을 만들기에는 정보가 부족해 관리자가 확인해야 합니다.`,
-          },
-        },
-      ],
+  const workStore = new MaintainerOpsStore(context.env);
+  if (!(await workStore.getWork(input.feedbackId))) {
+    const draft = await new CommunityBugStore(new NeonStore(context.env.DATABASE_URL)).getDraft({
+      teamId: context.scope.teamId,
+      bugId: input.feedbackId,
+      reporterId: context.scope.userId,
     });
-    await context.store.finishRecord({ ...scope, key }, "sent");
-  } catch (error) {
-    await context.store.finishRecord({ ...scope, key }, "failed");
-    throw error;
+    const original = await readBugPrivateReport(context, draft);
+    const actual =
+      original.messages.find((m) => m.id === "form:actual")?.text ??
+      original.messages[0]?.text ??
+      "";
+    const expected = original.messages.find((m) => m.id === "form:expected")?.text ?? "";
+    if (!actual) throw new InputError("원문을 확인하지 못했어요. 내용을 추측해 공개하지 않습니다.");
+    await syncFeedbackWork(context, {
+      feedbackId: input.feedbackId,
+      reporterId: context.scope.userId,
+      actual: redactBugDbText(actual),
+      expected: redactBugDbText(expected),
+      sourceChannel: context.scope.channelId,
+      sourceThread: context.thread,
+    });
   }
+  await setMaintainerWorkReleaseStage(context.env, input.feedbackId, "범위 검토 필요");
+}
+
+export async function reconcileNativeFeedback(env: CommunityEnv): Promise<number> {
+  const channel = env.COMMUNITY_MAINTAINERS_CHANNEL_ID;
+  if (!channel) return 0;
+  const rows = list(
+    await new MaintainerOpsStore(env).execute("backfill_pending", { channelId: channel }),
+  ).map(object);
+  let recovered = 0;
+  for (const row of rows) {
+    try {
+      const thread = string(row.source_thread);
+      await postFeedbackAdminReview(
+        {
+          env,
+          store: new CommunityStore(new NeonStore(env.DATABASE_URL)),
+          scope: {
+            teamId: env.SLACK_TEAM_ID,
+            channelId: string(row.source_channel_id),
+            userId: string(row.reporter_id),
+          },
+          source: thread,
+          thread,
+          date: koreaDate(Date.now() / 1000),
+          key: `native-backfill:${string(row.bug_id)}`,
+        },
+        { feedbackId: string(row.bug_id), packetRevision: Number(row.packet_revision) },
+      );
+      recovered++;
+    } catch (error) {
+      console.error(
+        JSON.stringify({
+          event: "community.feedback.backfill_failed",
+          bugId: row.bug_id,
+          errorType: error instanceof Error ? error.name : "Unknown",
+        }),
+      );
+    }
+  }
+  return recovered;
 }

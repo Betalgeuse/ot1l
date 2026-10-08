@@ -9,6 +9,7 @@ import {
 } from "./change-policy.mjs";
 import { githubRepositorySlug, sha256 } from "./contract.mjs";
 import { applyForwardMigrations, migrationConnection } from "./migration-deployer.mjs";
+import { verifyCandidateCheckout } from "./bound-pull.mjs";
 
 const SHA = /^[a-f0-9]{40}$/;
 const SAFE_ERROR = /^[a-z0-9_]{1,120}$/;
@@ -34,8 +35,6 @@ function deployOpenEvents(checkout, config) {
     if (typeof config[name] !== "string" || !config[name].trim())
       throw new Error("open_events_deployer_unconfigured");
   const productionConfig = resolve(config.OTL1_OPEN_EVENTS_WRANGLER_CONFIG);
-  command("bun", ["install", "--frozen-lockfile"], { cwd: checkout, timeout: 180_000 });
-  command("bun", ["run", "check"], { cwd: checkout, timeout: 20 * 60_000 });
   command("node", ["scripts/deploy-open-events-worker.mjs"], {
     cwd: checkout,
     timeout: 10 * 60_000,
@@ -78,8 +77,6 @@ function deployCoreWorker(checkout, config) {
     if (typeof config[name] !== "string" || !config[name].trim())
       throw new Error("core_worker_deployer_unconfigured");
   const productionConfig = resolve(config.OTL1_PRODUCTION_WRANGLER_CONFIG);
-  command("bun", ["install", "--frozen-lockfile"], { cwd: checkout, timeout: 180_000 });
-  command("bun", ["run", "check"], { cwd: checkout, timeout: 20 * 60_000 });
   command("node", ["scripts/deploy-production-worker.mjs"], {
     cwd: checkout,
     timeout: 10 * 60_000,
@@ -197,23 +194,24 @@ function sqlClient(connectionString) {
   };
 }
 
-function deploymentRange(checkout, mergeSha, baseBranch) {
-  command("git", ["fetch", "--no-tags", "origin", baseBranch], { cwd: checkout, timeout: 180_000 });
-  command("git", ["merge-base", "--is-ancestor", mergeSha, `origin/${baseBranch}`], {
+export function deploymentRange(checkout, mergeSha, baseBranch, execute = command) {
+  execute("git", ["fetch", "--no-tags", "origin", baseBranch], { cwd: checkout, timeout: 180_000 });
+  execute("git", ["merge-base", "--is-ancestor", mergeSha, `origin/${baseBranch}`], {
     cwd: checkout,
   });
-  const dirty = command("git", ["status", "--porcelain=v1", "--untracked-files=no"], {
+  const dirty = execute("git", ["status", "--porcelain=v1", "--untracked-files=no"], {
     cwd: checkout,
   });
   if (dirty) throw new Error("tracked_checkout_dirty");
-  const current = command("git", ["rev-parse", "HEAD"], { cwd: checkout });
-  if (current === mergeSha) return { current, paths: [] };
+  const current = execute("git", ["rev-parse", "HEAD"], { cwd: checkout });
+  const approvedPaths = execute("git", ["diff", "--name-only", `${mergeSha}^`, mergeSha], { cwd: checkout }).split("\n").filter(Boolean);
+  if (current === mergeSha) return { current, paths: approvedPaths };
   try {
-    command("git", ["merge-base", "--is-ancestor", current, mergeSha], { cwd: checkout });
+    execute("git", ["merge-base", "--is-ancestor", current, mergeSha], { cwd: checkout });
   } catch {
     throw new Error("checkout_not_exact_ancestor");
   }
-  const paths = command("git", ["diff", "--name-only", current, mergeSha], { cwd: checkout })
+  const paths = execute("git", ["diff", "--name-only", current, mergeSha], { cwd: checkout })
     .split("\n")
     .filter(Boolean);
   return { current, paths };
@@ -261,11 +259,14 @@ export async function deployOnce(environment = process.env) {
       });
       return { claimed: true, deployed: false, manualRequired: true };
     }
+    verifyCandidateCheckout(checkout, mergeSha, command);
     if (range.current !== mergeSha)
       command("git", ["merge", "--ff-only", mergeSha], { cwd: checkout, timeout: 180_000 });
     const deployedSha = command("git", ["rev-parse", "HEAD"], { cwd: checkout });
     if (deployedSha !== mergeSha) throw new Error("deployed_sha_mismatch");
-    const deployedPaths = command("git", ["diff", "--name-only", range.current, deployedSha], {
+    if (policy.paths.some(path => path === "package.json" || path === "bun.lock"))
+      command("bun", ["install", "--frozen-lockfile", "--ignore-scripts"], {cwd:checkout,timeout:180_000});
+    const deployedPaths = command("git", ["diff", "--name-only", range.current === deployedSha ? `${deployedSha}^` : range.current, deployedSha], {
       cwd: checkout,
     })
       .split("\n")
@@ -284,7 +285,12 @@ export async function deployOnce(environment = process.env) {
         checkout, policy.paths, config.OTL1_MIGRATION_DATABASE_URL,
       );
       const worker = deployCoreWorker(checkout, config);
-      const siteHealth = deploySite(checkout, config);
+      const siteHealth = policy.paths.some(path => path.startsWith("site/")) ? deploySite(checkout, config) : null;
+      const events = policy.paths.some(path => path.startsWith("event-site/")) ? deployOpenEvents(checkout, config) : null;
+      if (policy.paths.some(path => path.startsWith("automation/runner/") || path.startsWith("ops/genquant/"))) {
+        command("systemctl", ["--user", "restart", config.BUG_DEPLOY_SERVICE]);
+        if (command("systemctl", ["--user", "is-active", config.BUG_DEPLOY_SERVICE]) !== "active") throw new Error("service_not_active");
+      }
       workerVersion = worker.version;
       environmentEvidence = {
         host: "genquant", checkout, mergeSha, deployedSha, adapter: policy.adapter,
@@ -292,7 +298,8 @@ export async function deployOnce(environment = process.env) {
       };
       observationEvidence = {
         migrationReadback: migrations, coreHealth: worker.health.status,
-        siteHealth: siteHealth.status,
+        ...(siteHealth ? {siteHealth:siteHealth.status} : {}),
+        ...(events ? {eventsHealth:events.health.status,eventsVersion:events.version} : {}),
       };
     } else if (policy.adapter === "open-events" || policy.adapter === "core-worker") {
       const worker = policy.adapter === "open-events"

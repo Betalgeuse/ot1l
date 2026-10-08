@@ -28,6 +28,13 @@ try {
     VALUES('BUG-BOUNDTEST01',1,'feedback_packet.v1','confirmed','{"actual":"actual","expected":"expected"}','object/bound/qa',repeat('c',64),repeat('e',32),'v1','nonce-boundtest',repeat('b',64),repeat('a',64),'{"schemaVersion":"feedback_packet.v1","status":"confirmed","fields":{"actual":"actual","expected":"expected"}}',true,clock_timestamp(),repeat('c',64));
     INSERT INTO otl.bug_jobs(bug_id,kind,payload,payload_digest) VALUES('BUG-BOUNDTEST01','reproduce','{}',repeat('a',64));`);
   const input = { teamId:"TQA", actorId:"UQA", founderId:"UQA", workKey:"BUG-BOUNDTEST01", headRepository:"contributor/ot1l", number:17, pullUrl:"https://github.com/Betalgeuse/ot1l/pull/17", headSha:"a".repeat(40), paths:["event-site/src/index.ts"], pathsDigest:"b".repeat(64) };
+  const native={teamId:"TQA",actorId:"UQA",founderId:"UQA",workKey:input.workKey,reporterId:"UQA",desiredDri:"UQA",title:"사용자 의견",actual:"actual",expected:"expected",sourceChannel:"CPO",sourceThread:"1.000001"};
+  const workCall=(op,p)=>JSON.parse(sql(`SELECT otl.maintainer_ops_execute('${op}',convert_from(decode('${Buffer.from(JSON.stringify(p)).toString("base64")}','base64'),'UTF8')::jsonb)`));
+  assert.equal(workCall("work_put",native).dri_user_id,"UQA");
+  assert.throws(()=>workCall("work_sync",native),/Linear workflow retired/);
+  sql("INSERT INTO otl.community_maintainers(team_id,user_id) VALUES('TQA','UQA'),('TQA','UOTHER')");
+  assert.equal(workCall("work_assignment",{...native,driUserId:"UOTHER"}).dri_user_id,"UOTHER");
+  assert.throws(()=>workCall("work_assignment",{...native,actorId:"USTRANGER",driUserId:"UQA"}),/active PO required/);
   assert.throws(() => call("community_bind_pull_request", { ...input, actorId:"UNOTPO" }));
   sql("UPDATE otl.bug_jobs SET status='leased',worker_id='worker',lease_token='lease',lease_expires_at=clock_timestamp()+interval '1 minute' WHERE bug_id='BUG-BOUNDTEST01'");
   assert.equal(call("community_bind_pull_request", input).reason,"automatic_work_running");
@@ -36,7 +43,7 @@ try {
   assert.equal(bound.accepted, true);
   assert.equal(sql("SELECT state FROM otl.bug_reports WHERE bug_id='BUG-BOUNDTEST01'"), "reviewing");
   assert.equal(sql("SELECT status FROM otl.bug_jobs WHERE bug_id='BUG-BOUNDTEST01'"), "cancelled");
-  assert.equal(call("community_bind_pull_request", input).reason,"duplicate");
+  assert.equal(call("community_bind_pull_request", input).changed,false);
   const identity = {teamId:"TQA",workerId:"worker",leaseToken:"bound-lease"};
   let claimed = call("bug_runner_claim_bound_pull", identity);
   assert.equal(call("bug_runner_fail_bound_pull", {...identity,bindingId:claimed.binding_id}).accepted,true);
@@ -50,13 +57,29 @@ try {
   assert.equal(sql("SELECT count(*) FROM otl.bug_events WHERE bug_id='BUG-BOUNDTEST01' AND variant IN('external_pull','external_pull_verified')"),"3");
   assert.equal(sql("SELECT count(*) FROM otl.git_changes WHERE bug_id='BUG-BOUNDTEST01'"),"1");
   assert.throws(() => call("bug_runner_finish_bound_pull",finish));
+  input.headSha="b".repeat(40);
+  assert.equal(call("community_bind_pull_request",input).headShaChanged,true);
+  assert.equal(sql("SELECT count(*) FROM otl.git_changes WHERE bug_id='BUG-BOUNDTEST01' AND merge_status='failed'"),"1");
+  claimed=call("bug_runner_claim_bound_pull",identity);
+  finish.bindingId=claimed.binding_id;
+  finish.headSha=input.headSha;
+  assert.equal(call("bug_runner_finish_bound_pull",finish).accepted,true);
   const approval = {teamId:"TQA",bugId:input.workKey,packetRevision:1,prNumber:17,actorId:"UQA",founderId:"UQA",headSha:input.headSha,classificationDigest:finish.classificationDigest,idempotencyKey:"qa-bound-approval"};
   assert.throws(() => call("bug_actor_approve_merge",{...approval,headSha:"e".repeat(40)}));
   assert.equal(call("bug_actor_approve_merge",approval).accepted,true);
   const merge = call("bug_runner_claim_merge",{...identity,leaseToken:"merge-lease"});
   assert.equal(merge.prNumber,17);
   assert.equal(merge.headSha,input.headSha);
+  assert.equal(merge.changeClass,finish.changeClass);
+  assert.deepEqual(merge.changedPaths,input.paths);
+  assert.equal(merge.classificationDigest,finish.classificationDigest);
   assert.equal(merge.runId,`bound-pr-${claimed.binding_id}`);
+  for(let attempt=1;attempt<=3;attempt++) {
+    const failed=call("bug_runner_fail_merge",{...identity,changeId:merge.changeId,leaseToken:"merge-lease",now:`2030-01-01T00:0${attempt*2}:00Z`});
+    if(attempt<3) call("bug_runner_claim_merge",{...identity,leaseToken:"merge-lease",now:`2030-01-01T00:0${attempt*2+1}:00Z`});
+    else assert.equal(failed.merge_status,"failed");
+  }
+  assert.equal(sql(`SELECT count(*) FROM otl.bug_runner_notifications WHERE run_id='${merge.runId}' AND kind='task_failed'`),"1","terminal merge failure must be delivered to the original work thread");
   console.log("PASS real PostgreSQL: role/team guards, running-job rejection, queued-job cancellation, transition ledger, exact one change");
 } finally {
   if (started) run("pg_ctl", ["-D", data, "-m", "immediate", "-w", "stop"]);

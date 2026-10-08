@@ -14,11 +14,10 @@ import type { BugDraft } from "./community-bug-types";
 import {
   confirmCompactFeedback,
   type FeedbackAnalysis,
-  publishFeedbackAnalysis,
   startCodexFeedbackAutomatically,
 } from "./community-feedback";
 import { canonicalFeedbackContext, feedbackBugIdentity } from "./community-feedback-route";
-import { syncFeedbackToLinear } from "./community-maintainer-work";
+import { syncFeedbackWork } from "./community-maintainer-work";
 import type { CommunityContext } from "./community-runtime";
 import { InputError } from "./input";
 import { NeonStore, StoreError } from "./store";
@@ -27,6 +26,7 @@ export async function startBugReport(
   context: CommunityContext,
   parsed: ParsedBugReport,
   feedbackAnalysis?: FeedbackAnalysis,
+  automation: "automatic" | "manual" = "automatic",
 ): Promise<{ readonly context: CommunityContext; readonly draft: BugDraft }> {
   const routeToFeedback = feedbackAnalysis !== undefined;
   const identity = routeToFeedback
@@ -48,7 +48,8 @@ export async function startBugReport(
   });
   if (dialogue.status === "confirmed") throw new InputError("이미 확인된 제보예요.");
   const privateIncident =
-    (dialogue.packet.impact.status === "known" &&
+    (!feedbackAnalysis &&
+      dialogue.packet.impact.status === "known" &&
       dialogue.packet.impact.value === "security_privacy") ||
     parsed.messages.some((message) => containsSensitiveBugText(message.text));
   const sourceOpaqueRef = privateIncident
@@ -116,11 +117,20 @@ export async function startBugReport(
     return { context, draft };
   }
   if (feedbackAnalysis) {
-    await publishFeedbackAnalysis(deliveryContext, {
+    const actual =
+      parsed.messages.find((message) => message.id === "form:actual")?.text ??
+      parsed.messages[0]?.text ??
+      "";
+    const expected = parsed.messages.find((message) => message.id === "form:expected")?.text ?? "";
+    await syncFeedbackWork(deliveryContext, {
       feedbackId: draft.bugId,
-      analysis: feedbackAnalysis,
+      reporterId: context.scope.userId,
+      actual,
+      expected,
+      sourceChannel: deliveryContext.scope.channelId,
+      sourceThread: deliveryContext.thread,
     });
-    if (feedbackAnalysis.ready) {
+    if (actual && expected) {
       await confirmCompactFeedback(deliveryContext, {
         draft,
         parsed,
@@ -128,57 +138,13 @@ export async function startBugReport(
         reporterId: context.scope.userId,
         fromState: "new",
       });
-      const actual = parsed.messages.find((message) => message.id === "form:actual")?.text ?? "";
-      const expected =
-        parsed.messages.find((message) => message.id === "form:expected")?.text ?? "";
-      await syncFeedbackToLinear(deliveryContext, {
-        feedbackId: draft.bugId,
-        reporterId: context.scope.userId,
-        actual,
-        expected,
-        sourceChannel: context.scope.channelId,
-        sourceThread: context.thread,
-      });
-      await startCodexFeedbackAutomatically(deliveryContext, {
-        feedbackId: draft.bugId,
-        reporterId: context.scope.userId,
-        packetRevision: draft.packetRevision + 1,
-      });
-      return { context: deliveryContext, draft };
+      if (automation === "automatic")
+        await startCodexFeedbackAutomatically(deliveryContext, {
+          feedbackId: draft.bugId,
+          reporterId: context.scope.userId,
+          packetRevision: draft.packetRevision + 1,
+        });
     }
-    const field = feedbackAnalysis.questionField ?? "expected";
-    const text =
-      feedbackAnalysis.question ??
-      (field === "actual"
-        ? "지금 어떤 점이 가장 불편한지 한 가지 사례로 알려주실래요?"
-        : "이 의견이 반영되면 사용자가 무엇을 할 수 있게 되면 좋을까요?");
-    const question = { field, kind: "free_text" as const, text };
-    const questionId = `${draft.bugId}:q1:${field}`;
-    const templateId = "question.feedback-context.v1";
-    await store.transition({
-      bugId: draft.bugId,
-      toState: "needs_info",
-      actors: ["deterministic_worker"],
-      guard: { missingRequiredField: true },
-      evidence: {
-        reasonCodes: [`missing:${field}`],
-        questionId,
-        fieldName: field,
-        templateVersion: templateId,
-        questionText: text,
-      },
-      expectedRevision: draft.revision,
-      idempotencyKey: `question:${context.key}`,
-    });
-    await deliverBugQuestion(deliveryContext, {
-      bugId: draft.bugId,
-      reporterId: context.scope.userId,
-      packetRevision: draft.packetRevision,
-      questionId,
-      fieldName: field,
-      templateId,
-      question,
-    });
     return { context: deliveryContext, draft };
   }
   if (dialogue.status === "awaiting_confirmation") {

@@ -7,6 +7,7 @@ import {
   classifyRunnerDeploymentPaths,
   validateDeployerConfig,
   verifyApprovedPaths,
+  deploymentRange,
 } from "../automation/runner/genquant-deployer.mjs";
 import { classifyChangePaths } from "../automation/runner/change-policy.mjs";
 import { sha256 } from "../automation/runner/contract.mjs";
@@ -33,7 +34,14 @@ assert.deepEqual(classifyRunnerDeploymentPaths([
 assert.equal(classifyRunnerDeploymentPaths(["src/community-townhall-events.ts"]).adapter, "core-worker");
 assert.equal(classifyRunnerDeploymentPaths(["package.json"]).adapter, "core-worker");
 assert.equal(classifyRunnerDeploymentPaths(["migrations/082_forward.sql"]).adapter, "production");
-assert.equal(classifyRunnerDeploymentPaths(["site/src/index.ts"]).adapter, "manual");
+assert.equal(classifyRunnerDeploymentPaths(["site/src/index.ts"]).adapter, "production");
+assert.equal(classifyRunnerDeploymentPaths(["design-preview/index.html"]).adapter, "manual");
+assert.equal(classifyRunnerDeploymentPaths(["src/index.ts","automation/runner/genquant-runner.mjs","CONTRIBUTING.md"]).adapter,"production");
+assert.deepEqual(deploymentRange("/repo","a".repeat(40),"main",(_bin,args) => {
+  if(args[0] === "rev-parse") return "a".repeat(40);
+  if(args[0] === "diff") return "src/index.ts";
+  return "";
+}),{current:"a".repeat(40),paths:["src/index.ts"]});
 assert.equal(classifyRunnerDeploymentPaths([
   "migrations/082_forward.sql", "src/index.ts", "site/src/index.ts",
 ]).adapter, "production");

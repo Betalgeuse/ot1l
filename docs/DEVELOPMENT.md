@@ -120,7 +120,7 @@ node scripts/maintainer-dry-run.mjs --input qa/fixtures/bug-packets/confirmed-va
 
 `community-bug-slack-validator`는 인증 없이 Slack의 side-effect-free `blocks.validate`만 호출하는 명시적 네트워크 계약 검사입니다. 일반 단위 테스트 allowlist에는 넣지 않으며, 네트워크 장애를 제품 회귀로 오판하지 않습니다.
 
-마지막 명령은 도구가 소유한 비공개 임시 경로의 새 직접 자식만 받아 `bug_packet.v1`의 digest, base SHA, dirty 상태를 영수증으로 남깁니다. `automation/runner/genquant-runner.mjs`만 최소 권한 `otl_bug_runner` 역할로 승인된 reproduce·fix job을 lease하고 Codex Cloud CLI를 호출할 수 있습니다. 재현 diff는 단일 schema artifact로 제한하고, 수정 diff는 금지 경로 검사와 전체 `bun run check`를 통과해야 합니다. 그 뒤에만 격리 브랜치, Draft PR, 보호된 `main`의 squash merge를 수행합니다. GitHub Actions workflow는 만들지 않습니다.
+마지막 명령은 도구가 소유한 비공개 임시 경로의 새 직접 자식만 받아 `bug_packet.v1`의 digest, base SHA, dirty 상태를 영수증으로 남깁니다. `automation/runner/genquant-runner.mjs`만 최소 권한 `otl_bug_runner` 역할로 승인된 reproduce·fix job을 lease하고 Codex Cloud CLI를 호출할 수 있습니다. 재현 diff는 단일 schema artifact로 제한합니다. 수정 커밋은 비밀정보 없는 별도 worktree와 bubblewrap에서 전체 `bun run check`를 통과한 뒤 검토 가능한 PR로 제출합니다. Draft는 사람의 시안 검토를 위한 상태이며 runner가 임의로 해제하지 않습니다. 정확한 SHA 승인 뒤 보호된 `main`에 squash merge합니다. GitHub Actions workflow는 만들지 않습니다.
 
 ## Git과 공개 코드
 
@@ -158,6 +158,6 @@ cd /tmp/otl1-public-review && bun run check
 - `event-site/**`와 이벤트 시간표 allowlist는 `open-events` adapter로 `otl1-time`을 배포합니다.
 - `src/**`, 루트 Worker 설정·검사 경로는 `core-worker` adapter로 분류하며 Founder 승인 뒤 `otl1-onething-garden`을 배포합니다.
 - runner·운영 파일만 바뀐 경우 runner 계약 검사와 systemd 서비스 재시작을 수행합니다.
-- migration, 일반 site, 서로 다른 경계가 섞인 변경은 `manual_required`로 남기고 자동 배포하지 않습니다.
+- migration·일반 site·Core·runner·가이드의 알려진 경로 조합은 Core `production` adapter로 처리합니다. migration → Core → 해당되는 site/event → runner 순서를 지킵니다. `design-preview/**` 및 알 수 없는 경로는 자동 운영 배포하지 않습니다.
 
-각 adapter는 전체 `bun run check`, exact HEAD, Worker version과 `/health`를 확인한 뒤에만 `bug_runner_finish_deployment` 영수증을 기록합니다. 진행 중인 leased job이 있으면 deployment claim 자체를 보류합니다. 공개 fork PR은 `#po-work`의 **PR 연결하기**에서 접수합니다. migration 087은 대기 작업 취소와 상태 전이를 한 트랜잭션으로 기록하고, 실행 중인 작업과 충돌하면 거부합니다. Broker는 별도 worktree와 bubblewrap에서 해당 SHA를 검사한 뒤 기존 승인 큐에 연결합니다. 검사 실패는 같은 작업 스레드에 알리며 다시 연결할 수 있습니다.
+Broker는 검사된 SHA·승인 파일 목록·배포 버전·health를 대조하고 영수증을 기록합니다. 진행 중인 leased job이 있으면 deployment claim 자체를 보류합니다. PR #134에서 발견한 DB 반환 누락은 migration 088이 `changeClass`, `changedPaths`, `classificationDigest`를 반환하도록 수정합니다. migration 089는 작업과 담당자의 원본을 Slack-native DB로 전환하고, 090은 아직 명세가 없는 의견에도 PO가 PR을 연결할 수 있게 합니다. Draft PR은 검토용이며 승인 큐에 들어가지 않습니다. 자세한 절차는 [함께 만드는 흐름](CONTRIBUTION_FLOW.md)을 따릅니다.

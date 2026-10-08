@@ -18,10 +18,10 @@ export function verifyBoundPullRequest(repository, repositorySlug, binding, runC
   if (repositorySlug !== "Betalgeuse/ot1l" || binding.repository !== repositorySlug)
     throw new Error("bound pull repository mismatch");
   const view = () => JSON.parse(runCommand("gh", ["pr", "view", String(binding.pr_number),
-    "--repo", repositorySlug, "--json", "state,baseRefName,headRefOid,files"]));
+    "--repo", repositorySlug, "--json", "state,baseRefName,headRefOid,files,isDraft"]));
   const verify = (pr) => {
     const paths = pr.files?.map(({ path }) => path).sort();
-    if (pr.state !== "OPEN" || pr.baseRefName !== "main" || pr.headRefOid !== binding.head_sha ||
+    if (pr.state !== "OPEN" || pr.isDraft === true || pr.baseRefName !== "main" || pr.headRefOid !== binding.head_sha ||
       !Array.isArray(paths) || JSON.stringify(paths) !== JSON.stringify([...binding.changed_paths].sort()))
       throw new Error("bound pull identity or paths changed");
     return paths;
@@ -31,18 +31,24 @@ export function verifyBoundPullRequest(repository, repositorySlug, binding, runC
   if (runCommand("git", ["-C", repository, "rev-parse", "FETCH_HEAD"]) !== binding.head_sha)
     throw new Error("bound pull fetched head changed");
   assertOpenPresentationBoundary(paths, path => runCommand("git", ["-C", repository, "show", `${binding.head_sha}:${path}`]));
+  verifyCandidateCheckout(repository, binding.head_sha, runCommand);
+  verify(view());
+  return classifyChangePaths(paths);
+}
+
+export function verifyCandidateCheckout(repository, headSha, runCommand) {
+  if (!/^[a-f0-9]{40}$/.test(headSha)) throw new Error("invalid candidate SHA");
   const directory = mkdtempSync(join(tmpdir(), "otl1-bound-pull-"));
   const worktree = join(directory, "checkout");
   try {
-    runCommand("git", ["-C", repository, "worktree", "add", "--detach", worktree, binding.head_sha]);
+    runCommand("git", ["-C", repository, "worktree", "add", "--detach", worktree, headSha]);
     // Candidate code never inherits the broker environment, home, SSH agent,
     // credential files, or access to other host repositories.
     const bun = realpathSync(runCommand("which", ["bun"]));
     const node = realpathSync(runCommand("which", ["node"]));
     runCommand("bwrap", isolatedCheckArgs(worktree, bun, node, true), { timeout: 180_000 });
     runCommand("bwrap", isolatedCheckArgs(worktree, bun, node, false), { timeout: 20 * 60_000 });
-    verify(view());
-    return classifyChangePaths(paths);
+
   } finally {
     try { runCommand("git", ["-C", repository, "worktree", "remove", "--force", worktree]); }
     finally { rmSync(directory, { recursive: true, force: true }); }

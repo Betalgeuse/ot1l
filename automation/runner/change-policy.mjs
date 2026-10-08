@@ -9,6 +9,8 @@ const RUNNER_PATHS = (path) =>
   path === "scripts/test-unit.mjs" ||
   path === "scripts/export-public-manifest.mjs";
 
+const GUIDE_PATHS = new Set(["AGENTS.md", "CONTRIBUTING.md", "README.md", ".github/PULL_REQUEST_TEMPLATE.md"]);
+
 const OPEN_EVENT_PATHS = new Set([
   "site/dist/event-schedule.html",
   "site/dist/event-schedule.js",
@@ -45,6 +47,7 @@ const PRODUCTION_PATH = (path) =>
   (path.startsWith("site/") && !openEventPath(path));
 
 function openEventPath(path) {
+  if (path.startsWith("event-site/") && /(?:^|\/)(?:wrangler[.][^/]+|package(?:-lock)?[.]json|bun[.]lockb?|[.]env[^/]*|[.]npmrc)$/.test(path)) return false;
   return path.startsWith("event-site/") || OPEN_EVENT_PATHS.has(path);
 }
 
@@ -74,6 +77,8 @@ export function classifyChangePaths(paths) {
   if (ordered.every(CORE_WORKER_PATH))
     return { changeClass: "core", adapter: "core-worker", paths: ordered };
   if (ordered.some((path) => path.startsWith("migrations/")) && ordered.every(PRODUCTION_PATH))
+    return { changeClass: "core", adapter: "production", paths: ordered };
+  if (ordered.every(path => PRODUCTION_PATH(path) || RUNNER_PATHS(path) || GUIDE_PATHS.has(path) || openEventPath(path)))
     return { changeClass: "core", adapter: "production", paths: ordered };
   return { changeClass: "core", adapter: "manual", paths: ordered };
 }

@@ -13,6 +13,7 @@ export async function resumeBugDialogue(
   context: CommunityContext,
   draft: BugDraftRead,
 ): Promise<boolean> {
+  if (draft.source.opaqueRef.startsWith("slack-feedback:")) return false;
   const result = await advanceBugDialogue(
     bugDialogueInput(draft, await readBugPrivateReport(context, draft)),
   );

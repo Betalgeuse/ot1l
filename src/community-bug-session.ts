@@ -27,7 +27,7 @@ import {
   fallbackFeedbackAnalysis,
   startCodexFeedbackAutomatically,
 } from "./community-feedback";
-import { syncFeedbackToLinear } from "./community-maintainer-work";
+import { syncFeedbackWork } from "./community-maintainer-work";
 import { type CommunityContext, ephemeral } from "./community-runtime";
 import { InputError } from "./input";
 import { NeonStore } from "./store";
@@ -41,6 +41,11 @@ export async function continueBugReport(
   const store = new CommunityBugStore(new NeonStore(context.env.DATABASE_URL));
   const active = await findActiveBugDraftForContext(store, context);
   if (!active) return false;
+  if (
+    active.source.opaqueRef.startsWith("slack-feedback:") &&
+    !active.questions.some((question) => !question.answered)
+  )
+    return false;
   if (
     active.needsInfoStartedAt &&
     Date.parse(active.needsInfoStartedAt) <= Date.now() - 86_400_000
@@ -76,7 +81,8 @@ export async function continueBugReport(
   const result = await advanceBugDialogue(bugDialogueInput(active, parsed));
   if (result.status === "confirmed") throw new InputError("이미 확인된 제보예요.");
   const privateIncident =
-    (result.packet.impact.status === "known" &&
+    (!active.source.opaqueRef.startsWith("slack-feedback:") &&
+      result.packet.impact.status === "known" &&
       result.packet.impact.value === "security_privacy") ||
     containsSensitiveBugText(answer);
   const encrypted = await writeBugPrivateObject(context, active.bugId, active.packetRevision + 1, {
@@ -113,7 +119,7 @@ export async function continueBugReport(
         reporterId: active.reporterId,
         fromState: "needs_info",
       });
-      await syncFeedbackToLinear(context, {
+      await syncFeedbackWork(context, {
         feedbackId: active.bugId,
         reporterId: active.reporterId,
         actual,
@@ -128,46 +134,16 @@ export async function continueBugReport(
       });
       return true;
     }
-    if (active.questions.length >= 3) {
-      await exhaustBugReport(context, active, encrypted.objectDigest, packetRevision);
-      return true;
-    }
-    const field = analysis.questionField ?? (expected ? "actual" : "expected");
-    const question = {
-      field,
-      kind: "free_text" as const,
-      text:
-        analysis.question ??
-        (field === "actual"
-          ? "지금 어떤 점이 가장 불편한지 한 가지 사례로 알려주실래요?"
-          : "이 의견이 반영되면 사용자가 무엇을 할 수 있게 되면 좋을까요?"),
-    };
-    const questionId = `${active.bugId}:q${active.questions.length + 1}:${field}`;
-    const templateId = "question.feedback-context.v1";
-    await store.transition({
-      bugId: active.bugId,
-      toState: "needs_info",
-      actors: ["reporter", "deterministic_worker"],
-      guard: { stillIncomplete: true },
-      evidence: {
-        answerRevision: packetRevision,
-        completenessResult: "needs_info",
-        questionId,
-        fieldName: field,
-        templateVersion: templateId,
-        questionText: question.text,
-      },
-      expectedRevision: active.revision,
-      idempotencyKey: `question:${context.key}`,
-    });
-    await deliverBugQuestion(context, {
-      bugId: active.bugId,
+    await syncFeedbackWork(context, {
+      feedbackId: active.bugId,
       reporterId: active.reporterId,
-      packetRevision,
-      questionId,
-      fieldName: field,
-      templateId,
-      question,
+      actual: actual || parsed.messages[0]?.text || answer,
+      expected,
+      sourceChannel: context.scope.channelId,
+      sourceThread: context.thread,
+    });
+    await ephemeral(context, {
+      text: "추가 의견을 접수했어요. 더 답하지 않아도 PO 작업에서 함께 검토합니다.",
     });
     return true;
   }

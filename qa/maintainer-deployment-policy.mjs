@@ -4,7 +4,6 @@ import { classifyChangePaths } from "../automation/runner/change-policy.mjs";
 assert.deepEqual(
   classifyChangePaths([
     "event-site/src/index.ts",
-    "event-site/wrangler.jsonc",
     "site/dist/event-schedule.html",
     "site/dist/event-schedule.js",
   ]),
@@ -13,7 +12,6 @@ assert.deepEqual(
     adapter: "open-events",
     paths: [
       "event-site/src/index.ts",
-      "event-site/wrangler.jsonc",
       "site/dist/event-schedule.html",
       "site/dist/event-schedule.js",
     ],
@@ -29,7 +27,8 @@ assert.equal(
     .changeClass,
   "core",
 );
-assert.equal(classifyChangePaths(["site/src/index.ts"]).adapter, "manual");
+assert.equal(classifyChangePaths(["site/src/index.ts"]).adapter, "production");
+assert.equal(classifyChangePaths(["event-site/wrangler.jsonc"]).changeClass,"core");
 assert.equal(classifyChangePaths(["automation/runner/genquant-runner.mjs"]).adapter, "runner");
 assert.equal(
   classifyChangePaths(["event-site/src/index.ts", "src/community-runtime.ts"])

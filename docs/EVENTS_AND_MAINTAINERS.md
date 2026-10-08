@@ -16,27 +16,17 @@ Slack 리액션은 자유로운 반응이며 제품 상태로 집계하지 않�
 
 현재 Slack의 **이벤트 수정**에서 활동·장소·최소 성사 인원·최대 인원과 확정 일정을 바꿀 수 있습니다. 시간 후보 범위나 정기 회차를 크게 바꾸는 경우 웹 시간표에서 다시 설정하고 최종 시간을 재확정합니다.
 
-## Maintainer와 승인 경계
+## Product Owner와 승인 경계
 
-- 모든 회원은 welcome 또는 피드백 카드의 **Maintainer 되기**로 역할을 스스로 활성화할 수 있습니다. 버튼을 누른 본인만 DB 역할이 활성화되고 `#maintainers`, 세 작업 채널과 공개 `#sys-alert`에 초대됩니다.
-- 저장소는 공개입니다. GitHub collaborator 초대나 upstream push 권한을 주지 않고, 각자 fork에서 개발·push한 뒤 PR을 엽니다. 시작 절차는 [기여 시작하기](../CONTRIBUTING.md)를 따릅니다.
-- Open 변경은 활성 Maintainer 한 명이 검증 결과와 정확한 head SHA를 Slack에서 승인하면 Deployment Broker가 병합과 배포를 이어서 수행합니다. Maintainer 개인 컴퓨터에서 운영 Worker를 배포하지 않습니다.
-- 피드백은 일반 피드백 채널과 `#maintainers`에서 시작할 수 있습니다. 한 Linear 이슈를 원본으로 두고 두 Slack 카드의 단계와 DRI를 갱신합니다. Maintainer 작성자는 기본 DRI이며 드롭다운에서 다른 활성 Maintainer에게 넘길 수 있습니다.
-- 매일 18시에는 일반 회원 피드백과 별도로 `#maintainers`에서 개선 아이디어, 같이 배우고 싶은 일, 열어보고 싶은 활동과 도움 요청을 받습니다.
-- `#maintainers`, `#maintainers-dev`, `#maintainers-design`, `#maintainers-retention`의 채널 Canvas는 권한 설명보다 Maintainer가 얻는 경험, 첫 참여 방법과 실제 예시를 먼저 보여줍니다. `#maintainers-dev`는 봇 상태를 옮겨 놓는 곳이 아니라 AI·동료와 만들며 배우는 공간입니다.
-- 수정안과 검증이 준비되면 Open과 Core 승인 버튼 모두 같은 `#maintainers` 작업 스레드에 나타납니다. Open은 활성 Maintainer 또는 Founder, Core는 Founder 본인만 승인할 수 있고 DM은 작업 스레드 링크만 알립니다.
-- Linear 연결은 DRI를 맡을 Maintainer가 명시적으로 요청할 때 `ot1l` 전용 Guest로 진행합니다. `DEV` 팀, 워크스페이스 역할과 운영 비밀에는 접근시키지 않습니다. OT1L 앱은 무료 Delegate이며 사람 DRI를 대신하지 않습니다.
-- `#maintainers-retention`의 버전 안내에서 질문, Q&A 허들과 첫 기여 OT를 요청합니다. 허들은 요청 즉시 자동 시작하지 않고 담당자가 정해진 뒤 같은 채널과 스레드에서 엽니다.
-- 웹의 **함께 만드는 중**은 Plane의 낮은 밀도 보드 방식을 참고한 선택 화면입니다. Linear나 웹을 확인하지 않아도 일반 회원은 원래 Slack 스레드에서 담당자와 단계를 볼 수 있습니다.
-- 이벤트 공개 화면은 별도 `otl1-time` Worker에서 실행합니다. 이 Worker에는 Slack token, DB URL, SSH key가 없고 이벤트 전용 Core 서명키만 있습니다.
-- 가입, 개인정보, 보안, Slack 처리와 Core Worker 코드 변경은 Founder 승인 뒤에만 병합·배포합니다. DB migration과 일반 홈페이지처럼 별도 순서가 필요한 변경은 Founder 승인 뒤에도 자동 배포하지 않고 운영 절차로 넘깁니다.
-- 경로가 섞였거나 분류 digest 또는 head SHA가 바뀌면 승인은 무효가 되며 다시 검증해야 합니다.
-- Deployment Broker는 승인된 SHA만 fast-forward하고 전체 검사, 배포, health 확인 뒤 영수증을 남깁니다. Maintainer에게 GenQuant SSH나 Cloudflare token을 전달하지 않습니다.
-- 공개 `#sys-alert`에는 GitHub·홈페이지·Worker의 배포 실패와 장애 요약만 게시합니다. 요청 본문, 토큰, 쿠키, 이메일, IP, 원본 stack trace와 DB 주소는 게시하지 않습니다.
+- 모든 회원은 **Product Owner 되기**로 자발적으로 참여합니다. GitHub collaborator 초대는 하지 않으며 공개 fork에서 개발·push하고 PR을 제출합니다. 개인 컴퓨터에서 운영 Worker를 배포하지 않습니다.
+- 일반 의견은 한 줄로 접수하고 PO 작업 스레드에서 함께 검토합니다. PO에서 시작한 작업·질문·오류를 공개 feedback에 복제하지 않습니다.
+- 작업과 담당자는 Slack에서 관리합니다. Linear 계정 없이 담당자를 선택하거나 다른 PO에게 넘길 수 있습니다.
+- 작업 카드의 **PR 연결하기**는 해당 작업에 PR URL을 연결합니다. 안내 버튼에서는 PR URL로 작업을 만들 수 있습니다. Draft는 시안 검토 전용이며 자동 병합하지 않습니다.
+- Open은 활성 PO 또는 Founder, Core는 Founder가 검증된 SHA를 승인합니다. Deployment Broker가 병합·배포하고 실제 확인 결과를 같은 작업 스레드에 남깁니다.
+- PO 작업 공간은 상태·담당·검증을 관리하고, 대화 공간은 아이디어·경험·질문을 나눕니다. 개발·디자인 채널은 각 관심 분야에서 함께 만들고 배우는 공간입니다.
+- 회원의 실제 비밀키와 개인정보는 계속 보호합니다. 단순한 보안 관련 의견이나 디자인 제안을 자동 비공개 사건으로 분류하지 않습니다.
 
-직접 만든 PR은 `#po-work`의 **PR 연결하기**에서 작업 키와 함께 연결합니다. fork PR도 지원합니다. 기존 봇 작업과의 충돌을 검사하고, Broker의 격리 검사 후 원래 작업 스레드에서 정확한 SHA를 승인합니다. 자세한 흐름과 실패 후 재시도는 [기여 안내](../CONTRIBUTING.md)를 따릅니다.
-
-Open 경로의 기준은 `automation/runner/change-policy.mjs`이며 fail-closed입니다. 현재는 `event-site/**`와 이벤트 시간표의 정적 자산·QA만 Open입니다. `src/**`, `migrations/**`, 가입·개인정보·보안 경로는 Core입니다. 경로가 섞이면 Core로 분류합니다.
+현재 사용자와 AI 개발 도구의 상세 절차는 [함께 만드는 흐름](CONTRIBUTION_FLOW.md), 환경 설정은 [기여 시작하기](../CONTRIBUTING.md)를 따릅니다.
 
 ## 운영 점검
 
