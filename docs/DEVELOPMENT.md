@@ -160,4 +160,4 @@ cd /tmp/otl1-public-review && bun run check
 - runner·운영 파일만 바뀐 경우 runner 계약 검사와 systemd 서비스 재시작을 수행합니다.
 - migration, 일반 site, 서로 다른 경계가 섞인 변경은 `manual_required`로 남기고 자동 배포하지 않습니다.
 
-각 adapter는 전체 `bun run check`, exact HEAD, Worker version과 `/health`를 확인한 뒤에만 `bug_runner_finish_deployment` 영수증을 기록합니다. 진행 중인 leased job이 있으면 deployment claim 자체를 보류합니다. 공개 fork에서 직접 연 PR은 자동 큐에 들어오지 않으며, 현재는 `#maintainers`에서 Founder가 피드백 항목과 head SHA에 연결해야 합니다.
+각 adapter는 전체 `bun run check`, exact HEAD, Worker version과 `/health`를 확인한 뒤에만 `bug_runner_finish_deployment` 영수증을 기록합니다. 진행 중인 leased job이 있으면 deployment claim 자체를 보류합니다. 공개 fork PR은 `#po-work`의 **PR 연결하기**에서 접수합니다. migration 087은 대기 작업 취소와 상태 전이를 한 트랜잭션으로 기록하고, 실행 중인 작업과 충돌하면 거부합니다. Broker는 별도 worktree와 bubblewrap에서 해당 SHA를 검사한 뒤 기존 승인 큐에 연결합니다. 검사 실패는 같은 작업 스레드에 알리며 다시 연결할 수 있습니다.

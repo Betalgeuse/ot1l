@@ -5,7 +5,7 @@ import type { CommunityContext, CommunityEnv } from "./community-runtime";
 import { callSlack } from "./community-social";
 import { InputError, type Json, object, string } from "./input";
 
-export const MAINTAINER_RETENTION_VERSION = "v0.2.0";
+export const MAINTAINER_RETENTION_VERSION = "v0.3.0";
 
 function requestButton(label: string, mode: "question" | "qna" | "ot"): Json {
   return {
@@ -46,6 +46,12 @@ export function maintainerWorkGuide() {
         type: "actions",
         elements: [
           feedbackButton("피드백·작업 제안", true),
+          {
+            type: "button",
+            text: { type: "plain_text", text: "PR 연결하기" },
+            action_id: "community_pull_request_open",
+            value: JSON.stringify({ ownerId: "actor", key: "pull-request-bind" }),
+          },
           poSpecialtyButton(),
           summonPoButton(),
           {
@@ -79,7 +85,13 @@ async function upsertPinnedGuide(
   const previous = Array.isArray(history.messages)
     ? history.messages
         .map(object)
-        .find((message) => typeof message.text === "string" && message.text.includes(marker))
+        .find(
+          (message) =>
+            (message.bot_id || message.app_id) &&
+            typeof message.text === "string" &&
+            (message.text.includes(marker) ||
+              message.text.includes(marker.replace("Maintainer", "Product Owner"))),
+        )
     : undefined;
   const message = { channel, ...payload };
   const ts = previous

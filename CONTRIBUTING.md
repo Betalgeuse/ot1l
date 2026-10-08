@@ -25,12 +25,17 @@ PR의 base는 `Betalgeuse/ot1l:main`으로 지정하고, 무엇을 바꿨는지�
 | Founder | Core 변경 승인, 예외 운영 판단 | 검증되지 않은 SHA의 자동 우회 |
 | Deployment Broker | 승인된 SHA 병합·배포, 전체 검사와 health 영수증 기록 | 승인 범위 밖 경로 배포, 비밀 공개 |
 
-GitHub collaborator 초대는 Maintainer 활성화의 일부가 아닙니다. GitHub 권한과 Slack 역할을 억지로 묶지 않고 공개 fork/PR을 사용합니다. 현재 자동 병합·배포 큐는 OT1L 피드백 흐름이 만든 PR에 연결됩니다. 피드백은 일반 피드백 채널과 `#maintainers` 양쪽에서 시작할 수 있고, 한 Linear 이슈와 두 Slack 상태 카드로 연결됩니다. Maintainer가 제안하면 본인이 기본 DRI가 되며 작업 카드에서 다른 Maintainer에게 넘길 수 있습니다. Open 변경은 활성 Maintainer 또는 Founder가 승인하고 Core 변경은 `#maintainers`에 보이는 동일한 버튼을 Founder 본인만 누를 수 있습니다. 직접 만든 PR을 큐에 넣는 셀프서비스 버튼은 아직 없습니다. 직접 만든 PR은 `#maintainers`에 링크해 Founder가 피드백 항목과 승인 SHA에 연결한 뒤 같은 Broker 경로로 반영합니다. 개인 컴퓨터에서 운영 Worker를 직접 배포하지 않습니다.
+GitHub collaborator 초대는 Product Owner 활성화의 일부가 아닙니다. 공개 fork/PR을 사용합니다. 일반 회원의 피드백은 PO 작업 공간으로 전달되고, `#po-work`에서 시작한 작업은 공개 피드백 채널로 복제하지 않습니다. PO가 제안하면 본인이 기본 DRI가 되며 작업 카드에서 담당자를 바꿀 수 있습니다.
+
+직접 수정했다면 `#po-work` 안내의 **PR 연결하기**에 작업의 `BUG-...` 키와 `Betalgeuse/ot1l`을 대상으로 연 PR 주소를 넣습니다. fork에서 온 PR도 가능합니다. 봇의 대기 작업은 취소되며, 이미 실행 중인 작업이나 승인 중인 PR이 있으면 충돌 이유를 알려줍니다. Broker가 별도 체크아웃과 비밀정보 없는 격리 환경에서 해당 SHA를 검사한 뒤 원래 작업 스레드에 승인 버튼을 보냅니다. 검사에 실패하면 같은 곳에 안내하며 수정 후 다시 연결할 수 있습니다.
+
+Open 변경은 활성 PO 또는 Founder가, Core 변경은 Founder 본인이 정확한 SHA를 승인합니다. 승인 후 Broker가 병합·배포합니다. 개인 컴퓨터에서 운영 Worker를 직접 배포하지 않습니다.
 
 ## 어느 Worker를 고쳐야 하나요?
 
 - `event-site/**`, `site/dist/event-schedule.*`, `site/qa/event-schedule.mjs`: 공개 이벤트 시간표 Worker `otl1-time`. 비밀이 없는 Open 변경입니다.
-- `src/**`, `migrations/**`, 루트 `wrangler.jsonc`: Slack, 회원 상태, DB, Core Worker `otl1-onething-garden`. Founder 승인이 필요한 Core 변경입니다.
+- `src/slack-presentation/*.ts`: 비밀정보와 외부 호출이 없는 Slack 표시 전용 코드. 실행 가능한 경계 검사를 통과해야 Open입니다.
+- 그 외 `src/**`, `migrations/**`, 루트 `wrangler.jsonc`: Slack 상호작용, 회원 상태, DB, Core Worker `otl1-onething-garden`. Founder 승인이 필요한 Core 변경입니다.
 - `site/**`의 이벤트 시간표 외 경로: 가입·공개 사이트 영역입니다. 현재 자동 Open 배포 대상이 아닙니다.
 - `automation/runner/**`, `ops/genquant/**`: 배포·수정 브로커 자체입니다. Core로 취급합니다.
 

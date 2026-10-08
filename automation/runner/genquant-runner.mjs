@@ -5,6 +5,7 @@ import { lstat, mkdir, open, readFile, unlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { isAbsolute, join, resolve } from "node:path";
 import { assertOpenPresentationBoundary, classifyChangePaths } from "./change-policy.mjs";
+import { verifyBoundPullRequest } from "./bound-pull.mjs";
 import {
   buildFixBranch,
   buildFixPrompt,
@@ -449,7 +450,7 @@ async function processApprovedMerge(db, config, workerId) {
         "--repo",
         repositorySlug,
         "--json",
-        `${mergeViewFields},number`,
+        `${mergeViewFields},number,isDraft`,
       ]),
     );
     const viewedPrNumber = Number(pr.number);
@@ -470,8 +471,8 @@ async function processApprovedMerge(db, config, workerId) {
     assertOpenPresentationBoundary(paths, (path) =>
       command("git", ["-C", repository, "show", `${claim.headSha}:${path}`]),
     );
-    command("gh", ["pr", "ready", prUrl, "--repo", repositorySlug]);
-    command("gh", ["pr", "merge", prUrl, "--repo", repositorySlug, "--squash", "--delete-branch"], {
+    if (pr.isDraft) command("gh", ["pr", "ready", prUrl, "--repo", repositorySlug]);
+    command("gh", ["pr", "merge", prUrl, "--repo", repositorySlug, "--squash", "--match-head-commit", claim.headSha], {
       timeout: 180_000,
     });
     const merged = JSON.parse(
@@ -504,6 +505,25 @@ async function processApprovedMerge(db, config, workerId) {
   return true;
 }
 
+async function processBoundPullRequest(db, config, workerId) {
+  const leaseToken = randomUUID();
+  const binding = await db("bug_runner_claim_bound_pull", { teamId: config.SLACK_TEAM_ID, workerId, leaseToken });
+  if (!binding) return false;
+  const identity = { teamId: config.SLACK_TEAM_ID, bindingId: Number(binding.binding_id), workerId, leaseToken };
+  try {
+    const repository = await ensureRepository(config.BUG_RUNNER_ROOT, config.CODEX_REPOSITORY_URL);
+    const classification = verifyBoundPullRequest(repository, githubRepositorySlug(config.CODEX_REPOSITORY_URL), binding, command);
+    const classificationDigest = sha256(JSON.stringify({ version: 1, changeClass: classification.changeClass, paths: classification.paths }));
+    await db("bug_runner_finish_bound_pull", { ...identity, headSha: binding.head_sha, changedPaths: classification.paths,
+      changeClass: classification.changeClass, classificationDigest });
+    log("bug.runner.bound_pull_verified", { bindingId: identity.bindingId });
+  } catch {
+    await db("bug_runner_fail_bound_pull", identity);
+    log("bug.runner.bound_pull_rejected", { bindingId: identity.bindingId });
+  }
+  return true;
+}
+
 async function processOne(config) {
   const db = sqlClient(config.BUG_RUNNER_DATABASE_URL);
   const workerId = config.BUG_RUNNER_WORKER_ID ?? "genquant-primary";
@@ -523,6 +543,7 @@ async function processOne(config) {
     observedAt: new Date().toISOString(),
   });
   if (await processApprovedMerge(db, config, workerId)) return true;
+  if (await processBoundPullRequest(db, config, workerId)) return true;
   const leaseToken = randomUUID();
   const runnerImageDigest = sha256(
     `${process.version}|${command("codex", ["--version"])}|${command("git", ["--version"])}`,

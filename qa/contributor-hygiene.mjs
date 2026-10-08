@@ -17,7 +17,8 @@ for (const document of [contributing, agents]) {
   assert.match(document, /automation\/runner\/change-policy[.]mjs/);
   assert.match(document, /fork/i);
 }
-assert.match(contributing, /셀프서비스 버튼은 아직 없습니다/);
+assert.match(contributing, /PR 연결하기/);
+assert.match(contributing, /격리 환경/);
 assert.match(maintainerGuide, /GitHub collaborator 초대.*않/);
 assert.match(maintainerGuide, /개인 컴퓨터에서 운영 Worker를 배포하지 않습니다/);
 assert.doesNotMatch(maintainerGuide, /otl1-open-events/);
