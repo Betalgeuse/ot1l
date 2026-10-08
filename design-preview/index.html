@@ -1,28 +1,326 @@
 <!doctype html>
 <html lang="ko">
 <head>
-<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>OT1L — 단 하나에 집중하는 하루</title>
 <style>
-*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:#fff;color:#171717;font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Noto Sans KR',sans-serif;word-break:keep-all}a{color:inherit;text-decoration:none}header{height:80px;padding:0 6vw;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #eee}.brand{font-weight:800;font-size:21px;letter-spacing:-1px}.brand span{font-size:10px;font-weight:500;letter-spacing:1px;margin-left:16px}.preview{font-size:10px;color:#737373}section{min-height:85svh;display:flex;align-items:center;padding:90px 8vw;border-bottom:1px solid #e8e8e8}.content{width:min(880px,100%);margin:auto}.hero{min-height:calc(100svh - 80px)}.label{font-size:12px;font-weight:600;color:#666;margin:0 0 35px;letter-spacing:.6px}h1,h2{margin:0;font-weight:650;letter-spacing:-.055em;line-height:1.2}h1{font-size:clamp(48px,7.2vw,88px)}h2{font-size:clamp(40px,6vw,68px)}.description{color:#626262;font-size:clamp(16px,1.7vw,19px);line-height:1.9;margin:30px 0 0;max-width:560px}.next{display:inline-flex;gap:35px;align-items:center;font-size:13px;margin-top:55px;padding:10px 0;border-bottom:1px solid #999}.focus{background:#171717;color:white;border:0}.focus .label,.focus .description{color:#bcbcbc}.example{margin:44px 0 0;font-size:clamp(20px,3vw,29px);line-height:1.6;letter-spacing:-.6px;border-left:2px solid currentColor;padding-left:23px}.example-label{font-size:11px;color:#737373;margin-top:13px;padding-left:25px}.join{min-height:70svh}.join h2{font-size:clamp(38px,5.4vw,62px)}.join .description{font-size:16px}.foot{max-width:880px;margin:0 auto;padding:32px 0;display:flex;justify-content:space-between;gap:24px;color:#737373;font-size:11px;line-height:1.7}footer{padding:0 8vw}a:focus-visible{outline:2px solid currentColor;outline-offset:7px}section[id]{scroll-margin-top:0}@media(max-width:600px){header{height:66px;padding:0 24px}.brand span{display:none}section{padding:70px 26px;min-height:80svh}.hero{min-height:calc(100svh - 66px)}.label{margin-bottom:28px}.description{margin-top:25px}.next{margin-top:40px}.foot{flex-direction:column;gap:8px}.example{margin-top:35px}.join{min-height:75svh}}@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
-.one-emphasis{color:inherit;background:none;text-decoration-line:underline;text-decoration-color:#e53935;text-decoration-thickness:3px;text-underline-offset:.16em;text-decoration-skip-ink:none}.focus .one-emphasis{text-decoration-color:#ff625b}
-.brand-one{color:#e53935}
-.book-credit{font-size:11px;line-height:1.8;color:#737373;margin-top:30px}.thread{max-width:600px;margin-top:45px;border-top:1px solid #ddd;padding-top:22px}.thread-label{font-size:11px;color:#666;letter-spacing:.4px}.thread .example{margin-top:24px;font-size:clamp(20px,2.6vw,27px)}.speaker{font-size:11px;color:#666;padding-left:25px}.reply{margin-top:23px;padding-left:25px}.reply span{font-size:11px;color:#737373}.reply p{font-size:15px;line-height:1.8;margin:6px 0;color:#454545}.thread .example-label,.peer-list+.example-label{padding-left:0;margin-top:28px;line-height:1.8}.peer-list{list-style:none;padding:0;max-width:600px;margin:40px 0 0}.peer-list li{padding:22px 0;border-top:1px solid #ddd}.peer-list span,.peer-list small{font-size:12px;color:#666}.peer-list p{font-size:20px;line-height:1.6;margin:8px 0}.interest{border-top:1px solid #ddd;margin-top:40px;padding-top:24px;max-width:560px}.interest h3{font-size:15px;font-weight:500}.interest p{font-size:14px;color:#626262;line-height:1.9}.interest>span{font-size:11px;color:#737373}.hero h1{font-size:clamp(44px,6.6vw,80px)}
-header{background:#171717;color:#fff;border-bottom:1px solid #333}.preview{color:#aaa}.hero{background:#171717;color:#fff;border-bottom:0}.hero .hero-concept{display:flex;flex-direction:column;gap:48px;letter-spacing:0}.concept-part{display:block}.concept-title{display:block;font-size:clamp(44px,9vw,112px);font-weight:750;line-height:1.05;letter-spacing:-.055em}.concept-title b{font-weight:inherit}.concept-meaning{display:block;font-size:clamp(16px,2vw,21px);font-weight:400;line-height:1.6;letter-spacing:-.02em;margin-top:16px;color:#dedede}.hero .next{color:#dedede;border-color:#777;margin-top:48px}.hero .brand-one{color:#ff625b}@media(max-width:600px){.hero .hero-concept{gap:38px}.concept-meaning{margin-top:14px}.hero .next{margin-top:38px}}
-.hero .content{text-align:left}.hero .hero-concept{text-align:center}
-.meaning-underline{text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:6px}
+/* Layout: 한 화면 고정 프레임(헤더·페이저) + 가운데 무대만 가로로 넘어가는 페이징. 모든 페이지가 같은 왼쪽 축과 같은 상단선에서 시작. */
+:root{
+  --ink:#171717;
+  --paper:#ffffff;
+  --muted:#6b6b6b;
+  --faint:#a3a3a3;
+  --line:#e6e6e6;
+  --one:#e53935;
+  --font:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Pretendard','Noto Sans KR',sans-serif;
+  --col:1040px;
+  --gutter:clamp(20px,6vw,72px);
+  --top:clamp(28px,9vh,96px);
+  color-scheme:light;
+}
+html,body{height:100%}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--font);word-break:keep-all;overflow:hidden;-webkit-font-smoothing:antialiased}
+*{box-sizing:border-box}
+a{color:inherit;text-decoration:none}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+:focus-visible{outline:2px solid var(--ink);outline-offset:4px}
+
+.app{height:100%;display:grid;grid-template-rows:auto 1fr auto}
+
+/* 헤더 */
+.top{display:flex;align-items:center;justify-content:space-between;padding:0 var(--gutter);height:64px;border-bottom:1px solid var(--line)}
+.top-inner,.bar-inner{width:min(var(--col),100%);margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:16px}
+.brand{font-weight:800;font-size:20px;letter-spacing:-.04em}
+.brand small{font-size:10px;font-weight:500;letter-spacing:.12em;margin-left:14px;color:var(--muted)}
+.tag{font-size:11px;color:var(--muted);letter-spacing:.04em}
+.one{color:var(--one)}
+
+/* 무대 */
+.stage{position:relative;overflow:hidden;min-height:0}
+.track{display:flex;height:100%;transition:transform .55s cubic-bezier(.65,0,.2,1)}
+.page{flex:0 0 100%;height:100%;overflow-y:auto;padding:var(--top) var(--gutter) 32px}
+.page-inner{width:min(var(--col),100%);margin:0 auto;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,420px);column-gap:clamp(32px,6vw,96px);row-gap:40px;align-items:start}
+.text{display:flex;flex-direction:column;gap:24px;min-width:0}
+.eyebrow{font-size:12px;font-weight:600;letter-spacing:.1em;color:var(--muted);margin:0;display:flex;gap:12px;font-variant-numeric:tabular-nums}
+.eyebrow b{color:var(--ink);font-weight:600}
+h1,h2{margin:0;font-weight:700;letter-spacing:-.05em;line-height:1.15;text-wrap:balance}
+h2{font-size:clamp(34px,5vw,60px)}
+.desc{margin:0;color:var(--muted);font-size:clamp(15px,1.5vw,18px);line-height:1.8;max-width:30em}
+.mark{text-decoration:underline;text-decoration-color:var(--one);text-decoration-thickness:3px;text-underline-offset:.16em;text-decoration-skip-ink:none;white-space:nowrap}
+
+/* 표지 */
+.cover h1{display:flex;flex-direction:column;gap:clamp(20px,4vh,40px)}
+.cover .big{display:block;font-size:clamp(52px,9vw,112px);font-weight:800;line-height:1;letter-spacing:-.06em}
+.cover .say{display:block;font-size:clamp(15px,1.6vw,19px);font-weight:400;letter-spacing:-.01em;color:var(--muted);margin-top:12px;line-height:1.6}
+.cover .say u{text-decoration-thickness:1px;text-underline-offset:5px;color:var(--ink)}
+.start{align-self:flex-start;display:inline-flex;gap:28px;font-size:13px;padding:8px 0;border-bottom:1px solid var(--ink)}
+
+/* 예시 패널 (오른쪽 열) */
+.aside{min-width:0;display:flex;flex-direction:column;gap:0;border-top:1px solid var(--ink);padding-top:16px}
+.aside-label{font-size:11px;letter-spacing:.06em;color:var(--muted);margin:0 0 20px}
+.msg{padding:14px 0;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:6px}
+.msg span{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
+.msg p{margin:0;font-size:15px;line-height:1.7;color:#404040}
+.msg.lead p{font-size:clamp(17px,1.8vw,20px);color:var(--ink);font-weight:600;letter-spacing:-.02em;line-height:1.55}
+.note{font-size:11px;color:var(--faint);margin:16px 0 0;line-height:1.7}
+.todo{list-style:none;margin:0;padding:0}
+.todo li{display:grid;grid-template-columns:28px 1fr;align-items:baseline;padding:14px 0;border-bottom:1px solid var(--line);font-size:15px;color:var(--faint)}
+.todo li i{font-style:normal;font-size:11px;font-variant-numeric:tabular-nums}
+.todo li.first{color:var(--ink);font-weight:600;font-size:clamp(17px,1.8vw,20px)}
+.todo li.first i{color:var(--one)}
+.peer{list-style:none;margin:0;padding:0}
+.peer li{padding:14px 0;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:4px}
+.peer span{font-size:11px;color:var(--muted)}
+.peer p{margin:0;font-size:17px;font-weight:600;letter-spacing:-.02em}
+.peer small{font-size:12px;color:var(--muted)}
+.ask h3{margin:0 0 8px;font-size:16px;font-weight:600}
+.ask p{margin:0;font-size:14px;line-height:1.8;color:var(--muted)}
+.ask .status{display:inline-block;margin-top:16px;font-size:11px;color:var(--faint);border:1px solid var(--line);padding:6px 10px}
+
+/* 페이저 */
+.bar{border-top:1px solid var(--line);padding:0 var(--gutter);padding-bottom:env(safe-area-inset-bottom,0px)}
+.bar-inner{height:72px}
+.count{font-size:12px;font-variant-numeric:tabular-nums;color:var(--muted);min-width:52px}
+.count b{color:var(--ink);font-weight:600}
+.steps{flex:1;display:grid;grid-template-columns:repeat(6,1fr);gap:8px;max-width:560px}
+.step{display:flex;flex-direction:column;gap:9px;font-size:11px;letter-spacing:.06em;color:var(--faint);text-align:left;padding:10px 0}
+.step::before{content:"";height:2px;background:var(--line);transition:background .3s}
+.step[aria-current="true"]{color:var(--ink)}
+.step[aria-current="true"]::before{background:var(--one)}
+.step.done::before{background:var(--ink)}
+.arrows{display:flex;gap:4px}
+.arrow{width:40px;height:40px;display:grid;place-items:center;border:1px solid var(--line);font-size:15px}
+.arrow:hover:not(:disabled){border-color:var(--ink)}
+.arrow:disabled{color:var(--line);cursor:default}
+
+@media (max-width:760px){
+  .page-inner{grid-template-columns:minmax(0,1fr);row-gap:32px}
+  .top{height:56px}
+  .brand small{display:none}
+  .bar-inner{height:60px;gap:12px}
+  .step{font-size:0;gap:0;padding:14px 0}
+  .count{min-width:40px}
+  .arrow{width:36px;height:36px}
+}
+@media (prefers-reduced-motion:reduce){.track{transition:none}}
+
+/* 표지만 검정: 표지에 있을 때 헤더·페이지 바도 함께 검정으로 이어져 한 장처럼 보이게 */
+:root{--night:#141414;--night-line:#2e2e2e;--night-muted:#a6a6a6;--night-one:#ff625b}
+.top,.bar{background:var(--paper);transition:background .55s,color .55s,border-color .55s}
+.cover{background:var(--night);color:#fff}
+.cover .one{color:var(--night-one)}
+.cover .eyebrow,.cover .say{color:var(--night-muted)}
+.cover .eyebrow b,.cover .say u{color:#fff}
+.cover .start{border-color:#fff}
+.app.dark .top,.app.dark .bar{background:var(--night);color:#fff;border-color:var(--night-line)}
+.app.dark .one{color:var(--night-one)}
+.app.dark .brand small,.app.dark .tag,.app.dark .count{color:var(--night-muted)}
+.app.dark .count b{color:#fff}
+.app.dark .step{color:#6e6e6e}
+.app.dark .step::before{background:var(--night-line)}
+.app.dark .step[aria-current="true"]{color:#fff}
+.app.dark .step[aria-current="true"]::before{background:var(--night-one)}
+.app.dark .arrow{border-color:var(--night-line)}
+.app.dark .arrow:hover:not(:disabled){border-color:#fff}
+.app.dark .arrow:disabled{color:var(--night-line)}
+.app.dark :focus-visible,.cover :focus-visible{outline-color:#fff}
+@media (prefers-reduced-motion:reduce){.top,.bar{transition:none}}
 </style>
 </head>
 <body>
-<header><a class="brand" href="#home" aria-label="OT1L 처음으로">OT<b class="brand-one">1</b>L<span>ONE THING 1 LINE</span></a><span class="preview">디자인 시안</span></header>
-<main>
-<section class="hero" id="home"><div class="content"><h1 class="hero-concept"><span class="concept-part"><span class="concept-title"><span class="brand-one">ONE</span> THING</span><span class="concept-meaning"><span class="meaning-underline">가장 중요한 업무 하나</span>.</span></span><span class="concept-part"><span class="concept-title"><b class="brand-one">1</b> LINE</span><span class="concept-meaning">각자의 한 가지를, 함께 해내는 모임.</span></span></h1><a class="next" href="#set">진행 방식 보기 <span aria-hidden="true">↓</span></a></div></section>
-<section id="set"><div class="content"><p class="label">01 · SET ONE THING &nbsp; / &nbsp; 10:00</p><h2>오늘의 <span class="one-emphasis">ONE THING</span>을<br>적습니다.</h2><p class="description">오늘 가장 중요한 업무 하나를<br>한 문장으로 적습니다.</p><div class="thread"><p class="thread-label">#daily-scrum · 목표를 남기는 새 글</p><p class="example">오늘의 ONE THING: 다음 주 발표 자료 첫 장을 완성해서 팀에 공유하기.</p><p class="speaker">가상 회원 · 10:04</p><div class="reply"><span>OT1L 봇 · 10:04</span><p>등록 완료! 오늘은 첫 장부터 가봅시다.</p></div><div class="reply"><span>동료 · 10:08</span><p>첫 장 나오면 같이 봐드릴게요. 저도 오늘 발표 준비 중이에요!</p></div><p class="example-label">가상 예시 · 실제 회원의 기록이나 실시간 활동이 아닙니다.</p></div></div></section>
-<section id="do"><div class="content"><p class="label">02 · DO ONE THING &nbsp; / &nbsp; 실행</p><h2>ONE THING을<br><span class="one-emphasis">실행합니다.</span></h2><p class="description">다른 할 일보다 오늘의 ONE THING을 먼저 실행합니다.</p></div></section>
-<section id="review"><div class="content"><p class="label">03 · REVIEW ONE THING &nbsp; / &nbsp; 18:00</p><h2>완료 여부와<br><span class="one-emphasis">후기</span>를 남깁니다.</h2><p class="description">완료 상태와 후기를 남기면<br>기록이 매일 누적됩니다.</p><div class="thread"><p class="thread-label">#daily-scrum · 후기를 남기는 새 글</p><div class="reply first"><span>OT1L 봇 · 18:00</span><p>오늘 ONE THING은 어디까지 왔나요?</p></div><p class="example">첫 장 만들어서 공유했어요. 시작하고 나니 다음 흐름도 보이네요.</p><p class="speaker">가상 회원 · 18:06</p><div class="reply"><span>OT1L 봇 · 18:06</span><p>완료로 기록했어요! 오늘 잔디 한 칸 진하게.</p></div><div class="reply"><span>동료 · 18:08</span><p>첫 장 뚫었다!!! 내일은 이어서 가면 되겠네요.</p></div><p class="example-label">가상 예시 · 실제 회원의 기록이나 실시간 활동이 아닙니다.</p></div></div></section>
-<section id="community"><div class="content"><p class="label">04 · 함께하는 사람들</p><h2>함께 가면<br><span class="one-emphasis">더 멀리</span> 갑니다.</h2><p class="description">기왕이면, 제대로 해내는 사람들과.<br>검증된 사업가, 직장인, 학자들이 서로의 ONE THING을 응원하며 함께 성장합니다.</p><ul class="peer-list"><li><span>사업가</span><p>신규 고객 인터뷰 3건 끝내기</p><small>고객의 언어로 다음 결정을 선명하게</small></li><li><span>직장인</span><p>다음 주 발표 자료 첫 장 완성하기</p><small>핵심 메시지를 먼저 정하고 실행하기</small></li><li><span>학자</span><p>논문 서론 초안 마무리하기</p><small>서로의 과정에서 더 나은 방법 배우기</small></li></ul><p class="example-label">가상 예시 · 실제 회원의 기록이나 실시간 활동이 아닙니다.</p></div></section>
-<section class="join" id="join"><div class="content"><p class="label">05 · 지인의 초대</p><h2>신뢰하는<br><span class="one-emphasis">지인의 초대</span>로.</h2><p class="description">ONE THING 1 LINE은 신뢰하는 지인의 초대로만 함께할 수 있습니다.</p><div class="interest"><h3>아는 회원이 없나요?</h3><p>소개 링크가 없는 분을 위한 비공개 참여 문의를 준비하고 있습니다. 문의만으로 회원이 되거나 초대를 받지는 않습니다.</p><span>참여 문의 준비 중 · 시안에서는 연결되지 않습니다</span></div></div></section>
-</main>
-<footer><div class="foot"><span>OT<b class="brand-one">1</b>L · ONE THING 1 LINE</span><span>오늘 가장 중요한 업무 하나를, 함께 끝까지.</span></div></footer>
+
+<div class="app" id="app">
+  <header class="top"><div class="top-inner">
+    <a class="brand" href="#home" data-go="0" aria-label="OT1L 처음으로">OT<span class="one">1</span>L<small>ONE THING 1 LINE</small></a>
+    <span class="tag">디자인 시안</span>
+  </div></header>
+
+  <main class="stage" aria-roledescription="carousel" aria-label="OT1L 소개">
+    <div class="track" id="track">
+
+      <section class="page cover" id="home" aria-label="표지">
+        <div class="page-inner">
+          <div class="text">
+            <p class="eyebrow"><b>OT1L</b><span>지인 초대 기반 커뮤니티</span></p>
+            <h1>
+              <span><span class="big"><span class="one">ONE</span> THING</span><span class="say"><u>가장 중요한 업무 하나</u>.</span></span>
+              <span><span class="big"><span class="one">1</span> LINE</span><span class="say">각자의 한 가지를, 함께 해내는 모임.</span></span>
+            </h1>
+            <button class="start" data-go="1">진행 방식 보기 <span aria-hidden="true">→</span></button>
+          </div>
+        </div>
+      </section>
+
+      <section class="page" id="set" aria-label="SET">
+        <div class="page-inner">
+          <div class="text">
+            <p class="eyebrow"><b>SET</b><span>10:00</span></p>
+            <h2>오늘의 <span class="mark">ONE THING</span>을 적습니다.</h2>
+            <p class="desc">오늘 가장 중요한 업무 하나를 한 문장으로 적습니다.</p>
+          </div>
+          <div class="aside">
+            <p class="aside-label">#daily-scrum · 목표를 남기는 새 글</p>
+            <div class="msg lead"><span>가상 회원 · 10:04</span><p>오늘의 ONE THING: 다음 주 발표 자료 첫 장을 완성해서 팀에 공유하기.</p></div>
+            <div class="msg"><span>OT1L 봇 · 10:04</span><p>등록 완료! 오늘은 첫 장부터 가봅시다.</p></div>
+            <div class="msg"><span>동료 · 10:08</span><p>첫 장 나오면 같이 봐드릴게요. 저도 오늘 발표 준비 중이에요!</p></div>
+            <p class="note">가상 예시 · 실제 회원의 기록이나 실시간 활동이 아닙니다.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="page" id="do" aria-label="DO">
+        <div class="page-inner">
+          <div class="text">
+            <p class="eyebrow"><b>DO</b><span>실행</span></p>
+            <h2>ONE THING을 <span class="mark">먼저 실행</span>합니다.</h2>
+            <p class="desc">다른 할 일보다 오늘의 ONE THING을 먼저 실행합니다.</p>
+          </div>
+          <div class="aside">
+            <p class="aside-label">오늘의 순서</p>
+            <ol class="todo">
+              <li class="first"><i>1</i>발표 자료 첫 장 완성하기</li>
+              <li><i>·</i>메일 답장</li>
+              <li><i>·</i>주간 회의 준비</li>
+              <li><i>·</i>자료 정리</li>
+            </ol>
+            <p class="note">가상 예시 · 실제 회원의 기록이나 실시간 활동이 아닙니다.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="page" id="review" aria-label="REVIEW">
+        <div class="page-inner">
+          <div class="text">
+            <p class="eyebrow"><b>REVIEW</b><span>18:00</span></p>
+            <h2>완료 여부와 <span class="mark">후기</span>를 남깁니다.</h2>
+            <p class="desc">완료 상태와 후기를 남기면 기록이 매일 누적됩니다.</p>
+          </div>
+          <div class="aside">
+            <p class="aside-label">#daily-scrum · 후기를 남기는 새 글</p>
+            <div class="msg"><span>OT1L 봇 · 18:00</span><p>오늘 ONE THING은 어디까지 왔나요?</p></div>
+            <div class="msg lead"><span>가상 회원 · 18:06</span><p>첫 장 만들어서 공유했어요. 시작하고 나니 다음 흐름도 보이네요.</p></div>
+            <div class="msg"><span>OT1L 봇 · 18:06</span><p>완료로 기록했어요! 오늘 잔디 한 칸 진하게.</p></div>
+            <p class="note">가상 예시 · 실제 회원의 기록이나 실시간 활동이 아닙니다.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="page" id="community" aria-label="함께">
+        <div class="page-inner">
+          <div class="text">
+            <p class="eyebrow"><b>함께</b><span>함께하는 사람들</span></p>
+            <h2>함께 가면 <span class="mark">더 멀리</span> 갑니다.</h2>
+            <p class="desc">기왕이면, 제대로 해내는 사람들과. 검증된 사업가, 직장인, 학자들이 서로의 ONE THING을 응원하며 함께 성장합니다.</p>
+          </div>
+          <div class="aside">
+            <p class="aside-label">회원들의 ONE THING</p>
+            <ul class="peer">
+              <li><span>사업가</span><p>신규 고객 인터뷰 3건 끝내기</p><small>고객의 언어로 다음 결정을 선명하게</small></li>
+              <li><span>직장인</span><p>다음 주 발표 자료 첫 장 완성하기</p><small>핵심 메시지를 먼저 정하고 실행하기</small></li>
+              <li><span>학자</span><p>논문 서론 초안 마무리하기</p><small>서로의 과정에서 더 나은 방법 배우기</small></li>
+            </ul>
+            <p class="note">가상 예시 · 실제 회원의 기록이나 실시간 활동이 아닙니다.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="page" id="join" aria-label="초대">
+        <div class="page-inner">
+          <div class="text">
+            <p class="eyebrow"><b>초대</b><span>지인의 초대</span></p>
+            <h2>신뢰하는 <span class="mark">지인의 초대</span>로.</h2>
+            <p class="desc">ONE THING 1 LINE은 신뢰하는 지인의 초대로만 함께할 수 있습니다.</p>
+          </div>
+          <div class="aside ask">
+            <h3>아는 회원이 없나요?</h3>
+            <p>소개 링크가 없는 분을 위한 비공개 참여 문의를 준비하고 있습니다. 문의만으로 회원이 되거나 초대를 받지는 않습니다.</p>
+            <span class="status">참여 문의 준비 중 · 시안에서는 연결되지 않습니다</span>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <nav class="bar" aria-label="페이지 이동"><div class="bar-inner">
+    <span class="count" id="count" aria-live="polite"><b>00</b> / 05</span>
+    <div class="steps" id="steps">
+      <button class="step" data-go="0">소개</button>
+      <button class="step" data-go="1">SET</button>
+      <button class="step" data-go="2">DO</button>
+      <button class="step" data-go="3">REVIEW</button>
+      <button class="step" data-go="4">함께</button>
+      <button class="step" data-go="5">초대</button>
+    </div>
+    <div class="arrows">
+      <button class="arrow" id="prev" aria-label="이전">←</button>
+      <button class="arrow" id="next" aria-label="다음">→</button>
+    </div>
+  </div></nav>
+</div>
+
+<script>
+(function(){
+  var track=document.getElementById('track');
+  var pages=[].slice.call(track.children);
+  var steps=[].slice.call(document.querySelectorAll('.step'));
+  var count=document.getElementById('count');
+  var prev=document.getElementById('prev'),next=document.getElementById('next');
+  var ids=pages.map(function(p){return p.id});
+  var cur=-1,lock=false;
+  var stage=track.parentNode;
+  // 주소의 #앵커로 브라우저가 무대를 직접 스크롤하지 않도록 고정
+  stage.addEventListener('scroll',function(){stage.scrollLeft=0;stage.scrollTop=0});
+
+  function go(i,fromHash){
+    i=Math.max(0,Math.min(pages.length-1,i));
+    if(i===cur)return;
+    cur=i;stage.scrollLeft=0;
+    document.getElementById('app').classList.toggle('dark',i===0);
+    track.style.transform='translateX('+(-100*i)+'%)';
+    pages.forEach(function(p,k){p.inert=k!==i;p.setAttribute('aria-hidden',k!==i);if(k===i)p.scrollTop=0});
+    steps.forEach(function(s,k){s.setAttribute('aria-current',k===i);s.classList.toggle('done',k<i)});
+    count.innerHTML='<b>'+String(i).padStart(2,'0')+'</b> / '+String(pages.length-1).padStart(2,'0');
+    prev.disabled=i===0;next.disabled=i===pages.length-1;
+    if(!fromHash){try{history.replaceState(null,'','#'+ids[i])}catch(e){}}
+  }
+
+  document.addEventListener('click',function(e){
+    var t=e.target.closest('[data-go]');
+    if(t){e.preventDefault();go(+t.dataset.go)}
+  });
+  prev.onclick=function(){go(cur-1)};
+  next.onclick=function(){go(cur+1)};
+
+  document.addEventListener('keydown',function(e){
+    if(['ArrowRight','ArrowDown','PageDown',' '].indexOf(e.key)>-1){e.preventDefault();go(cur+1)}
+    else if(['ArrowLeft','ArrowUp','PageUp'].indexOf(e.key)>-1){e.preventDefault();go(cur-1)}
+    else if(e.key==='Home'){go(0)}else if(e.key==='End'){go(pages.length-1)}
+  });
+
+  // 휠: 페이지 안에 스크롤할 내용이 남아 있으면 그 스크롤을 우선
+  window.addEventListener('wheel',function(e){
+    var p=pages[cur],d=Math.abs(e.deltaY)>Math.abs(e.deltaX)?e.deltaY:e.deltaX;
+    if(Math.abs(d)<12||lock)return;
+    var canDown=p.scrollTop+p.clientHeight<p.scrollHeight-2,canUp=p.scrollTop>0;
+    if((d>0&&canDown)||(d<0&&canUp))return;
+    lock=true;setTimeout(function(){lock=false},800);
+    go(cur+(d>0?1:-1));
+  },{passive:true});
+
+  // 스와이프 (가로)
+  var sx=0,sy=0;
+  track.addEventListener('touchstart',function(e){sx=e.touches[0].clientX;sy=e.touches[0].clientY},{passive:true});
+  track.addEventListener('touchend',function(e){
+    var dx=e.changedTouches[0].clientX-sx,dy=e.changedTouches[0].clientY-sy;
+    if(Math.abs(dx)>50&&Math.abs(dx)>Math.abs(dy)*1.3)go(cur+(dx<0?1:-1));
+  },{passive:true});
+
+  window.addEventListener('hashchange',function(){var k=ids.indexOf(location.hash.slice(1));if(k>-1)go(k,true)});
+  var start=ids.indexOf(location.hash.slice(1));
+  track.style.transition='none';go(start>-1?start:0,true);
+  requestAnimationFrame(function(){requestAnimationFrame(function(){track.style.transition=''})});
+})();
+</script>
 </body>
 </html>
