@@ -91,6 +91,36 @@ try {
   );
 
   calls.length = 0;
+  const lateScrum = trace({
+    event: { cron: "*/5 * * * *", scheduledTime: Date.now() },
+    logs: [
+      {
+        timestamp: Date.now() - 1,
+        level: "warn",
+        message: [JSON.stringify({ event: "community.emoji.unavailable", type: "SlackError" })],
+      },
+      {
+        timestamp: Date.now(),
+        level: "error",
+        message: [
+          JSON.stringify({
+            event: "community.scrum.slo_missed",
+            errorType: "LateDelivery",
+            lagMinutes: 10,
+          }),
+        ],
+      },
+    ],
+    exceptions: [],
+    outcome: "ok",
+  });
+  assert.equal(safeLogIncident(lateScrum)?.eventCode, "community.scrum.slo_missed");
+  assert.equal(await handleLogAlerts([lateScrum], env), 1);
+  const latePost = calls.find((call) => call.method === "chat.postMessage");
+  assert.match(latePost.body.text, /community[.]scrum[.]slo_missed/);
+  assert.match(JSON.stringify(latePost.body.blocks), /정기 작업/);
+
+  calls.length = 0;
   limiterSuccess = false;
   assert.equal(await handleLogAlerts([serverError], env), 0);
   assert.equal(

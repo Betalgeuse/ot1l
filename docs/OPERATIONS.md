@@ -18,7 +18,7 @@
 
 ## 안내와 재촉
 
-Cloudflare Cron이 5분마다 유일한 정시 스케줄러로 실행됩니다. Durable Object 알람은 잔디·가입·보존 큐만 처리하며 10시·18시 안내를 만들지 않습니다. 정시 안내는 Slack 회원 API보다 먼저 DB의 현재 회원 snapshot으로 durable dispatch를 만들고, 게시 성공 뒤 회원 목록을 별도로 갱신합니다. 목표 안내는 후기 시각 전까지, 후기 안내는 22시 전까지 같은 날짜·종류 키로 자동 복구되므로 10:00·10:05 실행이 모두 실패해도 이후 Cron이 이어서 처리합니다.
+채널별 Durable Object alarm이 10시·18시 정시 안내를 먼저 시도하고, 정시 Cron과 5분 Cron이 같은 DB dispatch의 watchdog으로 실행됩니다. alarm과 Cron이 겹쳐도 날짜·종류별 멱등 키, lease와 Slack 수락 영수증이 한 게시만 허용합니다. 정시 안내와 개인 재촉은 자기소개·피드백·Maintainer 안내보다 먼저 처리합니다. 부가 안내의 Slack·DB 실패는 핵심 스크럼을 중단하지 않습니다. 게시 성공 뒤 회원 목록을 별도로 갱신하며, 목표 안내는 후기 시각 전까지, 후기 안내는 22시 전까지 복구합니다.
 
 모든 시각은 한국 시간입니다.
 
@@ -45,7 +45,7 @@ ONE THING의 날짜 경계는 오전 2시입니다. 00:00~01:59의 회원 입력
 
 대한민국 공휴일은 한국천문연구원 월력요항과 시행 중인 「관공서의 공휴일에 관한 규정」을 기준으로 2026·2027 날짜를 `src/calendar.ts`에 고정합니다. 외부 달력 API 장애가 정기 운영을 바꾸지 않게 하기 위한 결정입니다. 운영자는 매년 12월 전에 다음 해 공식 월력요항과 수시 지정 공휴일을 대조해 목록과 `qa/weekends.mjs`를 함께 갱신합니다.
 
-게시 성공은 기기 푸시 수신과 다릅니다. 알림 장애는 **정시 Cron과 5분 복구 Cron → 날짜·종류 dispatch → 발송 영수증 → 실제 Slack 게시 → 사용자 알림 설정 → 게시 후 회원 동기화** 순서로 확인합니다. 게시 후 회원 목록의 일부 페이지나 프로필 수집이 실패하면 기존 snapshot과 게시물을 유지합니다. 데이터가 없거나 수집에 실패했다고 회원을 미참여로 단정하지 않습니다.
+게시 성공은 기기 푸시 수신과 다릅니다. 알림 장애는 **Durable Object alarm과 Cron invocation → 날짜·종류 dispatch → 첫 시도 시각 → Slack 수락 시각 → 원자적 발송 영수증 → 게시 후 회원 동기화** 순서로 확인합니다. 부가 알림이 먼저 실패했는지와 핵심 dispatch가 생성·claim됐는지를 분리해 봅니다. 게시 후 회원 목록의 일부 페이지나 프로필 수집이 실패하면 기존 snapshot과 게시물을 유지합니다. 데이터가 없거나 수집에 실패했다고 회원을 미참여로 단정하지 않습니다.
 
 ## 환영과 첫 기록 축하
 
@@ -149,7 +149,7 @@ pre-release QA 배포는 기존 Worker의 승인된 검증 시나리오에만 �
 
 ### 공개 `#sys-alert`와 서버 오류
 
-GitHub 저장소 알림은 Slack GitHub App이 담당합니다. OT1L 봇은 별도 `otl1-log-alerts` Tail Worker에서 Core, 이벤트 시간표와 홈페이지 Worker의 실행 결과를 받아 예외, HTTP 5xx, 비정상 outcome만 `#sys-alert`에 게시합니다. 동일 서비스·실행 종류·outcome·상태 코드는 60초에 한 번으로 제한합니다.
+GitHub 저장소 알림은 Slack GitHub App이 담당합니다. OT1L 봇은 별도 `otl1-log-alerts` Tail Worker에서 Core, 이벤트 시간표와 홈페이지 Worker의 실행 결과를 받아 예외, HTTP 5xx, 비정상 outcome과 `community.scrum.schedule.failed`·`community.scrum.slo_missed`를 `#sys-alert`에 게시합니다. 동일 서비스·실행 종류·outcome·상태 코드는 60초에 한 번으로 제한합니다.
 
 Slack에는 Worker 이름, 실행 종류, outcome, HTTP 상태, 예외 개수와 Cloudflare의 잘림 여부만 보냅니다. 요청 URL, query, 헤더, cookie, 본문, IP, 원본 로그, 예외 메시지, stack trace, DB 주소와 secret은 읽거나 전송하지 않습니다. Slack 전송 실패는 Tail Worker 자체의 구조화 오류 로그로 남기며 정상 전달로 위장하지 않습니다.
 

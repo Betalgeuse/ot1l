@@ -81,13 +81,48 @@ function structuredError(logs: readonly TraceLog[]): {
   return { eventCode: null, errorType: null };
 }
 
+function criticalProductError(logs: readonly TraceLog[]): {
+  readonly eventCode: string;
+  readonly errorType: string | null;
+} | null {
+  for (const log of logs) {
+    if (!["error", "warn"].includes(log.level)) continue;
+    const values = Array.isArray(log.message) ? log.message : [log.message];
+    for (const value of values) {
+      let parsed: unknown = value;
+      if (typeof value === "string" && value.length <= 2_000)
+        try {
+          parsed = JSON.parse(value);
+        } catch {
+          continue;
+        }
+      if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) continue;
+      const record = parsed as Record<string, unknown>;
+      const eventCode = safeCode(record.event, /^[a-z0-9_.-]+$/, 100);
+      if (
+        eventCode !== "community.scrum.schedule.failed" &&
+        eventCode !== "community.scrum.slo_missed"
+      )
+        continue;
+      return {
+        eventCode,
+        errorType: safeCode(record.errorType ?? record.type, /^[A-Za-z][A-Za-z0-9_.-]*$/, 80),
+      };
+    }
+  }
+  return null;
+}
+
 export function safeLogIncident(trace: TraceItem): SafeIncident | null {
   const details = fetchDetails(trace.event);
-  const structured = structuredError(trace.logs);
+  const critical = criticalProductError(trace.logs);
+  const structured = critical ?? structuredError(trace.logs);
+  const productCritical = critical !== null;
   const failed =
     trace.exceptions.length > 0 ||
     trace.outcome !== "ok" ||
-    (details.status !== null && details.status >= 500);
+    (details.status !== null && details.status >= 500) ||
+    productCritical;
   if (!failed) return null;
   return {
     script: safeCode(trace.scriptName, /^[A-Za-z0-9_.-]+$/, 80) ?? "unknown-worker",

@@ -60,6 +60,7 @@ const {
   nextAlarmTime,
 } = await import("../src/community-clock.ts");
 const { nextCommunityAlarm } = await import("../src/community-clock-client.ts");
+const { clockScheduleTimes, nextClockAlarm } = await import("../src/community-clock-schedule.ts");
 
 class FakeStorage {
   values = new Map();
@@ -87,7 +88,7 @@ class FakeStorage {
 }
 
 function clock(storage, env = {}) {
-  return new CommunityClock(
+  const instance = new CommunityClock(
     { storage },
     {
       SLACK_TEAM_ID: "TQA",
@@ -102,6 +103,9 @@ function clock(storage, env = {}) {
       ...env,
     },
   );
+  instance.scheduleRunner = (clockEnv, channelId, at) =>
+    scheduleRun({ ...clockEnv, COMMUNITY_CHANNEL_ID: channelId }, {}, at);
+  return instance;
 }
 
 const now = Date.parse("2026-09-11T00:00:00Z");
@@ -125,6 +129,18 @@ assert.equal(
   Date.parse("2026-09-11T01:17:00.000Z"),
 );
 assert.throws(() => nextCommunityAlarm([], "not-a-time", now));
+assert.deepEqual(
+  clockScheduleTimes({ body: { enabled: true, goalTime: "10:00", reviewTime: "18:00" } }),
+  ["10:00", "18:00"],
+);
+assert.deepEqual(clockScheduleTimes({ body: { enabled: false } }), []);
+assert.throws(() =>
+  clockScheduleTimes({ body: { enabled: true, goalTime: "10:15:00", reviewTime: "18:00" } }),
+);
+assert.equal(
+  nextClockAlarm({ body: { enabled: true, goalTime: "10:00", reviewTime: "18:00" } }, null, now),
+  Date.parse("2026-09-11T01:00:00Z"),
+);
 
 assert.deepEqual(await armCommunityClock({}, "admin"), { next: null });
 let routed = "";
@@ -335,11 +351,29 @@ try {
   normalStorage.alarm = now;
   scheduleRuns.length = 0;
   bugRuns.length = 0;
-  await clock(normalStorage).alarm();
+  const normalClock = clock(normalStorage);
+  await normalClock.alarm();
   assert.equal(bugRuns.length, 0, "normal channel alarm must not duplicate bug maintenance");
-  assert.equal(scheduleRuns.length, 0, "Durable Object must not duplicate Cron schedule delivery");
+  assert.equal(scheduleRuns.length, 1, "Durable Object owns the exact-time schedule attempt");
+  assert.equal(scheduleRuns[0][0].COMMUNITY_CHANNEL_ID, "CPUBLIC");
+  assert.equal(scheduleRuns[0][2].toISOString(), new Date(now).toISOString());
   assert.equal(normalStorage.values.get("role"), "community_schedule");
   assert.notEqual(normalStorage.alarm, null);
+
+  const scheduleFailureStorage = new FakeStorage();
+  scheduleFailureStorage.values.set("role", "community_schedule");
+  scheduleFailureStorage.values.set("channel", "CPUBLIC");
+  scheduleFailureStorage.alarm = now;
+  scheduleRun = async () => {
+    throw new Error("synthetic schedule failure");
+  };
+  await clock(scheduleFailureStorage).alarm();
+  assert.equal(scheduleFailureStorage.alarm, now + 10_000);
+  assert.equal(scheduleFailureStorage.values.get("lastRun").queue, "schedule");
+  scheduleRun = async (...args) => {
+    scheduleRuns.push(args);
+    return { common: 0, personal: 0 };
+  };
 } finally {
   Date.now = originalNow;
 }
@@ -489,5 +523,5 @@ assert.deepEqual(signedArms, [
 ]);
 
 console.log(
-  "PASS clocks: Durable Objects own queue maintenance and never duplicate Cron schedule delivery.",
+  "PASS clocks: Durable Object owns exact schedule attempts while Cron remains an idempotent watchdog.",
 );
