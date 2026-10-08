@@ -82,7 +82,7 @@ h2{font-size:clamp(34px,5vw,60px)}
 .bar-inner{height:72px}
 .count{font-size:12px;font-variant-numeric:tabular-nums;color:var(--muted);min-width:52px}
 .count b{color:var(--ink);font-weight:600}
-.steps{flex:1;display:grid;grid-template-columns:repeat(6,1fr);gap:8px;max-width:560px}
+.steps{flex:1;display:grid;grid-template-columns:repeat(7,1fr);gap:8px;max-width:560px}
 .step{display:flex;flex-direction:column;gap:9px;font-size:11px;letter-spacing:.06em;color:var(--faint);text-align:left;padding:10px 0}
 .step::before{content:"";height:2px;background:var(--line);transition:background .3s}
 .step[aria-current="true"]{color:var(--ink)}
@@ -125,6 +125,13 @@ h2{font-size:clamp(34px,5vw,60px)}
 .app.dark .arrow:disabled{color:var(--night-line)}
 .app.dark :focus-visible,.cover :focus-visible{outline-color:#fff}
 @media (prefers-reduced-motion:reduce){.top,.bar{transition:none}}
+.cover .page-inner,.routine .page-inner{grid-template-columns:minmax(0,1fr)}
+.cover h1{text-align:center}.cover .eyebrow{justify-content:center}
+.routine .desc{max-width:42em}.routine-flow{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:48px;list-style:none;padding:0;margin:16px 0 0}
+.routine-flow li{position:relative;min-width:0}.routine-flow li:not(:last-child)::after{content:"→";position:absolute;right:-32px;top:22px;color:var(--muted)}
+.routine-flow button{display:flex;flex-direction:column;align-items:flex-start;text-align:left;width:100%;padding:18px 0;border-top:1px solid var(--ink);gap:10px}
+.routine-number{font-size:40px;font-weight:700;line-height:1}.routine-name{font-size:22px;font-weight:600}.routine-time{font-size:11px;color:var(--muted)}.routine-copy{font-size:14px;line-height:1.7;color:var(--muted)}.routine-link{font-size:12px;margin-top:8px;text-decoration:underline;text-underline-offset:4px}.routine-flow button:hover .routine-link{color:var(--one)}
+@media(max-width:760px){.routine-flow{grid-template-columns:1fr;gap:28px;margin-top:0}.routine-flow li:not(:last-child)::after{content:"↓";top:auto;bottom:-25px;right:50%}.routine-flow button{gap:8px}.routine-number{font-size:32px}}
 </style>
 </head>
 <body>
@@ -149,6 +156,19 @@ h2{font-size:clamp(34px,5vw,60px)}
             <button class="start" data-go="1">진행 방식 보기 <span aria-hidden="true">→</span></button>
           </div>
         </div>
+      </section>
+
+      <section class="page routine" id="routine" aria-label="하루의 루틴">
+        <div class="page-inner"><div class="text">
+          <p class="eyebrow"><b>하루의 루틴</b><span>SET · DO · REVIEW</span></p>
+          <h2>하나를 정하고,<br>실행하고, <span class="mark">돌아봅니다.</span></h2>
+          <p class="desc">OT1L은 가장 중요한 업무 하나를 한 문장으로 정하고, 실행한 뒤 후기를 나누는 Slack 커뮤니티입니다.</p>
+          <ol class="routine-flow">
+            <li><button data-go="2"><span class="routine-number">1</span><span class="routine-name">정하기</span><span class="routine-time">SET · 10:00</span><span class="routine-copy">오늘의 한 가지를 한 문장으로.</span><span class="routine-link">자세히 보기 ↗</span></button></li>
+            <li><button data-go="3"><span class="routine-number">2</span><span class="routine-name">실행하기</span><span class="routine-time">DO · 하루 동안</span><span class="routine-copy">다른 할 일보다 먼저 실행.</span><span class="routine-link">자세히 보기 ↗</span></button></li>
+            <li><button data-go="4"><span class="routine-number">3</span><span class="routine-name">돌아보기</span><span class="routine-time">REVIEW · 18:00</span><span class="routine-copy">완료 여부와 짧은 후기를 나누기.</span><span class="routine-link">자세히 보기 ↗</span></button></li>
+          </ol>
+        </div></div>
       </section>
 
       <section class="page" id="set" aria-label="SET">
@@ -243,14 +263,15 @@ h2{font-size:clamp(34px,5vw,60px)}
   </main>
 
   <nav class="bar" aria-label="페이지 이동"><div class="bar-inner">
-    <span class="count" id="count" aria-live="polite"><b>00</b> / 05</span>
+    <span class="count" id="count" aria-live="polite"><b>00</b> / 06</span>
     <div class="steps" id="steps">
       <button class="step" data-go="0">소개</button>
-      <button class="step" data-go="1">SET</button>
-      <button class="step" data-go="2">DO</button>
-      <button class="step" data-go="3">REVIEW</button>
-      <button class="step" data-go="4">함께</button>
-      <button class="step" data-go="5">초대</button>
+      <button class="step" data-go="1">루틴</button>
+      <button class="step" data-go="2">SET</button>
+      <button class="step" data-go="3">DO</button>
+      <button class="step" data-go="4">REVIEW</button>
+      <button class="step" data-go="5">함께</button>
+      <button class="step" data-go="6">초대</button>
     </div>
     <div class="arrows">
       <button class="arrow" id="prev" aria-label="이전">←</button>
@@ -293,6 +314,7 @@ h2{font-size:clamp(34px,5vw,60px)}
   next.onclick=function(){go(cur+1)};
 
   document.addEventListener('keydown',function(e){
+    if(e.target.closest('button,a,input,textarea,select,[contenteditable]'))return;
     if(['ArrowRight','ArrowDown','PageDown',' '].indexOf(e.key)>-1){e.preventDefault();go(cur+1)}
     else if(['ArrowLeft','ArrowUp','PageUp'].indexOf(e.key)>-1){e.preventDefault();go(cur-1)}
     else if(e.key==='Home'){go(0)}else if(e.key==='End'){go(pages.length-1)}
