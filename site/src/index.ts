@@ -568,7 +568,7 @@ async function directJoin(request: Request, env: SiteEnv, token: string): Promis
       result.accepted !== true
     )
       return message(GENERIC_ERROR, 503);
-    return new Response(null, { status: 303, headers: { location: slackInvite } });
+    return sharedInviteRedirect(slackInvite);
   } catch (error) {
     if (error instanceof Error) return message(GENERIC_ERROR, 503);
     throw error;
@@ -594,6 +594,16 @@ function sharedInviteUrl(value: string | undefined): string | null {
     if (error instanceof TypeError) return null;
     throw error;
   }
+}
+
+function sharedInviteRedirect(url: string): Response {
+  return new Response(null, {
+    status: 303,
+    headers: {
+      location: url,
+      "cache-control": "no-store, max-age=0",
+    },
+  });
 }
 
 function interestEnabled(env: SiteEnv): boolean {
@@ -816,7 +826,7 @@ const siteWorker = {
     else if (request.method === "GET" && url.pathname === "/join") {
       const slackInvite = sharedInviteUrl(env.SLACK_SHARED_INVITE_URL);
       response = slackInvite
-        ? new Response(null, { status: 303, headers: { location: slackInvite } })
+        ? sharedInviteRedirect(slackInvite)
         : message(GENERIC_ERROR, 503);
     } else if (request.method === "GET" && referral)
       response = await referralPage(request, env, referral[1]);

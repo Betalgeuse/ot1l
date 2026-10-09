@@ -122,6 +122,12 @@ try {
   const publicJoin = await call("/join");
   assert.equal(publicJoin.status, 303);
   assert.equal(publicJoin.headers.get("location"), env.SLACK_SHARED_INVITE_URL);
+  assert.equal(publicJoin.headers.get("cache-control"), "no-store, max-age=0");
+  const firstInvite = env.SLACK_SHARED_INVITE_URL;
+  env.SLACK_SHARED_INVITE_URL = "https://join.slack.com/t/otl1/shared_invite/zt-rotated~site-intake";
+  const rotatedJoin = await call("/join");
+  assert.notEqual(rotatedJoin.headers.get("location"), firstInvite);
+  assert.equal(rotatedJoin.headers.get("location"), env.SLACK_SHARED_INVITE_URL);
 
   resolveName = null;
   assert.match(await (await call(`/r/${referralToken}`)).text(), /지인의 소개로 이곳에 도착했어요\./);
@@ -141,7 +147,8 @@ try {
 
   const valid = await call(`/r/${referralToken}/apply`, { method: "POST", body: form() });
   assert.equal(valid.status, 303);
-  assert.equal(valid.headers.get("location"), "https://join.slack.com/t/otl1/shared_invite/zt-synthetic~site-intake");
+  assert.equal(valid.headers.get("location"), env.SLACK_SHARED_INVITE_URL);
+  assert.equal(valid.headers.get("cache-control"), "no-store, max-age=0");
   assert.equal(valid.headers.get("set-cookie"), null);
   const directStarts = coreBodies.filter((entry) => entry.path === "/internal/referrals/direct-join");
   assert.equal(directStarts.length, 1);
