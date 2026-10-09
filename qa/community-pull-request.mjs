@@ -22,7 +22,10 @@ await assert.rejects(
   () => readOpenPullRequest("https://github.com/evil/fork/pull/17", request),
   /형식만/,
 );
-assert.equal(maintainerWorkGuide().blocks[1].elements[1].text.text, "PR 연결하기");
+assert.equal(maintainerWorkGuide().blocks[1].elements[1].text.text, "직접 만든 PR 검토 요청");
+assert.equal(maintainerWorkGuide().blocks[1].elements[0].text.text, "피드백·AI 수정 요청");
+assert.match(maintainerWorkGuide().text,/직접 PR을 연결할 필요 없이/);
+assert.match(maintainerWorkGuide().text,/원하는 결과를 비워 두면/);
 
 const calls = [];
 let isDraft = false;

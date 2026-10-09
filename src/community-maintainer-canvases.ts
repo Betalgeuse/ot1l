@@ -2,7 +2,7 @@ import type { CommunityEnv } from "./community-runtime";
 import { callSlack } from "./community-social";
 import { InputError, object, string } from "./input";
 
-export const MAINTAINER_CANVAS_VERSION = "v0.1.0";
+export const MAINTAINER_CANVAS_VERSION = "v0.2.0";
 
 type CanvasEnv = Pick<
   CommunityEnv,
@@ -59,10 +59,18 @@ export function maintainerCanvasDefinitions(env: CanvasEnv): readonly Maintainer
 - Q&A, 허들, 첫 기여 OT를 요청하거나 직접 열 수 있습니다.
 
 ## 오늘 바로 참여하기
-1. 채널 상단의 **피드백·작업 제안**에서 불편함, 아이디어, 배우고 싶은 일 중 하나를 남깁니다.
+1. 채널 상단의 **피드백·AI 수정 요청**에서 불편함, 아이디어, 배우고 싶은 일 중 하나를 남깁니다.
 2. 직접 해보고 싶으면 DRI를 맡고, 같이 하고 싶으면 스레드에서 동료를 찾습니다.
 3. AI가 만든 수정안이든 사람이 만든 수정안이든 실제 화면과 동작을 확인한 뒤 승인합니다.
 4. 끝나면 무엇이 달라졌고 무엇을 배웠는지 스레드에 한 줄 남깁니다.
+
+## 두 가지 작업 방법
+- **AI에게 맡기기**: 문제와 원하는 결과를 적으면 GenQuant의 Codex가 수정·검사·PR 생성을 맡습니다. PR을 직접 연결하지 말고 결과와 승인 버튼을 기다리세요. 원하는 결과를 비워 두면 의견만 접수됩니다.
+- **직접 개발하기**: 본인 개발환경이나 본인 AI로 코드를 고친 뒤 GitHub PR을 만들었을 때만 **직접 만든 PR 검토 요청**을 사용합니다. PR은 코드 수정안을 검토해 달라는 요청입니다.
+- 같은 작업에 두 실행 경로를 동시에 요청하지 않습니다. Draft PR은 검토용이며 병합하지 않습니다.
+
+## PO 권한
+지정된 PO 채널에 참여한 사람 회원은 PO입니다. 가입 이벤트와 정기 점검으로 권한을 맞추고, 병합 승인 직전에 다시 확인합니다. 모든 PO 채널을 떠나면 권한이 해제됩니다. sys-alert만 가입한 사람, 봇, 탈퇴 계정, 명시적으로 권한이 회수된 계정은 제외합니다.
 
 ## 공간 고르기
 - ${mention(build, "#po-dev")}: AI와 함께 실제 기능을 만들며 배우는 빌드 스튜디오

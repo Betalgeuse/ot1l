@@ -23,6 +23,10 @@ Docs, QA and standalone previews use a repository-only receipt: merge without re
 
 ## Contribution product contract
 
+PO authority is projected from complete verified membership of configured PO channels (main, workstreams, retention). Never infer PO from sys-alert, arbitrary public channels, display names, or incomplete Slack responses. Preserve explicit revoked states. Reconcile on join/leave signals, cron, and immediately before merge approval; old snapshots must not overwrite newer ones.
+
+The normal route is feedback -> GenQuant Codex -> checks/PR -> PO approval. `직접 만든 PR 검토 요청` is only for an already-created external PR, not a prerequisite for bot work. Preserve opinion-only intake when the desired result is still unknown.
+
 Read `docs/CONTRIBUTION_FLOW.md` for the current Slack-first contribution flow. General feedback is accepted before a coding specification exists. Do not introduce intake interrogation, forced Linear accounts, or PO-to-public feedback projections. Draft PRs are for discussion and must never enter the merge queue. Existing private encryption and secret protection are retained; merely discussing security is not a private incident.
 
 When asked to inspect a contributor's PR, do not mark it ready, approve, merge, or deploy unless explicitly asked. A preview is not a production change. Keep request, review, approval, merge, deploy, and verified completion distinct.

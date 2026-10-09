@@ -18,7 +18,8 @@ try{
  assert.deepEqual(effects.filter(e=>e.method==='conversations.invite').map(e=>e.body.channel),['CMAIN','CEVENT','CWEB','CMAINWELCOME','CALERT']);
  const activation=effects.find(e=>e.method==='chat.postEphemeral').body.text;
  assert.match(activation,/Product Owner가 활성화됐어요/);
- assert.match(activation,/Product Owner\(PO\)는 코딩 여부와 관계없이 회원 문제를 발견하고 개선을 끝까지 맡는 역할이에요\./);
+ assert.match(activation,/Codex가 수정·검사·PR 생성을 맡아요/);
+ assert.match(activation,/직접 PR을 만들었을 때만/);
  inviteFailure=true;await click('CWELCOME','UNEW');assert.equal(active.has('UNEW'),false);
  const errorNotice=effects.filter(e=>e.method==='chat.postEphemeral').at(-1);assert.equal(errorNotice.body.user,'UNEW');assert.match(errorNotice.body.text,/완료하지 못했어요/);
  console.log('PASS ordinary-member feedback button reaches activation, and invite failure returns a private result');

@@ -13,6 +13,7 @@ import {
 import { handleLifecycleAdminMessage } from "./community-lifecycle-admin";
 import { lifecycleAdminStore } from "./community-lifecycle-runtime-store";
 import { dispatchCommunityMessage, dispatchFeedbackBugMessage } from "./community-message-router";
+import { poMembershipChannels, reconcilePoMembership } from "./community-po-membership";
 import {
   handleReferralCapacityAdminMessage,
   referralCapacityAdminStore,
@@ -42,6 +43,16 @@ export async function handleCommunityEvent(
   )
     return false;
   const rawEvent = object(data.event);
+  if (
+    ["member_joined_channel", "member_left_channel"].includes(String(rawEvent.type)) ||
+    (rawEvent.type === "message" &&
+      ["channel_join", "channel_leave"].includes(String(rawEvent.subtype)))
+  ) {
+    if (poMembershipChannels(env).includes(String(rawEvent.channel))) {
+      await reconcilePoMembership(env);
+      return true;
+    }
+  }
   if (rawEvent.type === "team_join") {
     const joined = object(rawEvent.user);
     const userId = string(joined.id);
