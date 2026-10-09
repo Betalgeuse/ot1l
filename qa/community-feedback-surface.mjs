@@ -325,7 +325,8 @@ try {
     (call) =>
       call.method === "chat.postMessage" && call.body.text.includes("수정안과 검증 결과를 준비"),
   );
-  assert.equal(post.body.thread_ts, "123.100");
+  assert.equal(post.body.channel, "CMAINTAIN");
+  assert.equal(post.body.thread_ts, "123.456");
   assert.match(post.body.text, /피드백을 접수했어요/);
   const maintainerCard = calls.find(
     (call) =>
@@ -338,6 +339,7 @@ try {
   historyMessages = [
     {
       ts: "123.456",
+      bot_id:"BQA",
       thread_ts: "123.456",
       text: "기존 Maintainer 작업\n버그 키: BUG-ABCDEF123456",
     },
@@ -362,7 +364,7 @@ try {
     maintainerPostsBefore,
     "a root with replies must be reused instead of creating a duplicate placeholder card",
   );
-  historyMessages = [];
+  historyMessages = [{ts:"123.789",bot_id:"BQA",text:"버그 키: BUG-ABCDEF123456"}];
   const historyCallsBefore = calls.filter((call) => call.method === "conversations.history").length;
   const postsBeforeStoredSurface = calls.filter(
     (call) => call.method === "chat.postMessage" && call.body.channel === "CMAINTAIN",
@@ -388,8 +390,8 @@ try {
   );
   assert.equal(
     calls.filter((call) => call.method === "conversations.history").length,
-    historyCallsBefore,
-    "the persisted Maintainer work surface must win over Slack history discovery",
+    historyCallsBefore+1,
+    "validate the persisted work root once without scanning unrelated history",
   );
   assert.equal(
     calls.filter((call) => call.method === "chat.postMessage" && call.body.channel === "CMAINTAIN")

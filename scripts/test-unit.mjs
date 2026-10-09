@@ -23,6 +23,7 @@ const suites = [
   "community-quick-entry",
   "community-feedback-surface",
   "community-agent-notifications",
+  "community-work-thread",
   "community-notification-thread",
   "genquant-runner-contract",
   "genquant-deployer-contract",

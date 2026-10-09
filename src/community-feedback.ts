@@ -10,14 +10,14 @@ import {
 import { CommunityBugStore } from "./community-bug-store";
 import type { BugState } from "./community-bug-types";
 import { feedbackButton } from "./community-feedback-button";
-import { MaintainerOpsStore } from "./community-maintainer-store";
 import { maintainerButton } from "./community-maintainers";
 import { escapeSlackText } from "./community-messages";
 import { sha256Hex } from "./community-referral-service-auth";
 import type { CommunityContext, CommunityEnv } from "./community-runtime";
 import { addReactions, callSlack } from "./community-social";
 import type { CommunityStore } from "./community-store";
-import { InputError, list, object, string } from "./input";
+import { rememberWorkThread, resolveWorkThread } from "./community-work-thread";
+import { InputError, object, string } from "./input";
 import { INTENT_MODEL, type IntentAI } from "./intent";
 import { NeonStore } from "./store";
 
@@ -271,28 +271,10 @@ export async function publishMaintainerFeedbackCard(
 ): Promise<string | null> {
   const channelId = context.env.COMMUNITY_MAINTAINERS_CHANNEL_ID;
   if (!channelId) return null;
-  if (context.env.MAINTAINER_LINEAR_ENABLED === "true") {
-    const stored = await new MaintainerOpsStore(context.env).execute("surface_get", {
-      workKey: input.feedbackId,
-      channelId,
-    });
-    if (typeof stored === "string") return stored;
-  }
-  const history = await callSlack(context.env.SLACK_BOT_TOKEN, "conversations.history", {
-    channel: channelId,
-    limit: 200,
-  });
-  for (const value of list(history.messages)) {
-    const message = object(value);
-    if (
-      (message.thread_ts === undefined || message.thread_ts === message.ts) &&
-      typeof message.text === "string" &&
-      message.text.includes(`버그 키: ${input.feedbackId}`)
-    )
-      return string(message.ts);
-  }
+  const existing = await resolveWorkThread(context.env, input.feedbackId);
+  if (existing) return existing;
   const text = `<@${input.reporterId}>님의 피드백 자동 수정이 시작됐어요. 수정안과 검증이 준비되면 이 스레드에서 승인받습니다.\n\n<${maintainerFeedbackSourceUrl(context)}|원본 피드백 보기>\n버그 키: ${input.feedbackId}`;
-  return string(
+  const thread = string(
     (
       await callSlack(context.env.SLACK_BOT_TOKEN, "chat.postMessage", {
         channel: channelId,
@@ -300,6 +282,8 @@ export async function publishMaintainerFeedbackCard(
       })
     ).ts,
   );
+  await rememberWorkThread(context.env, input.feedbackId, thread);
+  return thread;
 }
 
 export async function sendDailyFeedbackPrompt(
@@ -480,15 +464,19 @@ async function queueCodexFeedback(
     throw new InputError(
       "확정된 버그 명세만 자동 작업에 넣을 수 있어요. 스레드에서 명세를 먼저 보완해 주세요.",
     );
-  await publishMaintainerFeedbackCard(context, input);
+  const workThread = await publishMaintainerFeedbackCard(context, input);
+  const channel = workThread
+    ? string(context.env.COMMUNITY_MAINTAINERS_CHANNEL_ID)
+    : context.scope.channelId;
+  const thread = workThread ?? context.thread;
   await addReactions(context.env.SLACK_BOT_TOKEN, {
-    channel: context.scope.channelId,
-    ts: context.thread,
+    channel,
+    ts: thread,
     names: ["loading"],
   });
   await callSlack(context.env.SLACK_BOT_TOKEN, "chat.postMessage", {
-    channel: context.scope.channelId,
-    thread_ts: context.thread,
+    channel,
+    thread_ts: thread,
     text: `피드백을 접수했어요. OT1L이 수정안과 검증 결과를 준비합니다. · ${input.feedbackId}`,
   });
 }
