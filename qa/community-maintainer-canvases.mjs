@@ -21,13 +21,15 @@ assert.match(definitions[2].markdown, /포트폴리오/);
 assert.match(definitions[3].markdown, /retention 숫자를 관리하는 곳이 아니라/);
 
 const calls = [];
+let existingShape="none";
 const originalFetch = globalThis.fetch;
 globalThis.fetch = async (url, options = {}) => {
   const method = new URL(url).pathname.split("/").at(-1);
   const body = options.body ? JSON.parse(options.body) : {};
   calls.push({ method, body });
   if (method === "conversations.info")
-    return Response.json({ ok: true, channel: { properties: {} } });
+    return Response.json({ ok: true, channel: { properties: existingShape==="tabs" ? {tabs:[{type:"bookmarks"},{type:"canvas",data:{file_id:"FEXISTING"}}]} : existingShape==="legacy" ? {canvas:{file_id:"FLEGACY"}} : {} } });
+  if (method === "canvases.edit") return Response.json({ok:true});
   if (method === "conversations.setTopic" || method === "conversations.setPurpose")
     return Response.json({ ok: true });
   if (method === "conversations.canvases.create")
@@ -46,6 +48,13 @@ try {
   );
   assert.equal(creates.every((call) => call.body.document_content.type === "markdown"), true);
   assert.equal(creates.every((call) => call.body.document_content.markdown.length > 300), true);
+  for(const shape of ["tabs","legacy"]){
+    existingShape=shape;calls.length=0;
+    const updated=await publishMaintainerCanvases(env);
+    assert.equal(calls.filter(c=>c.method==="conversations.canvases.create").length,0,"reuse existing tab instead of duplicating Canvas");
+    assert.equal(calls.filter(c=>c.method==="canvases.edit").length,4);
+    assert(updated.every(r=>r.canvasId===(shape==="tabs"?"FEXISTING":"FLEGACY")));
+  }
   console.log("PASS Maintainer canvases lead with member value and publish one channel canvas each");
 } finally {
   globalThis.fetch = originalFetch;

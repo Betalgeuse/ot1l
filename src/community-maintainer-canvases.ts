@@ -2,7 +2,7 @@ import type { CommunityEnv } from "./community-runtime";
 import { callSlack } from "./community-social";
 import { InputError, object, string } from "./input";
 
-export const MAINTAINER_CANVAS_VERSION = "v0.2.0";
+export const MAINTAINER_CANVAS_VERSION = "v0.4.0";
 
 type CanvasEnv = Pick<
   CommunityEnv,
@@ -49,7 +49,7 @@ export function maintainerCanvasDefinitions(env: CanvasEnv): readonly Maintainer
       purpose:
         "모든 PO 작업의 정본입니다. 아이디어를 제안하고, DRI를 맡거나 넘기고, AI·동료와 만든 결과를 확인합니다.",
       markdown: `# OT1L Product Owner · 같이 만들며 배우기
-> Product Owner는 운영 권한만 받는 역할이 아닙니다. 내가 불편했던 점이나 해보고 싶은 일을 사람들과 실제 변화로 만들고, 그 과정에서 배우는 참여 방식입니다.
+> 이곳은 Product Owner 작업의 정본입니다. 아이디어와 질문은 PO 라운지에서 나누고, 실행하기로 한 일은 카드와 스레드로 관리합니다. Product Owner는 코딩 여부와 관계없이 회원 문제를 실제 변화로 만들고 그 과정에서 배우는 참여 방식입니다.
 
 ## 여기서 얻는 것
 - 내 제안이 실제 기능·모임·안내로 반영되는 전 과정을 경험합니다.
@@ -73,9 +73,9 @@ export function maintainerCanvasDefinitions(env: CanvasEnv): readonly Maintainer
 지정된 PO 채널에 참여한 사람 회원은 PO입니다. 가입 이벤트와 정기 점검으로 권한을 맞추고, 병합 승인 직전에 다시 확인합니다. 모든 PO 채널을 떠나면 권한이 해제됩니다. sys-alert만 가입한 사람, 봇, 탈퇴 계정, 명시적으로 권한이 회수된 계정은 제외합니다.
 
 ## 공간 고르기
+- ${mention(community, "#po-freetalk-anything")}: 아이디어·질문·사용자 경험을 이야기하는 PO 라운지
 - ${mention(build, "#po-dev")}: AI와 함께 실제 기능을 만들며 배우는 빌드 스튜디오
 - ${mention(design, "#po-design")}: 화면·콘텐츠·접근성을 함께 만드는 디자인 스튜디오
-- ${mention(community, "#po-freetalk-anything")}: 사람을 돕고 Q&A·OT·모임을 운영하는 커뮤니티 스튜디오
 - ${feedbackLink}: 모든 회원의 피드백이 시작되는 곳
 - ${eventLink}: 누구나 활동을 제안하고 열 수 있는 곳
 - ${alertLink}: 운영 장애와 배포 실패를 확인하는 곳
@@ -187,6 +187,14 @@ function channelCanvasId(info: Record<string, unknown>): string | null {
   const properties = channel.properties;
   if (typeof properties !== "object" || properties === null || Array.isArray(properties))
     return null;
+  const tabs = object(properties).tabs;
+  if (Array.isArray(tabs))
+    for (const tab of tabs) {
+      const item = object(tab);
+      if (item.type !== "canvas" || typeof item.data !== "object" || item.data === null) continue;
+      const id = object(item.data).file_id;
+      if (typeof id === "string" && id) return id;
+    }
   const canvas = object(properties).canvas;
   if (typeof canvas !== "object" || canvas === null || Array.isArray(canvas)) return null;
   const value = object(canvas).file_id ?? object(canvas).id;
