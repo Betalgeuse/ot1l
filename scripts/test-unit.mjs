@@ -18,6 +18,7 @@ const suites = [
   "contributor-hygiene",
   "community-clock",
   "community-emoji",
+  "encouragement-thread-delivery",
   "community-followup",
   "past-review-modal",
   "meaningful-progress",
