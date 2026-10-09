@@ -1,6 +1,7 @@
 import { buildBoard } from "./board";
 import { boardLink } from "./board-link";
 import { customBotEmoji, randomCustomEmoji } from "./community-emoji";
+import { deliverEncouragement } from "./community-encouragement-delivery";
 import { earlierDayNotice, earlierReviewChoices } from "./community-followup";
 import { generateEncouragement } from "./community-language";
 import { communityConfirmationMessage, communityStatusMessage } from "./community-messages";
@@ -236,13 +237,28 @@ export async function applyChange(context: CommunityContext, change: DayChange):
       userId: context.scope.userId,
       ...(typeof previous === "string" ? { previous } : {}),
     });
-    await textReply(context, await customBotEmoji(context.env.SLACK_BOT_TOKEN, encouragement));
-    await context.store.putRecord({
-      ...context.scope,
-      key: `encouragement:${context.source}`,
-      kind: "encouragement",
-      body: { text: encouragement },
-    });
+    try {
+      const sent = await deliverEncouragement(
+        context,
+        await customBotEmoji(context.env.SLACK_BOT_TOKEN, encouragement),
+      );
+      if (sent)
+        await context.store.putRecord({
+          ...context.scope,
+          key: `encouragement:${context.source}`,
+          kind: "encouragement",
+          body: { text: encouragement },
+        });
+    } catch (error) {
+      // The member's record was already committed. Optional encouragement
+      // failure must not report that the review itself failed or retry it.
+      console.warn(
+        JSON.stringify({
+          event: "community.encouragement.delivery_failed",
+          errorType: error instanceof Error ? error.name : "Unknown",
+        }),
+      );
+    }
   }
 }
 
