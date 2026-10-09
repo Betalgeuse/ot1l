@@ -72,6 +72,18 @@ function modalValue(view: Record<string, unknown>, blockId: string): string {
   return string(object(block.value).value).trim();
 }
 
+export function pullRequestFormErrors(
+  view: Record<string, unknown>,
+): Readonly<Record<string, string>> | null {
+  try {
+    const match = PULL_URL.exec(modalValue(view, "pull_url"));
+    if (match && Number.isSafeInteger(Number(match[1]))) return null;
+  } catch {
+    // Keep malformed or missing input in the modal, before any external request.
+  }
+  return { pull_url: "https://github.com/Betalgeuse/ot1l/pull/번호 형식의 PR 주소를 넣어 주세요." };
+}
+
 export async function readOpenPullRequest(
   pullUrl: string,
   request: typeof fetch = fetch,

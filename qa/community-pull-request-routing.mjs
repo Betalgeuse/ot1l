@@ -36,6 +36,13 @@ try {
   assert.equal(opened.blocks.some(b=>b.block_id==='work_key'),false);
   const submission={type:'view_submission',team:{id:'TQA'},user:{id:'UPO'},view:{...opened,id:'VQA',state:{values:{pull_url:{value:{value:'https://github.com/Betalgeuse/ot1l/pull/17'}}}}}};
   await assert.rejects(()=>communityInteraction({...submission,user:{id:'UOTHER'}},env,p=>pending.push(p)),/본인이 연 화면/);
+  const effectCount=effects.length,pendingCount=pending.length;
+  const invalid=await communityInteraction({...submission,view:{...submission.view,state:{values:{pull_url:{value:{value:'https://example.com/qa'}}}}}},env,p=>pending.push(p));
+  const invalidBody=await invalid.json();
+  assert.equal(invalidBody.response_action,'errors');
+  assert.match(invalidBody.errors.pull_url,/PR 주소/);
+  assert.equal(effects.length,effectCount,'invalid URL stays in the modal without Slack/API/DB effects');
+  assert.equal(pending.length,pendingCount);
   const response=await communityInteraction(submission,env,p=>pending.push(p));
   assert.equal((await response.json()).response_action,'clear');
   await Promise.all(pending);
