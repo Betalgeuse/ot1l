@@ -3,7 +3,8 @@ import { escapeSlackText } from "./community-messages";
 import { notificationThread, postNotificationReply } from "./community-notification-thread";
 import type { CommunityEnv } from "./community-runtime";
 import { addReactions, CommunitySlackError, callSlack, removeReactions } from "./community-social";
-import { type Json, list, object, string } from "./input";
+import { rememberWorkThread, resolveWorkThread } from "./community-work-thread";
+import { type Json, object, string } from "./input";
 import { NeonStore } from "./store";
 
 type Notification = {
@@ -170,30 +171,24 @@ function mergeReadyMessage(input: Notification, includeButton = true) {
 }
 
 async function maintainerFeedbackThread(
-  env: Pick<CommunityEnv, "SLACK_TEAM_ID" | "SLACK_BOT_TOKEN" | "COMMUNITY_MAINTAINERS_CHANNEL_ID">,
+  env: Pick<
+    CommunityEnv,
+    | "SLACK_TEAM_ID"
+    | "SLACK_BOT_TOKEN"
+    | "COMMUNITY_MAINTAINERS_CHANNEL_ID"
+    | "COMMUNITY_ADMIN_ID"
+    | "DATABASE_URL"
+  >,
   input: Notification,
 ): Promise<string> {
   const channelId = env.COMMUNITY_MAINTAINERS_CHANNEL_ID;
   if (!channelId) throw new TypeError("maintainer channel missing");
-  if (input.channelId === channelId) return input.threadTs;
-  const history = await callSlack(env.SLACK_BOT_TOKEN, "conversations.history", {
-    channel: channelId,
-    limit: 200,
-  });
-  for (const value of list(history.messages)) {
-    const message = object(value);
-    if (
-      (message.thread_ts === undefined || message.thread_ts === message.ts) &&
-      typeof message.text === "string" &&
-      (message.text.includes(`버그 키: ${input.bugId}`) ||
-        message.text.includes(`버그 키 ${input.bugId}`))
-    )
-      return string(message.ts);
-  }
+  const existing = await resolveWorkThread(env, input.bugId);
+  if (existing) return existing;
   if (!input.asIs || !input.toBe) throw new Error("canonical maintainer feedback unavailable");
   const sourceUrl = `https://app.slack.com/client/${env.SLACK_TEAM_ID}/${input.channelId}/thread/${input.channelId}-${input.threadTs}`;
   const text = `${input.reporterId ? `<@${input.reporterId}>님의 피드백\n\n` : ""}*As-Is*\n${escapeSlackText(input.asIs ?? "현재 상태 확인 필요")}\n\n*To-Be*\n${escapeSlackText(input.toBe ?? "원하는 상태 확인 필요")}\n\n<${sourceUrl}|원본 피드백 보기>\n버그 키: ${input.bugId}`;
-  return string(
+  const threadTs = string(
     (
       await callSlack(env.SLACK_BOT_TOKEN, "chat.postMessage", {
         channel: channelId,
@@ -201,12 +196,18 @@ async function maintainerFeedbackThread(
       })
     ).ts,
   );
+  await rememberWorkThread(env, input.bugId, threadTs);
+  return threadTs;
 }
 
 async function sendMaintainerNotification(
   env: Pick<
     CommunityEnv,
-    "SLACK_TEAM_ID" | "SLACK_BOT_TOKEN" | "COMMUNITY_MAINTAINERS_CHANNEL_ID" | "COMMUNITY_ADMIN_ID"
+    | "SLACK_TEAM_ID"
+    | "SLACK_BOT_TOKEN"
+    | "COMMUNITY_MAINTAINERS_CHANNEL_ID"
+    | "COMMUNITY_ADMIN_ID"
+    | "DATABASE_URL"
   >,
   input: Notification,
   roots: Map<string, string>,
@@ -329,29 +330,34 @@ export async function sendAgentNotifications(
                 : null;
       if (releaseStage) await setMaintainerWorkReleaseStage(env, item.bugId, releaseStage);
       try {
+        const reactionThread =
+          item.channelId === env.COMMUNITY_MAINTAINERS_CHANNEL_ID
+            ? (roots.get(item.bugId) ?? (await resolveWorkThread(env, item.bugId)))
+            : item.threadTs;
         const sourceExists =
           (item.kind === "change_deployed" || item.kind === "task_failed") &&
-          (await notificationThread(env.SLACK_BOT_TOKEN, item.channelId, item.threadTs));
+          reactionThread &&
+          (await notificationThread(env.SLACK_BOT_TOKEN, item.channelId, reactionThread));
         if (item.kind === "change_deployed" && sourceExists) {
           await removeReactions(env.SLACK_BOT_TOKEN, {
             channel: item.channelId,
-            ts: item.threadTs,
+            ts: reactionThread as string,
             names: ["loading"],
           });
           await addReactions(env.SLACK_BOT_TOKEN, {
             channel: item.channelId,
-            ts: item.threadTs,
+            ts: reactionThread as string,
             names: ["white_check_mark"],
           });
         } else if (item.kind === "task_failed" && sourceExists) {
           await removeReactions(env.SLACK_BOT_TOKEN, {
             channel: item.channelId,
-            ts: item.threadTs,
+            ts: reactionThread as string,
             names: ["loading"],
           });
           await addReactions(env.SLACK_BOT_TOKEN, {
             channel: item.channelId,
-            ts: item.threadTs,
+            ts: reactionThread as string,
             names: ["warning"],
           });
         }

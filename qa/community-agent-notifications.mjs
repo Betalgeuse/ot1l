@@ -14,6 +14,7 @@ globalThis.fetch = async (url, options = {}) => {
   const body = options.body ? JSON.parse(options.body) : {};
   calls.push({ url: parsed.toString(), body });
   if (parsed.pathname === "/sql") {
+    if(body.query.includes("maintainer_ops_execute")) return Response.json({rows:[["null"]]});
     if (body.query.includes("bug_runner_claim_notifications"))
       return Response.json({
         rows: [
@@ -61,6 +62,7 @@ globalThis.fetch = async (url, options = {}) => {
     return Response.json({
       ok: true,
       messages: [{
+        bot_id:"BQA",
         ts: "1790252999.000001",
         thread_ts: "1790252999.000001",
         text: "Maintainer 작업\n버그 키: BUG-ABCDEF123456",
@@ -191,10 +193,11 @@ try {
     new Date("2026-09-24T13:01:30Z"),
   );
   assert.deepEqual(directMaintainerDeployment, { claimed: 1, sent: 1, failed: 0 });
-  assert.equal(calls.some((call) => call.url.includes("conversations.history")), false);
+  assert.equal(calls.some((call) => call.url.includes("conversations.history")), true);
   const directMaintainerPost = calls.find((call) => call.url.includes("chat.postMessage"));
   assert.equal(directMaintainerPost.body.channel, "CMAINTAIN");
-  assert.equal(directMaintainerPost.body.thread_ts, "1790252981.933479");
+  assert.equal(directMaintainerPost.body.thread_ts, "1790252999.000001","same-channel daily prompt must not receive a work notification");
+  assert(calls.filter(call=>call.url.includes("reactions.")).every(call=>call.body.timestamp==="1790252999.000001"));
   assert.match(directMaintainerPost.body.text, /운영 배포와 실제 동작 확인을 완료했어요/);
   calls.length = 0;
   acceptedReplies.clear();
