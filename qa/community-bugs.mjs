@@ -2067,7 +2067,7 @@ try {
   );
   const feedbackThread = "20.000001";
   const routedReplies = routedPosts.filter(
-    (call) => call.body.channel === "CFEEDBACK" && call.body.thread_ts === feedbackThread,
+    (call) => call.body.channel === "CPO" && call.body.thread_ts === feedbackThread,
   );
   assert.equal(routedReplies.length, 1, "clear feedback starts branch preparation immediately");
   assert.match(routedReplies[0].body.text, /수정안과 검증 결과를 준비/);
