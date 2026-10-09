@@ -5,6 +5,7 @@ import { reconcileNativeFeedback } from "./community-feedback";
 import { runDueGardenDeliveries } from "./community-garden-delivery";
 import { collectCurrentChannelMembers } from "./community-membership";
 import { runMembershipDue } from "./community-membership-schedule";
+import { poMembershipChannels, reconcilePoMembership } from "./community-po-membership";
 import type { CommunityEnv } from "./community-runtime";
 import { runCommunitySchedule } from "./community-scheduler";
 import { reconcileShareInfoChannels } from "./community-share-info-reconcile";
@@ -27,6 +28,17 @@ export async function communityCron(env: CommunityEnv, scheduledTime: number): P
   }
   if (env.COMMUNITY_ENABLED !== "true" || env.DATABASE_MAINTENANCE === "true") return;
   if (!env.COMMUNITY_ADMIN_ID) return;
+  if (poMembershipChannels(env).length)
+    try {
+      await reconcilePoMembership(env);
+    } catch (error) {
+      console.error(
+        JSON.stringify({
+          event: "community.po.membership_reconcile_failed",
+          errorType: error instanceof Error ? error.name : "Unknown",
+        }),
+      );
+    }
   try {
     await reconcileNativeFeedback(env);
   } catch (error) {

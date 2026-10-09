@@ -80,7 +80,22 @@ try {
     else assert.equal(failed.merge_status,"failed");
   }
   assert.equal(sql(`SELECT count(*) FROM otl.bug_runner_notifications WHERE run_id='${merge.runId}' AND kind='task_failed'`),"1","terminal merge failure must be delivered to the original work thread");
-  console.log("PASS real PostgreSQL: role/team guards, running-job rejection, queued-job cancellation, transition ledger, exact one change");
+  const poSnapshot={teamId:"TPO",channels:["CPO","CDEV"],complete:true,
+    observedAt:new Date(Date.now()-3000).toISOString(),members:[{userId:"UYUNSU",displayName:"Yunsu"}]};
+  const reconciled=call("community_po_reconcile",poSnapshot);
+  assert.equal(reconciled.activated,1);
+  assert.equal(sql("SELECT state FROM otl.community_maintainers WHERE team_id='TPO' AND user_id='UYUNSU'"),"active");
+  assert.equal(call("community_po_reconcile",poSnapshot).applied,false,"same snapshot is idempotent");
+  assert.throws(()=>call("community_po_reconcile",{...poSnapshot,complete:false}),/complete verified/);
+  sql("INSERT INTO otl.community_maintainers(team_id,user_id,state) VALUES('TPO','UREVOKED','revoked'),('TOTHER','UOTHER','active')");
+  const next={...poSnapshot,observedAt:new Date(Date.now()-1500).toISOString(),members:[{userId:"UREVOKED",displayName:"Revoked"}]};
+  assert.equal(call("community_po_reconcile",next).deactivated,1,"complete exit removes PO permission");
+  assert.equal(sql("SELECT state FROM otl.community_maintainers WHERE team_id='TPO' AND user_id='UREVOKED'"),"revoked");
+  assert.equal(sql("SELECT state FROM otl.community_maintainers WHERE team_id='TOTHER' AND user_id='UOTHER'"),"active");
+  assert.equal(call("community_po_reconcile",poSnapshot).applied,false,"slow old snapshot cannot re-grant permission");
+  assert.equal(call("community_po_reconcile",{...poSnapshot,observedAt:new Date().toISOString()}).activated,1,"returning member regains PO permission");
+  assert.equal(sql("SELECT has_function_privilege('public','otl.community_po_reconcile(jsonb)','EXECUTE')"),"f");
+  console.log("PASS real PostgreSQL: role/team guards, PR exclusivity and atomic PO membership join, exit, rejoin, revoked and stale-snapshot boundaries");
 } finally {
   if (started) run("pg_ctl", ["-D", data, "-m", "immediate", "-w", "stop"]);
   rmSync(temp, { recursive:true,force:true });

@@ -40,7 +40,7 @@ export function nativeWorkCard(
     });
   elements.push({
     type: "button",
-    text: { type: "plain_text", text: "PR 연결하기" },
+    text: { type: "plain_text", text: "직접 만든 PR 검토 요청" },
     action_id: "community_pull_request_open",
     value: JSON.stringify({ ownerId: "actor", key }),
   });
@@ -78,6 +78,15 @@ export function nativeWorkCard(
         },
       },
       { type: "actions", elements },
+      {
+        type: "context",
+        elements: [
+          {
+            type: "mrkdwn",
+            text: "*직접 만든 PR 검토 요청*은 내 개발환경에서 코드를 수정하고 GitHub PR을 만든 경우에만 사용해요. OT1L에 AI 수정을 맡겼다면 PR 연결 없이 검증 결과와 승인 버튼을 기다리세요.",
+          },
+        ],
+      },
     ] as Json[],
   };
 }
@@ -194,7 +203,7 @@ export async function setMaintainerWorkReleaseStage(
 // they cannot invite users, reassign work, or resume an external control plane.
 export async function connectMaintainerToLinear(context: CommunityContext): Promise<void> {
   await ephemeral(context, {
-    text: "작업과 담당자는 이제 Slack에서 관리해요. PO 작업 카드의 담당자 선택이나 PR 연결하기를 이용해 주세요.",
+    text: "작업과 담당자는 이제 Slack에서 관리해요. 직접 코드를 수정해 PR을 만든 경우에만 ‘직접 만든 PR 검토 요청’을 사용하세요. AI에게 맡긴 작업은 PR이 자동으로 연결됩니다.",
   });
 }
 export const showMaintainerLinearMembers = connectMaintainerToLinear;

@@ -5,7 +5,7 @@ import type { CommunityContext, CommunityEnv } from "./community-runtime";
 import { callSlack } from "./community-social";
 import { InputError, type Json, object, string } from "./input";
 
-export const MAINTAINER_RETENTION_VERSION = "v0.3.0";
+export const MAINTAINER_RETENTION_VERSION = "v0.4.0";
 
 function requestButton(label: string, mode: "question" | "qna" | "ot"): Json {
   return {
@@ -37,7 +37,7 @@ export function maintainerRetentionGuide(maintainersChannelId?: string) {
 }
 
 export function maintainerWorkGuide() {
-  const text = `*OT1L Product Owner 작업 시작* · ${MAINTAINER_RETENTION_VERSION}\n\n불편했던 점, 해보고 싶은 변화, 같이 배우고 싶은 일, 열어보고 싶은 활동을 아래에서 시작하세요. 코딩하지 않아도 재현·QA·문구·디자인·질문 정리·모임 진행으로 참여할 수 있습니다. 직접 맡으면 기본 DRI가 되고, 같이할 사람을 찾거나 다른 Product Owner에게 넘길 수도 있어요. 전문 그룹은 본인이 언제든 바꿀 수 있고, 필요한 동료는 이유와 함께 같은 스레드로 부릅니다.\n\n<https://ot1l.hyuk.me/po|지금 함께 만드는 일 보기>`;
+  const text = `*OT1L Product Owner 작업 시작* · ${MAINTAINER_RETENTION_VERSION}\n\n*보통은: 피드백·AI 수정 요청*\n불편한 점과 원하는 결과를 적으면 GenQuant의 Codex가 수정·검사·PR 생성을 맡습니다. 직접 PR을 연결할 필요 없이, 같은 스레드에서 결과를 확인하고 병합·배포를 승인하면 됩니다. 원하는 결과를 비워 두면 의견만 접수되며 AI 작업은 아직 시작하지 않습니다.\n\n*직접 코드를 고쳤다면: 직접 만든 PR 검토 요청*\n내 개발환경(내 AI 도구 포함)에서 수정한 뒤 GitHub에 만든 PR 주소를 넣으세요. 같은 작업에 AI 수정과 직접 개발을 동시에 요청하지 마세요. Draft는 검토만 하고 병합하지 않습니다.\n\n코딩 없이도 제안·QA·디자인·모임으로 참여할 수 있어요. PO가 제안하면 본인이 기본 담당자(DRI)이고 카드에서 바꿀 수 있습니다. 지정된 PO 채널에 참여하면 PO 권한이 연결됩니다. sys-alert만 가입한 경우는 제외합니다.\n\n<https://ot1l.hyuk.me/po|지금 함께 만드는 일 보기>`;
   return {
     text,
     blocks: [
@@ -45,10 +45,10 @@ export function maintainerWorkGuide() {
       {
         type: "actions",
         elements: [
-          feedbackButton("피드백·작업 제안", true),
+          feedbackButton("피드백·AI 수정 요청", true),
           {
             type: "button",
-            text: { type: "plain_text", text: "PR 연결하기" },
+            text: { type: "plain_text", text: "직접 만든 PR 검토 요청" },
             action_id: "community_pull_request_open",
             value: JSON.stringify({ ownerId: "actor", key: "pull-request-bind" }),
           },

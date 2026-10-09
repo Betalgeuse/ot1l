@@ -43,7 +43,7 @@ export async function openPullRequestBindingModal(
       type: "modal",
       callback_id: "community_pull_request_submit",
       private_metadata: JSON.stringify({ ...JSON.parse(metadata(context)), workKey }),
-      title: { type: "plain_text", text: "내 PR 연결하기" },
+      title: { type: "plain_text", text: "직접 만든 PR 검토" },
       submit: { type: "plain_text", text: "검증 요청" },
       close: { type: "plain_text", text: "취소" },
       blocks: [
@@ -52,14 +52,14 @@ export async function openPullRequestBindingModal(
           text: {
             type: "plain_text",
             text: workKey
-              ? "이 작업에 PR을 연결합니다. Draft PR은 시안 검토로만 접수하며 병합하지 않습니다."
-              : "PR 주소만 붙여 넣으면 작업 카드가 생깁니다. Draft PR은 시안 검토로만 접수합니다.",
+              ? "내 개발환경에서 이미 만든 PR을 이 작업에 연결합니다. OT1L에 AI 수정을 맡겼다면 이 화면은 필요 없어요. Draft는 검토만 하며 병합하지 않습니다."
+              : "내 개발환경(내 AI 도구 포함)에서 수정하고 GitHub에 만든 PR 주소를 넣으세요. OT1L이 만드는 PR은 자동 연결됩니다. Draft는 검토만 합니다.",
           },
         },
         {
           type: "input",
           block_id: "pull_url",
-          label: { type: "plain_text", text: "Betalgeuse/ot1l PR URL" },
+          label: { type: "plain_text", text: "GitHub PR 주소 (대상: Betalgeuse/ot1l)" },
           element: { type: "url_text_input", action_id: "value" },
         },
       ],

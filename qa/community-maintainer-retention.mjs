@@ -55,7 +55,7 @@ try {
   assert.equal(workGuide.body.blocks[1].elements[0].style, "primary");
   assert.deepEqual(
     workGuide.body.blocks[1].elements.slice(1, 4).map((item) => item.text.text),
-    ["PR 연결하기", "전문 그룹 설정", "@po 부르기"],
+    ["직접 만든 PR 검토 요청", "전문 그룹 설정", "@po 부르기"],
   );
   await openMaintainerHelpModal(context, "trigger", "qna");
   const modal = calls.find((call) => call.method === "views.open").body.view;

@@ -6,6 +6,8 @@ const members=[{userId:"UONE",displayName:"One"},{userId:"UTWO",displayName:"Two
 const card=nativeWorkCard(env,work,members);
 assert.doesNotMatch(JSON.stringify(card),/Linear|연결 대기|현재 상태 확인 필요|원하는 상태 확인 필요/);
 assert.equal(card.blocks[1].elements[1].action_id,"community_pull_request_open");
+assert.equal(card.blocks[1].elements[1].text.text,"직접 만든 PR 검토 요청");
+assert.match(JSON.stringify(card.blocks[2]),/PR 연결 없이/);
 assert.equal(JSON.parse(card.blocks[1].elements[1].value).key,work.work_key);
 assert.equal(JSON.parse(card.blocks[1].elements[0].initial_option.value).driUserId,"UONE");
 const original=globalThis.fetch,calls=[];

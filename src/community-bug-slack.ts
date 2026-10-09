@@ -297,7 +297,18 @@ export async function openBugReportModal(
       title: { type: "plain_text", text: "피드백 남기기" },
       submit: { type: "plain_text", text: "보내기" },
       close: { type: "plain_text", text: "취소" },
-      blocks: [...inputs],
+      blocks: [
+        ...inputs,
+        {
+          type: "context",
+          elements: [
+            {
+              type: "plain_text",
+              text: "불편한 점과 원하는 결과를 함께 쓰면 GenQuant의 Codex가 수정·검사·PR 생성을 맡아요. PR 연결은 필요 없고 결과 확인 후 승인하면 됩니다. 원하는 결과를 비워 두면 의견만 접수돼요.",
+            },
+          ],
+        },
+      ],
     },
   });
 }
