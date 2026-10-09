@@ -105,7 +105,7 @@ function notificationText(input: Notification): string {
     .map((id) => `<@${id}>`)
     .join(" ");
   if (input.kind === "change_deployed") {
-    return `${mentions}\n운영 배포와 실제 동작 확인을 완료했어요! ✅\n${input.summary ?? "승인한 To-Be가 운영 환경에서 확인됐습니다."}`;
+    return `${mentions}\n승인한 변경의 반영을 완료했어요! ✅\n${input.summary ?? "상세 반영 결과는 작업 기록에서 확인해 주세요."}`;
   }
   if (input.kind === "change_merged")
     return `${mentions}\n수정안을 main에 병합했어요. 운영 배포와 실제 동작 확인을 기다리고 있습니다.\n${input.bugId}`;
@@ -134,7 +134,7 @@ function mergeReadyMessage(input: Notification, includeButton = true) {
       type: "section",
       text: {
         type: "mrkdwn",
-        text: `*변경 등급*\n${input.changeClass === "open" ? "Open · 활성 Maintainer 또는 Founder가 승인하면 병합과 배포가 연속 실행됩니다." : "Core · Founder 승인 뒤 병합과 배포가 연속 실행됩니다."}\n\n*As-Is*\n${escapeSlackText(input.asIs)}\n\n*To-Be*\n${escapeSlackText(input.toBe)}\n\n*수정 결과*\n${escapeSlackText(input.summary ?? "전체 검사를 통과했습니다.")}\n\n<${input.prUrl}|변경 내용 보기>`,
+        text: `*변경 등급*\n${input.changeClass === "open" ? "Open · 활성 PO 또는 Founder가 승인하면 병합과 배포가 연속 실행됩니다." : "Core · Founder 승인 뒤 병합과 배포가 연속 실행됩니다."}\n\n*As-Is*\n${escapeSlackText(input.asIs)}\n\n*To-Be*\n${escapeSlackText(input.toBe)}\n\n*수정 결과*\n${escapeSlackText(input.summary ?? "전체 검사를 통과했습니다.")}\n\n<${input.prUrl}|변경 내용 보기>`,
       },
     },
   ];
@@ -147,7 +147,9 @@ function mergeReadyMessage(input: Notification, includeButton = true) {
           text: {
             type: "plain_text",
             text:
-              input.changeClass === "core" ? "Founder 병합·배포 승인" : "Maintainer 병합·배포 승인",
+              input.changeClass === "core"
+                ? "Founder 병합·배포 승인"
+                : "Product Owner 병합·배포 승인",
           },
           style: "primary",
           action_id: "community_feedback_merge_approve",
@@ -255,14 +257,6 @@ async function sendMaintainerNotification(
     }))
   )
     throw new Error("maintainer notification root missing");
-  const direct = await callSlack(env.SLACK_BOT_TOKEN, "conversations.open", {
-    users: founderId,
-  });
-  const directChannelId = string(object(direct.channel).id);
-  await callSlack(env.SLACK_BOT_TOKEN, "chat.postMessage", {
-    channel: directChannelId,
-    text: `<https://app.slack.com/client/${env.SLACK_TEAM_ID}/${channelId}/thread/${channelId}-${threadTs}|Maintainer 작업 스레드에서 Founder 병합·배포 승인하기>\n${input.bugId}`,
-  });
 }
 
 export async function sendAgentNotifications(

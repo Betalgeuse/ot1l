@@ -7,6 +7,7 @@
 | 질문 | 기준 문서 |
 | --- | --- |
 | 실제로 어떤 입력이 어떤 기록과 메시지를 만드는가 | 이 문서 `SPEC.md` |
+| 의견 접수, PO 담당자, PR 연결과 시안 검토 | [함께 만드는 흐름](CONTRIBUTION_FLOW.md) |
 | 왜 이 규칙을 지키는가 | [제품 원칙](PRODUCT_PRINCIPLES.md) |
 | DB·Worker·Durable Object가 어떻게 나뉘는가 | [시스템 구조](ARCHITECTURE.md) |
 | 회원이 무엇을 입력하면 되는가 | [사용 가이드](USER_GUIDE.md) |

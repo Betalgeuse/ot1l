@@ -119,6 +119,7 @@ const calls = [];
 let queueAccepted = true;
 let approvalChangeClass = "core";
 let historyMessages = [];
+let storedSurface = null;
 const originalFetch = globalThis.fetch;
 globalThis.fetch = async (url, options = {}) => {
   const parsedUrl = new URL(url);
@@ -131,7 +132,7 @@ globalThis.fetch = async (url, options = {}) => {
   if (method === "conversations.history")
     return Response.json({ ok: true, messages: historyMessages });
   if (method === "sql" && body.params?.[0] === "surface_get")
-    return Response.json({ rows: [[JSON.stringify("123.789")]] });
+    return Response.json({ rows: [[JSON.stringify(storedSurface)]] });
   if (method === "sql")
     return Response.json({
       rows: [
@@ -185,12 +186,12 @@ try {
         ["chat.postMessage", "chat.update"].includes(call.method) &&
         call.body.channel === "CFEEDBACK",
     ).length;
-    assert.equal(await canonicalFeedbackContext(poContext, report, "BUG-PO-ROUTE"), poContext);
-    assert.equal(
-      await canonicalFeedbackContext(poContext, report, "BUG-PO-ROUTE"),
-      poContext,
-      "a retry of the same PO bug must retain the exact canonical context",
-    );
+    const routed = await canonicalFeedbackContext(poContext, report, "BUG-PO-ROUTE");
+    assert.equal(routed.scope.channelId,"CMAINTAIN");
+    assert.notEqual(routed.thread,thread,"daily prompt cannot own every proposal thread");
+    historyMessages=[{ts:routed.thread,thread_ts:routed.thread,text:"버그 키: BUG-PO-ROUTE"}];
+    assert.equal((await canonicalFeedbackContext(poContext,report,"BUG-PO-ROUTE")).thread,routed.thread);
+    historyMessages=[];
     assert.equal(
       calls.filter(
         (call) =>
@@ -268,16 +269,13 @@ try {
     false,
   );
   assert.match(
-    calls.find((call) => call.method === "chat.postMessage")?.body.text ?? "",
-    /피드백을 남겨주시면 봇이 자동으로 수정안을 만들고, Product Owner가 확인한 뒤 배포해요!/,
+    calls.find((call) => call.method === "chat.postMessage" && call.body.text.startsWith("2026-09-23") && call.body.channel==="CFEEDBACK")?.body.text ?? "",
+    /질문에 계속 답하지 않아도 의견은 접수됩니다/,
   );
-  assert.equal(
-    dailyFeedbackPromptText("2026-09-23"),
-    "2026-09-23 오늘 OT1L을 쓰면서 불편했거나 바랐던 점이 있었나요? 작은 의견도 괜찮아요. 아래 버튼으로 편하게 남겨주세요. 피드백을 남겨주시면 봇이 자동으로 수정안을 만들고, Product Owner가 확인한 뒤 배포해요! Product Owner(PO)는 코딩 여부와 관계없이 회원 문제를 발견하고 개선을 끝까지 맡는 역할이에요.",
-  );
+  assert.match(dailyFeedbackPromptText("2026-09-23"),/한 줄 남겨주세요/);
   assert.match(dailyMaintainerPromptText("2026-09-23"), /같이 배우거나 열어보고 싶은 활동/);
   const maintainerPrompt = calls.find(
-    (call) => call.method === "chat.postMessage" && call.body.channel === "CMAINTAIN",
+    (call) => call.method === "chat.postMessage" && call.body.channel === "CMAINTAIN" && call.body.text.startsWith("2026-09-23"),
   );
   assert.equal(maintainerPrompt.body.blocks.at(-1).elements[0].text.text, "피드백·작업 제안");
   assert.equal(maintainerPrompt.body.blocks.at(-1).elements[0].style, "primary");
@@ -350,7 +348,7 @@ try {
   assert.equal(
     await publishMaintainerFeedbackCard(
       {
-        env: { SLACK_BOT_TOKEN: "fake", COMMUNITY_MAINTAINERS_CHANNEL_ID: "CMAINTAIN" },
+        env: { SLACK_BOT_TOKEN: "fake", COMMUNITY_MAINTAINERS_CHANNEL_ID: "CMAINTAIN", DATABASE_URL:"postgresql://test:test@test.neon.tech/db" },
         scope: { teamId: "TQA", channelId: "CFEEDBACK", userId: "UADMIN" },
         thread: "123.100",
       },
@@ -369,6 +367,7 @@ try {
   const postsBeforeStoredSurface = calls.filter(
     (call) => call.method === "chat.postMessage" && call.body.channel === "CMAINTAIN",
   ).length;
+  storedSurface="123.789";
   assert.equal(
     await publishMaintainerFeedbackCard(
       {

@@ -1,9 +1,12 @@
 import assert from "node:assert/strict";
 import { sendAgentNotifications } from "../src/community-agent-notifications.ts";
+import { approvalDigest, classifyChangePaths } from "../automation/runner/change-policy.mjs";
 
 const calls = [];
 let notificationKind = "merge_ready";
-let changeClass = "open";
+const designPolicy = classifyChangePaths(["site/DESIGN.md", "site/dist/styles.css", "site/qa/event-schedule.mjs"]);
+let changeClass = designPolicy.changeClass;
+let summary = "입력 경계를 수정하고 회귀 검사를 통과했습니다.";
 let includeTaskUrl = true;
 let notificationChannel = "CFEEDBACK";
 let missingSource = false;
@@ -14,7 +17,7 @@ globalThis.fetch = async (url, options = {}) => {
   const body = options.body ? JSON.parse(options.body) : {};
   calls.push({ url: parsed.toString(), body });
   if (parsed.pathname === "/sql") {
-    if(body.query.includes("maintainer_ops_execute")) return Response.json({rows:[["null"]]});
+    if (body.query.includes("maintainer_ops_execute")) return Response.json({rows:[["null"]]});
     if (body.query.includes("bug_runner_claim_notifications"))
       return Response.json({
         rows: [
@@ -36,7 +39,7 @@ globalThis.fetch = async (url, options = {}) => {
                   attempt: 1,
                   reporterId: "UREPORTER",
                   adminId: "UADMIN",
-                  summary: "입력 경계를 수정하고 회귀 검사를 통과했습니다.",
+                  summary,
                   ...(notificationKind === "merge_ready"
                     ? {
                         prNumber: 9,
@@ -46,7 +49,7 @@ globalThis.fetch = async (url, options = {}) => {
                         toBe: "맥락 질문 뒤 관리자가 병합을 승인합니다.",
                         changeClass,
                         headSha: "a".repeat(40),
-                        classificationDigest: "b".repeat(64),
+                        classificationDigest: approvalDigest(designPolicy),
                       }
                     : {}),
                 },
@@ -105,9 +108,10 @@ try {
   assert.match(readyPost.body.blocks[0].text.text, /변경 내용 보기/);
   assert.match(readyPost.body.blocks[0].text.text, /Open/);
   assert.equal(readyPost.body.thread_ts, "1790252999.000001");
-  assert.equal(readyPost.body.blocks[1].elements[0].text.text, "Maintainer 병합·배포 승인");
+  assert.equal(readyPost.body.blocks[1].elements[0].text.text, "Product Owner 병합·배포 승인");
   assert.equal(readyPost.body.blocks[1].elements[0].action_id, "community_feedback_merge_approve");
   assert.equal(JSON.parse(readyPost.body.blocks[1].elements[0].value).headSha, "a".repeat(40));
+  assert.equal(JSON.parse(readyPost.body.blocks[1].elements[0].value).classificationDigest, approvalDigest(designPolicy));
   assert.equal(
     calls.some(
       (call) => call.url.includes("chat.postMessage") && call.body.channel === "CFEEDBACK",
@@ -139,8 +143,7 @@ try {
   const founderPost = calls.find(
     (call) => call.url.includes("chat.postMessage") && call.body.channel === "DFOUNDER",
   );
-  assert.match(founderPost.body.text, /Maintainer 작업 스레드에서 Founder 병합·배포 승인하기/);
-  assert.equal(founderPost.body.blocks, undefined);
+  assert.equal(founderPost,undefined,"approval stays in the canonical PO thread, without a parallel DM");
 
   calls.length = 0;
   acceptedReplies.clear();
@@ -160,6 +163,7 @@ try {
   calls.length = 0;
   acceptedReplies.clear();
   notificationKind = "change_deployed";
+  summary = "문서·시안 변경을 저장소에 반영했습니다. 운영 Worker 변경이나 미리보기 게시는 없습니다.";
   const deployed = await sendAgentNotifications(env, new Date("2026-09-24T13:01:00Z"));
   assert.deepEqual(deployed, { claimed: 1, sent: 1, failed: 0 });
   const deployedPost = calls.find((call) => call.url.includes("chat.postMessage"));
@@ -198,7 +202,9 @@ try {
   assert.equal(directMaintainerPost.body.channel, "CMAINTAIN");
   assert.equal(directMaintainerPost.body.thread_ts, "1790252999.000001","same-channel daily prompt must not receive a work notification");
   assert(calls.filter(call=>call.url.includes("reactions.")).every(call=>call.body.timestamp==="1790252999.000001"));
-  assert.match(directMaintainerPost.body.text, /운영 배포와 실제 동작 확인을 완료했어요/);
+  assert.match(directMaintainerPost.body.text, /승인한 변경의 반영을 완료했어요/);
+  assert.match(directMaintainerPost.body.text, /운영 Worker 변경이나 미리보기 게시는 없습니다/);
+  assert.doesNotMatch(directMaintainerPost.body.text, /실제 동작 확인을 완료|To-Be가 운영 환경에서 확인/);
   calls.length = 0;
   acceptedReplies.clear();
   notificationChannel = "CFEEDBACK";

@@ -33,29 +33,28 @@ export function maintainerCanvasDefinitions(env: CanvasEnv): readonly Maintainer
     .map((value) => value.trim())
     .filter(Boolean);
   if (!main || !workstreams || workstreams.length < 3)
-    throw new InputError("Maintainer Canvas 채널을 확인해 주세요.");
+    throw new InputError("PO Canvas 채널을 확인해 주세요.");
   const [build, design, community] = workstreams;
-  if (!build || !design || !community)
-    throw new InputError("Maintainer Canvas 채널을 확인해 주세요.");
-  const workLink = mention(main, "#maintainers");
+  if (!build || !design || !community) throw new InputError("PO Canvas 채널을 확인해 주세요.");
+  const workLink = mention(main, "#po-work");
   const feedbackLink = mention(env.COMMUNITY_FEEDBACK_CHANNEL_ID, "#all-freetalk-qna-feedback");
   const eventLink = mention(env.COMMUNITY_RELEASE_CHANNEL_ID, "#all-townhall-events");
-  const alertLink = mention(env.COMMUNITY_SYS_ALERT_CHANNEL_ID, "#maintainers-sys-alert");
+  const alertLink = mention(env.COMMUNITY_SYS_ALERT_CHANNEL_ID, "#po-sys-alert");
   return [
     {
       key: "main",
       channelId: main,
-      title: "OT1L Maintainer · 같이 만들며 배우기",
+      title: "OT1L Product Owner · 같이 만들며 배우기",
       topic: "제안·DRI·협업·승인·배포를 한곳에서 보고 같이 만들며 배우기",
       purpose:
-        "모든 Maintainer 작업의 정본입니다. 아이디어를 제안하고, DRI를 맡거나 넘기고, AI·동료와 만든 결과를 확인합니다.",
-      markdown: `# OT1L Maintainer · 같이 만들며 배우기
-> Maintainer는 운영 권한만 받는 역할이 아닙니다. 내가 불편했던 점이나 해보고 싶은 일을 사람들과 실제 변화로 만들고, 그 과정에서 배우는 참여 방식입니다.
+        "모든 PO 작업의 정본입니다. 아이디어를 제안하고, DRI를 맡거나 넘기고, AI·동료와 만든 결과를 확인합니다.",
+      markdown: `# OT1L Product Owner · 같이 만들며 배우기
+> Product Owner는 운영 권한만 받는 역할이 아닙니다. 내가 불편했던 점이나 해보고 싶은 일을 사람들과 실제 변화로 만들고, 그 과정에서 배우는 참여 방식입니다.
 
 ## 여기서 얻는 것
 - 내 제안이 실제 기능·모임·안내로 반영되는 전 과정을 경험합니다.
 - 개발환경이 없어도 AI와 함께 수정안을 만들고, 원하면 내 환경에서 직접 이어갈 수 있습니다.
-- DRI를 맡아 작은 일을 끝내거나 다른 Maintainer에게 넘기며 협업을 배웁니다.
+- DRI를 맡아 작은 일을 끝내거나 다른 PO에게 넘기며 협업을 배웁니다.
 - QA, 글쓰기, 디자인, 진행, 질문 정리도 기여로 남습니다. 코딩은 필수가 아닙니다.
 - Q&A, 허들, 첫 기여 OT를 요청하거나 직접 열 수 있습니다.
 
@@ -66,9 +65,9 @@ export function maintainerCanvasDefinitions(env: CanvasEnv): readonly Maintainer
 4. 끝나면 무엇이 달라졌고 무엇을 배웠는지 스레드에 한 줄 남깁니다.
 
 ## 공간 고르기
-- ${mention(build, "#maintainers-dev")}: AI와 함께 실제 기능을 만들며 배우는 빌드 스튜디오
-- ${mention(design, "#maintainers-design")}: 화면·콘텐츠·접근성을 함께 만드는 디자인 스튜디오
-- ${mention(community, "#maintainers-retention")}: 사람을 돕고 Q&A·OT·모임을 운영하는 커뮤니티 스튜디오
+- ${mention(build, "#po-dev")}: AI와 함께 실제 기능을 만들며 배우는 빌드 스튜디오
+- ${mention(design, "#po-design")}: 화면·콘텐츠·접근성을 함께 만드는 디자인 스튜디오
+- ${mention(community, "#po-freetalk-anything")}: 사람을 돕고 Q&A·OT·모임을 운영하는 커뮤니티 스튜디오
 - ${feedbackLink}: 모든 회원의 피드백이 시작되는 곳
 - ${eventLink}: 누구나 활동을 제안하고 열 수 있는 곳
 - ${alertLink}: 운영 장애와 배포 실패를 확인하는 곳
@@ -157,7 +156,7 @@ _${MAINTAINER_CANVAS_VERSION}_`,
 - 신규 회원의 첫 경험을 관찰하고 더 편하게 만드는 경험
 - 질문에 답하고, Q&A·허들·첫 기여 OT를 직접 열어 보는 진행 경험
 - 관심사를 발견해 이벤트나 챕터로 연결하는 커뮤니티 빌딩 경험
-- 혼자 하기 어려운 기여를 다른 Maintainer와 함께 시작하는 관계
+- 혼자 하기 어려운 기여를 다른 PO와 함께 시작하는 관계
 
 ## 지금 할 수 있는 것
 - 상단 고정 안내에서 **질문 남기기**, **Q&A 허들 요청**, **첫 기여 OT 요청**을 누릅니다.

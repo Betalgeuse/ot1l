@@ -9,7 +9,7 @@ import { escapeSlackText } from "./community-messages";
 import { submitCommunityPalette } from "./community-palette";
 import { parsePastReviewSubmission, pastReviewChange } from "./community-past-review";
 import { submitPoSpecialties, submitPoSummon } from "./community-po-groups";
-import { submitPullRequestBinding } from "./community-pull-request";
+import { pullRequestFormErrors, submitPullRequestBinding } from "./community-pull-request";
 import { parseQuickEntrySubmission, submitQuickEntry } from "./community-quick-entry";
 import { applyChange } from "./community-records";
 import { type CommunityContext, type CommunityEnv, ephemeral, post } from "./community-runtime";
@@ -39,6 +39,8 @@ export async function handleCommunityView(input: ViewInteraction): Promise<Respo
   const bugResponse = await handleBugView(input.id, input.view, input.context, input.waitUntil);
   if (bugResponse) return bugResponse;
   if (input.id === "community_pull_request_submit") {
+    const errors = pullRequestFormErrors(input.view);
+    if (errors) return Response.json({ response_action: "errors", errors });
     input.waitUntil(
       submitPullRequestBinding(input.context, input.view).catch(async (error: unknown) => {
         await ephemeral(input.context, {

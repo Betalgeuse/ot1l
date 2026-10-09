@@ -5,14 +5,19 @@ mock.module("cloudflare:workers", () => ({ DurableObject: class {} }));
 
 const {
   continueBugReport,
-  handleBugReportMessage,
+  handleBugReportMessage: handleNativeFeedbackMessage,
   isBugReportMessage,
   openBugReportModal,
   parseBugReportModal,
   replayBugDelivery,
   submitBugReportModal,
 } = await import("../src/community-bugs.ts");
+const {handleLegacyBugReportMessage:handleBugReportMessage}=await import("./legacy-bug-entry.ts");
 const { parseBugIntakeCandidate } = await import("../src/community-bug-intent.ts");
+const bugExports = await import("../src/community-bugs.ts");
+// Historical transport/outbox scenarios retain their old detailed-bug entry;
+// new product entry is exercised explicitly below with the same database/crypto seam.
+mock.module("../src/community-bugs.ts",()=>({...bugExports,handleBugReportMessage}));
 const { communityInteraction } = await import("../src/community-interactions.ts");
 const { runDueBugDeliveries } = await import("../src/community-bug-delivery-scheduler.ts");
 const { communityCron } = await import("../src/community-cron.ts");
@@ -25,9 +30,11 @@ const { redactBugDbText } = await import("../src/community-bug-facts.ts");
 const { handleRequest } = await import("../src/index.ts");
 const { sign } = await import("../src/signing.ts");
 const { CommunityStore } = await import("../src/community-store.ts");
+const { submitPullRequestBinding } = await import("../src/community-pull-request.ts");
 const { NeonStore } = await import("../src/store.ts");
 
 const calls = [];
+const nativeWorkRows = new Map(), nativeSurfaces = new Map();
 const objects = new Map();
 const bugClaims = new Map();
 const answerClaims = new Map();
@@ -98,6 +105,7 @@ const env = {
   COMMUNITY_PUBLIC_CHANNEL_ID: "CPUBLIC",
   COMMUNITY_RELEASE_CHANNEL_ID: "CRELEASE",
   COMMUNITY_FEEDBACK_CHANNEL_ID: "CFEEDBACK",
+  COMMUNITY_MAINTAINERS_CHANNEL_ID: "CPO",
   BUG_RUNNER_ENABLED: "true",
   COMMUNITY_CODEX_REPOSITORY: "Betalgeuse/ot1l",
   COMMUNITY_CODEX_BRANCH: "main",
@@ -172,8 +180,30 @@ globalThis.fetch = async (url, options) => {
     rawBody: options.body,
     body,
   });
+  if(requestUrl.hostname==="api.github.com") return Response.json(target.endsWith("/files")
+    ? [{filename:"design-preview/index.html"}]
+    : {state:"open",draft:true,title:"QA 미리보기",base:{ref:"main",repo:{full_name:"Betalgeuse/ot1l"}},head:{sha:"a".repeat(40),repo:{full_name:"contributor/ot1l"}}});
   if (target.endsWith("/sql")) {
     const query = body.query;
+    if(query.includes("community_maintainer_execute")) return Response.json({rows:[["null"]]});
+    if(query.includes("maintainer_ops_execute")) {
+      const op=body.params[0],p=JSON.parse(body.params[1]);
+      let result=null;
+      if(op==="work_put") {
+        result={work_key:p.workKey,title:p.title,actual:p.actual,expected:p.expected,reporter_id:p.reporterId,
+          desired_dri:p.desiredDri,dri_user_id:p.desiredDri,source_channel:p.sourceChannel,source_thread:p.sourceThread,source_is_work_root:p.sourceIsWorkRoot,issue_state:"의견 모으는 중"};
+        nativeWorkRows.set(p.workKey,result);
+      } else if(op==="work_get") result=nativeWorkRows.get(p.workKey)??null;
+      else if(op==="work_by_pr") result=[...nativeWorkRows.values()].find(w=>w.pr_number===p.prNumber)??null;
+      else if(op==="work_pr") {result=nativeWorkRows.get(p.workKey);result.pr_number=p.prNumber;result.pr_url=p.prUrl;}
+      else if(op==="members") result=[];
+      else if(op==="backfill_pending") result=[];
+      else if(op==="surface_get") result=nativeSurfaces.get(p.workKey)??null;
+      else if(op==="surface_put") {nativeSurfaces.set(p.workKey,p.messageTs);result=p.messageTs;}
+      else if(op==="work_release") {result=nativeWorkRows.get(p.workKey)??null;if(result)result.release_stage=p.releaseStage;}
+      else throw Error("unexpected native operation "+op);
+      return Response.json({rows:[[JSON.stringify(result)]]});
+    }
     if (query.includes("community_execute")) {
       const operation = body.params[0];
       const input = JSON.parse(body.params[1]);
@@ -1147,7 +1177,7 @@ try {
     thread: "12.000001",
     key: "incoming:12.000002",
   };
-  assert.equal(await handleBugReportMessage(securityContext, "버그: 개인정보가 노출됐어요"), true);
+  assert.equal(await handleBugReportMessage(securityContext, "버그: token=qa-private-canary"), true);
   const securitySlack = calls.filter((call) => call.target.includes("slack.com/api/"));
   assert.deepEqual(
     securitySlack.map((call) => [call.target.split("/").at(-1), call.body.channel, call.body.user]),
@@ -2037,7 +2067,7 @@ try {
   );
   const feedbackThread = "20.000001";
   const routedReplies = routedPosts.filter(
-    (call) => call.body.channel === "CFEEDBACK" && call.body.thread_ts === feedbackThread,
+    (call) => call.body.channel === "CPO" && call.body.thread_ts === feedbackThread,
   );
   assert.equal(routedReplies.length, 1, "clear feedback starts branch preparation immediately");
   assert.match(routedReplies[0].body.text, /수정안과 검증 결과를 준비/);
@@ -2050,6 +2080,42 @@ try {
   );
   assert.equal(routedDraft.questions.length, 0, "clear feedback asks no mechanical questions");
   assert.equal(routedDraft.currentRevision.schemaVersion, "feedback_packet.v1");
+
+  calls.length=0;
+  let analysisCalls=0;
+  const ideaPending=[];
+  const ideaText="새 디자인을 보고 회원들의 의견을 모아보고 싶어요. secret 접근을 막는 안내도 명확하면 좋겠어요.";
+  const ideaSubmission={...routedSubmission,view:{...routedSubmission.view,id:"V-NATIVE-IDEA",
+    private_metadata:JSON.stringify({channelId:"CPO",userId:"UMEMBER",source:"40.000001",thread:"40.000001",date:"2026-09-16"}),
+    state:{values:{actual:{value:{value:ideaText}},expected:{value:{value:""}}}}}};
+  await communityInteraction(ideaSubmission,{...env,AI:{async run(){analysisCalls++;throw Error("intake must not interrogate");}}},p=>ideaPending.push(p));
+  await Promise.all(ideaPending);
+  assert.equal(analysisCalls,0);
+  const nativeIdea=[...nativeWorkRows.values()].find(w=>w.actual===ideaText);
+  assert(nativeIdea,"one-line idea must have a visible work record");
+  assert.equal(nativeIdea.expected,"");
+  assert.equal(bugRows.get(nativeIdea.work_key).questions.length,0);
+  assert.equal(calls.filter(c=>c.target.endsWith("chat.postMessage")&&c.body.channel==="CPO"&&!c.body.thread_ts).length,1,"one proposal has one work root, separate from the daily prompt");
+  assert.equal(await continueBugReport({...context,scope:{...scope,channelId:"CPO"},source:"40.000003",thread:nativeIdea.source_thread},"이건 그냥 검토 의견이에요"),false,"ordinary discussion must not wake the old questionnaire");
+  assert.equal(calls.some(c=>c.body.query?.includes("bug_admin_queue")),false,"discussion is not automatically implemented");
+  assert.equal(calls.some(c=>c.target.includes("chat.postMessage")&&c.body.channel==="CFEEDBACK"),false);
+  assert.equal(calls.some(c=>c.body.blocks?.some(b=>b.elements?.some(e=>e.action_id==="community_bug_answer_open"))),false);
+  calls.length=0;
+  const nativeText="새 버튼의 노출 위치가 불편해요";
+  await handleNativeFeedbackMessage({...context,key:"native-text-qa",source:"41.000001",thread:"41.000001"},`버그: ${nativeText}`);
+  const textWork=[...nativeWorkRows.values()].find(w=>w.actual===nativeText);
+  assert(textWork);
+  assert.equal(bugRows.get(textWork.work_key).questions.length,0);
+  assert.equal(calls.some(c=>c.body.text?.includes("비공개 접수")),false);
+  calls.length=0;
+  const countBeforePr=nativeWorkRows.size;
+  const prContext={...context,scope:{...scope,channelId:"CPO",userId:"UADMIN"},key:"draft-pr-guide",source:"42.000001",thread:"42.000001"};
+  const prView={private_metadata:"{}",state:{values:{pull_url:{value:{value:"https://github.com/Betalgeuse/ot1l/pull/95317"}}}}};
+  await submitPullRequestBinding(prContext,prView);
+  await submitPullRequestBinding({...prContext,key:"draft-pr-guide-retry"},prView);
+  assert.equal(nativeWorkRows.size,countBeforePr+1,"URL-only Draft intake and retry create exactly one work item");
+  assert.equal([...nativeWorkRows.values()].find(w=>w.pr_number===95317).release_stage,"시안 검토 중");
+  assert.equal(calls.some(c=>c.body.query?.includes("bug_admin_queue")||c.body.query?.includes("community_bind_pull_request")),false,"Draft intake never queues an implementation or merge");
 
   calls.length = 0;
   const fullSubmission = {

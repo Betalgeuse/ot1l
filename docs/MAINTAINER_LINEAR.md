@@ -1,29 +1,7 @@
-# Maintainer, Linear and retention
+# 과거 Linear 연동 기록
 
-Accepted 2026-10-05. Implementation and live acceptance are tracked separately.
+이 문서는 종료된 연동의 위치 안내입니다. 현재 운영·기여 기준은 [함께 만드는 흐름](CONTRIBUTION_FLOW.md)입니다.
 
-## Product contract
+작업과 담당자는 OT1L DB와 Slack에서 관리합니다. Linear 가입, 이슈 생성·담당 동기화, 주기적 회원 조회, webhook 상태 변경은 현재 작업 흐름에서 사용하지 않습니다. 오래된 Slack 연결 버튼은 새 진입점을 안내합니다.
 
-- Feedback starts in both freetalk-qna-feedback and Maintainer channels. One submission maps to one Linear OT1 issue and two shared Slack cards.
-- Maintainer authors default to themselves as human DRI. Reporter and DRI are distinct. Re-analysis never resets an explicitly changed assignee.
-- Linear Assignee is authoritative after issue creation. Slack assignment updates Linear and reads the result back; Linear changes refresh shared cards. Pending or failed writes are not reported as success.
-- AI is a delegate, not the human DRI. Existing implementation runner remains the single execution owner until an explicit cutover.
-- Founder approval appears in the Maintainer work thread. Core remains Founder-only; Open remains active Maintainer-or-Founder. DM reminders link to that same thread.
-- Enrollment is opt-in. Invite and verify every configured Maintainer channel, then activate the role. Linear Guest enrollment is separate and visibly pending until accepted.
-- Bot-managed membership may only affect the configured OT1 team. Never change DEV, workspace roles, or expose credentials. Paid invitation capacity is explicitly configured; default denies new seats.
-- `maintainers-retention` retains the old welcome workstream channel ID/history. It contains the versioned contributor start guide, questions, Q&A huddle requests and first-contribution OT requests. Public `welcome-start-here` stays separate.
-- Personal/security reports are not copied to public cards or Linear.
-- Every Maintainer channel has a value-first channel Canvas: what members gain, how to make a first contribution, examples, and where to ask for help. `maintainers-dev` is a human build studio, not a bot-status archive.
-- At 18:00 KST, the Maintainer channel asks for ideas, learning interests, activities and help requests with the same work-proposal entry point. This is distinct from the general member feedback prompt.
-
-## Acceptance
-
-Required: an ordinary operator account clicks real signed Slack buttons in both entry channels; one real Linear issue is created per submission; author assignment, reassignment in both directions, enrollment retries and Core denial are verified. Read back actual channel membership, Linear team/role, shared cards, guide publication and deployment health. Record gaps instead of equating mock checks with live acceptance.
-
-## Current implementation status
-
-- Live channel is `maintainers-retention`, preserving the previous channel ID and history.
-- Live workstreams are `maintainers-dev`, `maintainers-design`, and `maintainers-retention`. Their channel Canvases and the pinned retention guide are source-owned and must be published and read back after changes.
-- The Core implementation now contains OT1-only issue creation, human DRI assignment and handoff, Guest enrollment with a configured seat cap, signed Linear webhooks, two Slack status surfaces, channel-based Founder approval, retention requests, and a read-only public projection.
-- A private OT1L OAuth application exists with Issue/User/Agent Session/Permission Change webhooks. App-actor credentials still need to replace the temporary founder-attributed issue credential before app identity can be called live.
-- A new real work item is still required to live-verify the post-deployment DRI selector and two-card Linear synchronization; synthetic block checks do not close that acceptance item.
+과거 테이블·이슈 링크는 검토 이력을 잃지 않도록 보존합니다. 보존된 키나 행이 활성 연동을 뜻하지 않습니다. 과거 구현과 검토 기록은 Git 이력에서 확인할 수 있습니다. 외부 앱의 자격증명 철회는 운영자가 별도로 확인하며 원문·사람 댓글을 임의로 삭제하지 않습니다.

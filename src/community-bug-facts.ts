@@ -15,7 +15,7 @@ const SENSITIVE_PATTERNS = [
   /\bAKIA[A-Z0-9]{16}\b/gu,
   /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/giu,
   /(?<!\d)(?:\+?82[- .]?)?0?1[016789][- .]?\d{3,4}[- .]?\d{4}(?!\d)/gu,
-  /(?:api[_ -]?key|access[_ -]?token|refresh[_ -]?token|token|secret|password|passwd|비밀번호|암호|토큰)(?:\s*[:=]\s*|\s+)[^\s,;]+/giu,
+  /(?:api[_ -]?key|access[_ -]?token|refresh[_ -]?token|token|secret|password|passwd|비밀번호|암호|토큰)\s*[:=]\s*[^\s,;]+/giu,
 ] as const;
 
 export type BugCandidate = {

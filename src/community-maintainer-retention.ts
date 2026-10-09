@@ -54,18 +54,6 @@ export function maintainerWorkGuide() {
           },
           poSpecialtyButton(),
           summonPoButton(),
-          {
-            type: "button",
-            text: { type: "plain_text", text: "Linear 연결" },
-            action_id: "community_maintainer_linear_connect",
-            value: JSON.stringify({ ownerId: "actor", key: "linear-connect" }),
-          },
-          {
-            type: "button",
-            text: { type: "plain_text", text: "연결 현황" },
-            action_id: "community_maintainer_linear_members",
-            value: JSON.stringify({ ownerId: "actor", key: "linear-members" }),
-          },
         ],
       },
     ],

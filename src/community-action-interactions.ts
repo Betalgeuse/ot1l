@@ -204,7 +204,11 @@ export async function handleCommunityAction(input: ActionInteraction): Promise<R
     return new Response(null, { status: 200 });
   }
   if (input.id === "community_pull_request_open") {
-    await openPullRequestBindingModal(context, string(input.data.trigger_id));
+    await openPullRequestBindingModal(
+      context,
+      string(input.data.trigger_id),
+      key.startsWith("BUG-") ? key : undefined,
+    );
     return new Response(null, { status: 200 });
   }
   if (input.id === "community_feedback_dri_select") {

@@ -225,7 +225,7 @@ export function parseBugReportModal(input: unknown): ModalResult {
     ]),
   );
   const errors: Record<string, string> = {};
-  if (!fields.actual) errors.actual = "실제로 관찰한 결과를 적어 주세요.";
+  if (!fields.actual) errors.actual = "의견이나 요청을 한 줄 이상 적어 주세요.";
   if (fields.actual && fields.actual.length > 1000) errors.actual = "1,000자 이내로 적어 주세요.";
   const steps =
     fields.steps

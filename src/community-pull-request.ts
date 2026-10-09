@@ -1,3 +1,12 @@
+import { bugCandidate } from "./community-bug-facts";
+import { startBugReport } from "./community-bug-start";
+import { fallbackFeedbackAnalysis } from "./community-feedback";
+import { MaintainerOpsStore } from "./community-maintainer-store";
+import {
+  refreshMaintainerWorkSurfaces,
+  setMaintainerWorkReleaseStage,
+} from "./community-maintainer-work";
+import { notificationThread } from "./community-notification-thread";
 import { type CommunityContext, ephemeral } from "./community-runtime";
 import { callSlack } from "./community-social";
 import { InputError, list, object, string } from "./input";
@@ -23,6 +32,7 @@ function metadata(context: CommunityContext): string {
 export async function openPullRequestBindingModal(
   context: CommunityContext,
   triggerId: string,
+  workKey?: string,
 ): Promise<void> {
   const status = await context.store.maintainerStatus(context.scope.teamId, context.scope.userId);
   if (status?.state !== "active" && context.scope.userId !== context.env.COMMUNITY_ADMIN_ID)
@@ -32,19 +42,18 @@ export async function openPullRequestBindingModal(
     view: {
       type: "modal",
       callback_id: "community_pull_request_submit",
-      private_metadata: metadata(context),
+      private_metadata: JSON.stringify({ ...JSON.parse(metadata(context)), workKey }),
       title: { type: "plain_text", text: "내 PR 연결하기" },
       submit: { type: "plain_text", text: "검증 요청" },
       close: { type: "plain_text", text: "취소" },
       blocks: [
         {
-          type: "input",
-          block_id: "work_key",
-          label: { type: "plain_text", text: "po-work 버그 키" },
-          element: {
-            type: "plain_text_input",
-            action_id: "value",
-            placeholder: { type: "plain_text", text: "BUG-…" },
+          type: "section",
+          text: {
+            type: "plain_text",
+            text: workKey
+              ? "이 작업에 PR을 연결합니다. Draft PR은 시안 검토로만 접수하며 병합하지 않습니다."
+              : "PR 주소만 붙여 넣으면 작업 카드가 생깁니다. Draft PR은 시안 검토로만 접수합니다.",
           },
         },
         {
@@ -63,10 +72,29 @@ function modalValue(view: Record<string, unknown>, blockId: string): string {
   return string(object(block.value).value).trim();
 }
 
+export function pullRequestFormErrors(
+  view: Record<string, unknown>,
+): Readonly<Record<string, string>> | null {
+  try {
+    const match = PULL_URL.exec(modalValue(view, "pull_url"));
+    if (match && Number.isSafeInteger(Number(match[1]))) return null;
+  } catch {
+    // Keep malformed or missing input in the modal, before any external request.
+  }
+  return { pull_url: "https://github.com/Betalgeuse/ot1l/pull/번호 형식의 PR 주소를 넣어 주세요." };
+}
+
 export async function readOpenPullRequest(
   pullUrl: string,
   request: typeof fetch = fetch,
-): Promise<{ number: number; headSha: string; headRepository: string; paths: string[] }> {
+): Promise<{
+  number: number;
+  headSha: string;
+  headRepository: string;
+  paths: string[];
+  title: string;
+  draft: boolean;
+}> {
   const match = PULL_URL.exec(pullUrl);
   if (!match)
     throw new InputError(
@@ -111,6 +139,8 @@ export async function readOpenPullRequest(
   if (/rel="next"/.test(link)) throw new InputError("변경 파일이 100개를 넘어 연결할 수 없어요.");
   return {
     number,
+    title: typeof pull.title === "string" ? pull.title.slice(0, 1000) : `PR #${number}`,
+    draft: pull.draft === true,
     headSha,
     headRepository: string(repository.full_name),
     paths: files.map((file) => string(object(file).filename)).sort(),
@@ -124,11 +154,53 @@ export async function submitPullRequestBinding(
   const status = await context.store.maintainerStatus(context.scope.teamId, context.scope.userId);
   if (status?.state !== "active" && context.scope.userId !== context.env.COMMUNITY_ADMIN_ID)
     throw new InputError("활성 Product Owner 또는 Founder만 PR을 연결할 수 있어요.");
-  const workKey = modalValue(view, "work_key").toUpperCase();
-  if (!/^BUG-[A-Z0-9]{8,32}$/.test(workKey))
-    throw new InputError("po-work 버그 키를 확인해 주세요.");
+  const privateMetadata = object(
+    JSON.parse(typeof view.private_metadata === "string" ? view.private_metadata : "{}"),
+  );
+  let workKey = typeof privateMetadata.workKey === "string" ? privateMetadata.workKey : "";
+  if (!workKey && object(object(view.state).values).work_key)
+    workKey = modalValue(view, "work_key");
   const pullUrl = modalValue(view, "pull_url");
   const pull = await readOpenPullRequest(pullUrl);
+  const store = new MaintainerOpsStore(context.env);
+  const existing = await store.execute("work_by_pr", { prNumber: pull.number });
+  if (!workKey && existing && typeof existing === "object" && !Array.isArray(existing))
+    workKey = string(object(existing).work_key);
+  if (!workKey) {
+    const actual = `PR #${pull.number} 검토 요청: ${pullUrl}`;
+    const expected = pull.title;
+    const messages = [
+      { id: "form:actual", text: actual, at: new Date().toISOString() },
+      { id: "form:expected", text: expected, at: new Date().toISOString() },
+    ];
+    const created = await startBugReport(
+      { ...context, key: `direct-pr:${pull.number}` },
+      {
+        messages,
+        candidates: [
+          bugCandidate("actual", "form:actual", actual),
+          bugCandidate("expected", "form:expected", expected),
+        ],
+      },
+      fallbackFeedbackAnalysis({ actual, expected }),
+      "manual",
+    );
+    workKey = created.draft.bugId;
+  }
+  if (!/^BUG-[A-Z0-9]{8,32}$/.test(workKey)) throw new InputError("연결할 작업을 확인해 주세요.");
+  if (!(await store.getWork(workKey))) throw new InputError("연결할 작업을 찾을 수 없어요.");
+  await store.execute(
+    "work_pr",
+    { workKey, prNumber: pull.number, prUrl: pullUrl },
+    context.scope.userId,
+  );
+  if (pull.draft) {
+    await setMaintainerWorkReleaseStage(context.env, workKey, "시안 검토 중");
+    await ephemeral(context, {
+      text: `Draft PR #${pull.number}을 시안 검토로 연결했어요. 자동 병합·배포는 시작하지 않습니다.`,
+    });
+    return;
+  }
   const pathsDigest = await sha256Hex(JSON.stringify(pull.paths));
   const result = object(
     await new NeonStore(context.env.DATABASE_URL).queryJson(
@@ -152,6 +224,48 @@ export async function submitPullRequestBinding(
         ? "봇이 이미 수정 중이에요. 실행이 끝난 뒤 PR을 연결해 주세요."
         : "이미 검증·승인 중인 PR이 있거나, 연결할 수 없는 작업이에요.",
     );
+  if (result.headShaChanged === true) {
+    const work = await store.getWork(workKey);
+    const channel = context.env.COMMUNITY_MAINTAINERS_CHANNEL_ID;
+    const surface = channel
+      ? await store.execute("surface_get", { workKey, channelId: channel })
+      : null;
+    const thread = typeof surface === "string" ? surface : work?.source_thread;
+    if (channel && typeof thread === "string") {
+      const replies = await notificationThread(context.env.SLACK_BOT_TOKEN, channel, thread);
+      for (const reply of replies ?? []) {
+        if (!reply.bot_id) continue;
+        const controls = list(reply.blocks ?? [])
+          .map(object)
+          .flatMap((block) => list(block.elements ?? []).map(object));
+        const outdated = controls.some((control) => {
+          if (
+            control.action_id !== "community_feedback_merge_approve" ||
+            typeof control.value !== "string"
+          )
+            return false;
+          try {
+            const binding = object(JSON.parse(control.value));
+            return (
+              binding.key === workKey &&
+              binding.prNumber === pull.number &&
+              binding.headSha !== pull.headSha
+            );
+          } catch {
+            return false;
+          }
+        });
+        if (outdated)
+          await callSlack(context.env.SLACK_BOT_TOKEN, "chat.update", {
+            channel,
+            ts: string(reply.ts),
+            text: "새 수정본을 검증하고 있어요. 이전 승인 버튼은 종료됐습니다.",
+            blocks: [],
+          });
+      }
+    }
+  }
+  await refreshMaintainerWorkSurfaces(context.env, workKey);
   await ephemeral(context, {
     text: `PR #${pull.number}을 ${workKey}에 연결했어요. 검사가 끝나면 po-work의 작업 스레드에 승인 버튼이 나타나요.`,
   });
