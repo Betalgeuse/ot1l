@@ -154,4 +154,15 @@ await elements["[data-configure]"].listeners.get("click")();
 assert.equal(browserCalls.length, callCount);
 assert.equal(elements["[data-status]"].textContent, "시작과 종료 시각은 30분 단위로 선택해 주세요.");
 
-console.log("PASS event schedule proxies signed requests and preserves half-hour starts through the calendar");
+const scheduleCss = readFileSync("site/dist/styles.css", "utf8");
+assert.match(scheduleCss, /--paper:#101713/);
+assert.match(scheduleCss, /--ink:#f3f1e8/);
+assert.match(scheduleCss, /color-scheme:dark/);
+assert.match(scheduleCss, /\.event-schedule-page\{background:var\(--paper\)/);
+assert.match(scheduleCss, /\.event-schedule-header\{[^}]*background:var\(--paper-preview\)/);
+assert.match(scheduleCss, /\.event-config-grid input,[^{]+\{[^}]*background:var\(--paper\);color:var\(--ink\)/);
+assert.match(scheduleCss, /\.event-slot\{[^}]*background:var\(--paper\);color:var\(--ink\)/);
+assert.doesNotMatch(scheduleCss, /\.event-schedule-page\{[^}]*#f5f1e7/);
+assert.doesNotMatch(scheduleCss, /\.event-(?:schedule-header|config|grid-wrap|slot)[^{]*\{[^}]*(?:#fff|rgba\(255,255,255)/);
+
+console.log("PASS event schedule uses the shared dark design tokens and preserves schedule behavior");

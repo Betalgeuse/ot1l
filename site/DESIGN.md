@@ -4,7 +4,7 @@
 
 - Reference packet: studied the supplied editorial cadence: sticky navigation, numbered labels, thin rules, large chapters, a rail-and-reading-column rhythm, and its mobile collapse. It is a grammar reference only; no source copy, palette, names, typeface, copy, artwork, or layout asset is reused.
 - Product source: `docs/PRODUCT_PRINCIPLES.md` anchors the story in a concrete daily practice, honest peer support, and a return path without guilt.
-- Direction: **a field notebook becoming a garden.** Warm paper and forest ink make the site feel like a durable record; a single soft leaf-green field signals practice becoming visible. The memorable moment is the four square cells filling from a 10:00 intention into an 18:00 reflection.
+- Direction: **a field notebook becoming a garden.** Deep forest paper and warm ink make the site feel like a durable nighttime record; a restrained leaf-green field signals practice becoming visible. The memorable moment is the four square cells filling from a 10:00 intention into an 18:00 reflection.
 
 ## 0.1 Daily-thread redesign plan
 
@@ -22,16 +22,16 @@ The visitor path is deliberately short: promise, daily rhythm, trusted peers, re
 
 | Role | Token | Value |
 | --- | --- | --- |
-| Paper | `--paper` | `#f3f1e8` |
-| Ink | `--ink` | `#16231e` |
-| Night | `--night` | `#17231f` |
-| Mist | `--mist` | `#d9ded5` |
-| Leaf | `--leaf` | `#b9d885` |
-| Rule | `--rule` | `rgba(22, 35, 30, .32)` |
-| Return field | `--return-field` | `#d8ddd4` |
-| Preview paper | `--paper-preview` | `#fffdf5` |
-| Focus ink | `--focus-ink` | `#387149` |
-| Muted UI ink | `--ink-muted` / `--ink-subtle` | `#43534b` / `#526158` |
+| Paper | `--paper` | `#101713` |
+| Ink | `--ink` | `#f3f1e8` |
+| Night | `--night` | `#080d0b` |
+| Mist | `--mist` | `#b9c3ba` |
+| Leaf | `--leaf` | `#294835` |
+| Rule | `--rule` | `rgba(243, 241, 232, .26)` |
+| Return field | `--return-field` | `#1c2922` |
+| Preview paper | `--paper-preview` | `#17211c` |
+| Focus ink | `--focus-ink` | `#9bcf82` |
+| Muted UI ink | `--ink-muted` / `--ink-subtle` | `#b8c2b9` / `#9eaaa1` |
 | Inverse rule | `--rule-inverse` / `--rule-inverse-strong` | paper at 40% / 50% |
 | Sans | `--sans` | system Korean UI stack |
 | Display | `--display` | Georgia and Korean serif fallbacks |
@@ -66,7 +66,7 @@ The nav collapses at 760px, chapter typography scales through `clamp()`, the bra
 
 ## 6. Reactions and member invitation
 
-The homepage keeps the notebook's paper, forest ink, leaf field, thin rules, and square edges. New reaction and preview chapters use the same primitives. The reaction imagery is an absolute, transparent layer behind the leaf chapter copy. It contributes no layout height, border, fill, or pointer target; each sprite fades to zero before reaching the section edge. A transparent mask quiets motion under the copy, preserving contrast without a backing panel. Eight screened Slack custom assets with verified transparent alpha are shipped locally. The opaque blue completion tile and white-backed cat are excluded. GIFs appear only in the active rise layer. Static, real PNG assets make the six-image reduced-motion and no-script composition. No member photo enters the site.
+The homepage keeps the notebook's deep forest paper, warm ink, leaf field, thin rules, and square edges. New reaction and preview chapters use the same primitives. The reaction imagery is an absolute, transparent layer behind the leaf chapter copy. It contributes no layout height, border, fill, or pointer target; each sprite fades to zero before reaching the section edge. A transparent mask quiets motion under the copy, preserving contrast without a backing panel. Eight screened Slack custom assets with verified transparent alpha are shipped locally. The opaque blue completion tile and white-backed cat are excluded. GIFs appear only in the active rise layer. Static, real PNG assets make the six-image reduced-motion and no-script composition. No member photo enters the site.
 
 The member chapter places nine approved affiliation marks directly below its promise. Two identical groups create a continuous leftward loop; the second group is hidden from assistive technology, hover pauses the movement, and reduced-motion users receive one horizontally scrollable static group. The local assets come from each organization's official site: SNU CALS, SNU College of Engineering, SNU Business School, Baemin, POSTECH UI Guide, KAIST UI, Visang Education, Samsung Brand Identity, and Chonnam National University Medical School. Transparent padding is cropped without changing the marks themselves.
 
@@ -78,4 +78,4 @@ The rise layer moves only by `transform` and `opacity`, with a bounded random ne
 
 The invitation chapter uses the owner's exact spoken invitation and depicts a member-specific `/r/` link without making a shared link. The interest callout describes an optional private inquiry. The Worker renders its square, outlined link only when `PUBLIC_INTEREST_ENABLED=true`; otherwise it remains a non-interactive readiness label. The dedicated `/interest` page reuses the referral page's paper-and-leaf editorial grid, labelled controls, focus treatment, and mobile collapse. The closing chapter uses the one fictional Day 1–Day 4 production board PNG on both homepage and referral page. Its first three cells are complete and checked; Day 4 remains the renderer's future empty cell.
 
-New homepage primitives: a transparent `reaction-stage` layer, `daily-thread`/`daily-row`, `daily-garden`, `invitation-note`, and `collective-board`. They preserve the existing 1240px container and collapse into reading order below 760px. The preview paper tint `#fffdf5` keeps the board image readable without replacing it with CSS illustration. Message rows use a 180ms opacity/transform transition; reduced motion removes it.
+New homepage primitives: a transparent `reaction-stage` layer, `daily-thread`/`daily-row`, `daily-garden`, `invitation-note`, and `collective-board`. They preserve the existing 1240px container and collapse into reading order below 760px. The preview paper tint `#17211c` keeps the board image readable without replacing it with CSS illustration. Message rows use a 180ms opacity/transform transition; reduced motion removes it.
