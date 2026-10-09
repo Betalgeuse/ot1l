@@ -26,6 +26,12 @@ for (const source of [
   'const role = "owner";',
   'const email = "person@example.test";',
   'const broker = "runner";',
+  'export const TEXT = globalThis["fe" + "tch"]("https://example.test");',
+  'export const TEXT = { get title() { return "oops"; } };',
+  'export const TEXT = { ["ti" + "tle"]: "oops" };',
+  'export const TEXT = { __proto__: { value: "oops" } };',
+  'export const TEXT = (() => "oops")();',
+  'export const TEXT = { ...other };',
 ]) {
   assert.throws(
     () => assertOpenPresentationBoundary([presentation], () => source),
@@ -37,7 +43,7 @@ assert.equal(classifyChangePaths(["src/slack-presentation.ts"]).changeClass, "co
 assert.equal(classifyChangePaths(["src/slack-presentation/nested/file.ts"]).changeClass, "core");
 assert.equal(classifyChangePaths([presentation, "src/index.ts"]).changeClass, "core");
 assert.deepEqual(classifyChangePaths([presentation, "qa/example.mjs"]), {
-  changeClass: "core",
+  changeClass: "open",
   adapter: "core-worker",
   paths: ["qa/example.mjs", presentation],
 });

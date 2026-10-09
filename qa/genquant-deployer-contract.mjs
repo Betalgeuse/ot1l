@@ -8,8 +8,9 @@ import {
   validateDeployerConfig,
   verifyApprovedPaths,
   deploymentRange,
+  executeDeploymentPlan,
 } from "../automation/runner/genquant-deployer.mjs";
-import { classifyChangePaths } from "../automation/runner/change-policy.mjs";
+import { approvalDigest, classifyChangePaths } from "../automation/runner/change-policy.mjs";
 import { sha256 } from "../automation/runner/contract.mjs";
 import {
   applyForwardMigrations,
@@ -28,14 +29,14 @@ assert.deepEqual(classifyRunnerDeploymentPaths([
 ]), {
   automatic: true,
   changeClass: "open",
-  adapter: "open-events",
+  adapter: "production",
   paths: ["event-site/src/index.ts", "site/dist/event-schedule.js"],
 });
 assert.equal(classifyRunnerDeploymentPaths(["src/community-townhall-events.ts"]).adapter, "core-worker");
-assert.equal(classifyRunnerDeploymentPaths(["package.json"]).adapter, "core-worker");
+assert.equal(classifyRunnerDeploymentPaths(["package.json"]).adapter, "production");
 assert.equal(classifyRunnerDeploymentPaths(["migrations/082_forward.sql"]).adapter, "production");
-assert.equal(classifyRunnerDeploymentPaths(["site/src/index.ts"]).adapter, "production");
-assert.equal(classifyRunnerDeploymentPaths(["design-preview/index.html"]).adapter, "manual");
+assert.equal(classifyRunnerDeploymentPaths(["site/src/index.ts"]).adapter, "site-worker");
+assert.equal(classifyRunnerDeploymentPaths(["design-preview/index.html"]).adapter, "repository");
 assert.equal(classifyRunnerDeploymentPaths(["src/index.ts","automation/runner/genquant-runner.mjs","CONTRIBUTING.md"]).adapter,"production");
 assert.deepEqual(deploymentRange("/repo","a".repeat(40),"main",(_bin,args) => {
   if(args[0] === "rev-parse") return "a".repeat(40);
@@ -69,11 +70,9 @@ assert.throws(() => migrationConnection("postgresql://postgres:secret@test.neon.
 const policy = classifyRunnerDeploymentPaths(["migrations/082_forward.sql", "src/index.ts"]);
 const digest = classificationDigest(policy);
 const runnerPolicy = classifyChangePaths(["migrations/082_forward.sql", "src/index.ts"]);
-assert.equal(digest, sha256(JSON.stringify({
-  version: 1,
-  changeClass: runnerPolicy.changeClass,
-  paths: runnerPolicy.paths,
-})));
+assert.equal(digest, approvalDigest(runnerPolicy));
+const oldDigest = sha256(JSON.stringify({version:1,changeClass:policy.changeClass,paths:policy.paths}));
+assert.throws(() => verifyApprovedPaths({changedPaths:policy.paths,classificationDigest:oldDigest},policy), /approved_paths_mismatch/);
 verifyApprovedPaths({ changedPaths: policy.paths, classificationDigest: digest }, policy);
 assert.throws(() => verifyApprovedPaths({ changedPaths: ["src/index.ts"], classificationDigest: digest }, policy),
   /approved_paths_mismatch/);
@@ -83,6 +82,23 @@ const bootstrapPolicy = classifyRunnerDeploymentPaths([
 ]);
 verifyApprovedPaths({}, bootstrapPolicy, "085");
 assert.throws(() => verifyApprovedPaths({}, policy, "085"), /approved_paths_mismatch/);
+
+const deploymentCalls = [];
+const deploymentActions = Object.fromEntries(["migrations", "core-worker", "site-worker", "open-events", "runner"].map(target =>
+  [target, () => { deploymentCalls.push(target); return {verified:target}; }]));
+const designPaths = ["site/DESIGN.md", "site/dist/styles.css", "site/qa/event-schedule.mjs"];
+assert.deepEqual(Object.keys(executeDeploymentPlan(designPaths, deploymentActions)), ["site-worker", "open-events"]);
+assert.deepEqual(deploymentCalls, ["site-worker", "open-events"]);
+deploymentCalls.length = 0;
+executeDeploymentPlan([...designPaths, "src/slack-presentation/product-owner-approval.ts"], deploymentActions);
+assert.deepEqual(deploymentCalls, ["core-worker", "site-worker", "open-events"]);
+deploymentCalls.length = 0;
+assert.deepEqual(executeDeploymentPlan(["docs/ARCHITECTURE.md", "design-preview/index.html"], deploymentActions), {});
+assert.deepEqual(deploymentCalls, [], "docs and previews must not restart a server or deploy a Worker");
+assert.throws(() => executeDeploymentPlan(designPaths, {...deploymentActions,
+  "site-worker": () => { throw Error("health_failed"); }}), /health_failed/);
+assert.deepEqual(deploymentCalls, [], "failed site deployment must not become a successful combined receipt");
+assert.throws(() => executeDeploymentPlan(designPaths, {...deploymentActions,"site-worker":()=>null}), /missing_deployment_receipt/);
 
 const checkout = mkdtempSync(join(tmpdir(), "otl1-migration-"));
 mkdirSync(join(checkout, "migrations"));

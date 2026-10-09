@@ -6,6 +6,8 @@ import {
   assertOpenPresentationBoundary,
   classifyChangePaths,
   includesMigration,
+  deploymentTargets,
+  approvalDigest,
 } from "./change-policy.mjs";
 import { githubRepositorySlug, sha256 } from "./contract.mjs";
 import { applyForwardMigrations, migrationConnection } from "./migration-deployer.mjs";
@@ -113,15 +115,33 @@ function deploySite(checkout, config) {
     timeout: 10 * 60_000,
     env: { ...process.env, CLOUDFLARE_API_TOKEN: config.CLOUDFLARE_API_TOKEN },
   });
+  const deployments = JSON.parse(command(join(checkout, "node_modules/.bin/wrangler"),
+    ["deployments", "list", "--config", join(checkout, "site/.wrangler.production.json"), "--json"], {
+      cwd: checkout, env: { ...process.env, CLOUDFLARE_API_TOKEN: config.CLOUDFLARE_API_TOKEN },
+    }));
+  const version = deployments.at(-1)?.versions?.find(item => item.percentage === 100)?.version_id;
+  if (typeof version !== "string" || !/^[0-9a-f-]{36}$/.test(version)) throw new Error("site_worker_version_missing");
   const health = JSON.parse(command("curl", ["-fsS", config.BUG_DEPLOY_SITE_HEALTH_URL], {
     timeout: 30_000,
   }));
   if (health.status !== "ok") throw new Error("site_health_failed");
-  return health;
+  return { version, health };
 }
 
 export function classificationDigest(policy) {
-  return sha256(JSON.stringify({ version: 1, changeClass: policy.changeClass, paths: policy.paths }));
+  return approvalDigest(policy);
+}
+
+// Execute exactly the approved product destinations, regardless of the actor's
+// role. A failed destination prevents a successful completion receipt.
+export function executeDeploymentPlan(paths, actions) {
+  const receipts = {};
+  for (const target of deploymentTargets(paths)) {
+    if (typeof actions[target] !== "function") throw new Error(`missing_deployment_target_${target}`);
+    receipts[target] = actions[target]();
+    if (receipts[target] == null) throw new Error(`missing_deployment_receipt_${target}`);
+  }
+  return receipts;
 }
 
 export function verifyApprovedPaths(claim, policy, bootstrapMigration) {
@@ -204,14 +224,14 @@ export function deploymentRange(checkout, mergeSha, baseBranch, execute = comman
   });
   if (dirty) throw new Error("tracked_checkout_dirty");
   const current = execute("git", ["rev-parse", "HEAD"], { cwd: checkout });
-  const approvedPaths = execute("git", ["diff", "--name-only", `${mergeSha}^`, mergeSha], { cwd: checkout }).split("\n").filter(Boolean);
+  const approvedPaths = execute("git", ["diff", "--no-renames", "--name-only", `${mergeSha}^`, mergeSha], { cwd: checkout }).split("\n").filter(Boolean);
   if (current === mergeSha) return { current, paths: approvedPaths };
   try {
     execute("git", ["merge-base", "--is-ancestor", current, mergeSha], { cwd: checkout });
   } catch {
     throw new Error("checkout_not_exact_ancestor");
   }
-  const paths = execute("git", ["diff", "--name-only", current, mergeSha], { cwd: checkout })
+  const paths = execute("git", ["diff", "--no-renames", "--name-only", current, mergeSha], { cwd: checkout })
     .split("\n")
     .filter(Boolean);
   return { current, paths };
@@ -266,7 +286,7 @@ export async function deployOnce(environment = process.env) {
     if (deployedSha !== mergeSha) throw new Error("deployed_sha_mismatch");
     if (policy.paths.some(path => path === "package.json" || path === "bun.lock"))
       command("bun", ["install", "--frozen-lockfile", "--ignore-scripts"], {cwd:checkout,timeout:180_000});
-    const deployedPaths = command("git", ["diff", "--name-only", range.current === deployedSha ? `${deployedSha}^` : range.current, deployedSha], {
+    const deployedPaths = command("git", ["diff", "--no-renames", "--name-only", range.current === deployedSha ? `${deployedSha}^` : range.current, deployedSha], {
       cwd: checkout,
     })
       .split("\n")
@@ -280,69 +300,30 @@ export async function deployOnce(environment = process.env) {
     let workerVersion;
     let environmentEvidence;
     let observationEvidence;
-    if (policy.adapter === "production") {
-      const migrations = applyForwardMigrations(
-        checkout, policy.paths, config.OTL1_MIGRATION_DATABASE_URL,
-      );
-      const worker = deployCoreWorker(checkout, config);
-      const siteHealth = policy.paths.some(path => path.startsWith("site/")) ? deploySite(checkout, config) : null;
-      const events = policy.paths.some(path => path.startsWith("event-site/")) ? deployOpenEvents(checkout, config) : null;
-      if (policy.paths.some(path => path.startsWith("automation/runner/") || path.startsWith("ops/genquant/"))) {
-        command("systemctl", ["--user", "restart", config.BUG_DEPLOY_SERVICE]);
-        if (command("systemctl", ["--user", "is-active", config.BUG_DEPLOY_SERVICE]) !== "active") throw new Error("service_not_active");
-      }
-      workerVersion = worker.version;
-      environmentEvidence = {
-        host: "genquant", checkout, mergeSha, deployedSha, adapter: policy.adapter,
-        migrations, workerVersion,
-      };
-      observationEvidence = {
-        migrationReadback: migrations, coreHealth: worker.health.status,
-        ...(siteHealth ? {siteHealth:siteHealth.status} : {}),
-        ...(events ? {eventsHealth:events.health.status,eventsVersion:events.version} : {}),
-      };
-    } else if (policy.adapter === "open-events" || policy.adapter === "core-worker") {
-      const worker = policy.adapter === "open-events"
-        ? deployOpenEvents(checkout, config)
-        : deployCoreWorker(checkout, config);
-      workerVersion = worker.version;
-      environmentEvidence = {
-        host: "genquant",
-        checkout,
-        mergeSha,
-        deployedSha,
-        adapter: policy.adapter,
-        workerVersion,
-      };
-      observationEvidence = { health: worker.health.status, configured: worker.health.configured };
-    } else {
-      command("bun", ["qa/genquant-runner-contract.mjs"], { cwd: checkout, timeout: 180_000 });
-      command("systemctl", ["--user", "restart", config.BUG_DEPLOY_SERVICE], { timeout: 30_000 });
-      const active = command("systemctl", ["--user", "is-active", config.BUG_DEPLOY_SERVICE]);
-      if (active !== "active") throw new Error("service_not_active");
-      const expectedBranch = `feedback/ot1-${jobId}-`;
-      const branchProbe = command(
-        "node",
-        [
-          "--input-type=module",
-          "-e",
-          `import {buildFixBranch} from './automation/runner/contract.mjs'; console.log(buildFixBranch(${JSON.stringify(claim.publicAlias)},${jobId}))`,
-        ],
-        { cwd: checkout },
-      );
-      if (!branchProbe.startsWith(expectedBranch)) throw new Error("branch_probe_failed");
-      environmentEvidence = {
-        host: "genquant",
-        checkout,
-        mergeSha,
-        deployedSha,
-        adapter: "runner",
-        service: config.BUG_DEPLOY_SERVICE,
-        active,
-      };
-      observationEvidence = { contract: "genquant-runner-contract", branchProbe };
-      workerVersion = randomUUID();
-    }
+    const receipts = executeDeploymentPlan(policy.paths, {
+      migrations: () => applyForwardMigrations(checkout, policy.paths, config.OTL1_MIGRATION_DATABASE_URL),
+      "core-worker": () => deployCoreWorker(checkout, config),
+      "site-worker": () => deploySite(checkout, config),
+      "open-events": () => deployOpenEvents(checkout, config),
+      runner: () => {
+        // The candidate check already ran without credentials in bubblewrap.
+        // Never run candidate test code in the credential-bearing host process.
+        command("systemctl", ["--user", "restart", config.BUG_DEPLOY_SERVICE], { timeout: 30_000 });
+        const active = command("systemctl", ["--user", "is-active", config.BUG_DEPLOY_SERVICE]);
+        if (active !== "active") throw new Error("service_not_active");
+        return { service: config.BUG_DEPLOY_SERVICE, active };
+      },
+    });
+    const versions = Object.values(receipts).flatMap(receipt => receipt.version ? [receipt.version] : []);
+    // Legacy DB field also stores non-Worker release receipt IDs. Explicitly
+    // distinguish those in the artifact; never report them as Worker versions.
+    workerVersion = versions[0] ?? randomUUID();
+    environmentEvidence = {
+      host: "genquant", checkout, mergeSha, deployedSha, adapter: policy.adapter,
+      targets: deploymentTargets(policy.paths),
+      ...(versions.length ? { workerVersions: versions } : { releaseReceiptId: workerVersion }),
+    };
+    observationEvidence = { receipts, repositorySha: deployedSha };
     const result = await db("bug_runner_finish_deployment", {
       teamId: config.SLACK_TEAM_ID,
       bugId: claim.bugId,
@@ -357,9 +338,9 @@ export async function deployOnce(environment = process.env) {
       observationReceipt: sha256(JSON.stringify(observationEvidence)),
       liveArtifacts: JSON.stringify({ environmentEvidence, observationEvidence }),
       summary:
-        policy.adapter === "open-events" || policy.adapter === "core-worker" || policy.adapter === "production"
-          ? `승인한 ${policy.adapter === "open-events" ? "Open" : "Core"} 변경 ${mergeSha.slice(0, 7)}을 Worker에 자동 배포하고 health를 확인했습니다.`
-          : `GenQuant runner를 ${mergeSha.slice(0, 7)}로 자동 배포하고 계약 테스트·서비스 active·OT1 브랜치 규칙을 확인했습니다.`,
+        policy.adapter === "repository"
+          ? `승인한 문서·검사·시안 변경 ${mergeSha.slice(0, 7)}을 저장소에 반영했습니다. 운영 Worker 변경이나 미리보기 게시는 없습니다.`
+          : `승인한 ${policy.changeClass === "open" ? "PO" : "보호 영역"} 변경 ${mergeSha.slice(0, 7)}을 ${Object.keys(receipts).join(", ")}에 반영하고 각 대상의 상태를 확인했습니다.`,
     });
     log("bug.deployer.deployed", { bugId: claim.bugId, changeId, mergeSha, workerVersion });
     return { claimed: true, deployed: true, result };

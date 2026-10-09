@@ -30,14 +30,33 @@ export function verifyBoundPullRequest(repository, repositorySlug, binding, runC
   runCommand("git", ["-C", repository, "fetch", "--no-tags", "origin", `pull/${binding.pr_number}/head`]);
   if (runCommand("git", ["-C", repository, "rev-parse", "FETCH_HEAD"]) !== binding.head_sha)
     throw new Error("bound pull fetched head changed");
+  assertCandidatePathScope(repository, binding.head_sha, paths, runCommand);
   assertOpenPresentationBoundary(paths, path => runCommand("git", ["-C", repository, "show", `${binding.head_sha}:${path}`]));
   verifyCandidateCheckout(repository, binding.head_sha, runCommand);
   verify(view());
   return classifyChangePaths(paths);
 }
 
+export function assertCandidatePathScope(repository, headSha, paths, runCommand) {
+  runCommand("git", ["-C", repository, "fetch", "--no-tags", "origin", "main"]);
+  const base = runCommand("git", ["-C", repository, "merge-base", headSha, "FETCH_HEAD"]);
+  if (!/^[a-f0-9]{40}$/.test(base)) throw new Error("candidate base missing");
+  const actual = runCommand("git", ["-C", repository, "diff", "--no-renames", "--name-only", base, headSha])
+    .split("\n").filter(Boolean).sort();
+  // GitHub's file list can describe only the destination of a rename. Never
+  // authorize removal of a protected source via an Open destination path.
+  if (JSON.stringify(actual) !== JSON.stringify([...paths].sort())) throw new Error("candidate effective paths mismatch");
+}
+
+export function assertCandidateFileModes(repository, headSha, runCommand) {
+  const tree = runCommand("git", ["-C", repository, "ls-tree", "-r", headSha]);
+  if (tree.split("\n").filter(Boolean).some(line => !/^(?:100644|100755) blob [a-f0-9]{40}\t/.test(line)))
+    throw new Error("candidate symlink or submodule forbidden");
+}
+
 export function verifyCandidateCheckout(repository, headSha, runCommand) {
   if (!/^[a-f0-9]{40}$/.test(headSha)) throw new Error("invalid candidate SHA");
+  assertCandidateFileModes(repository, headSha, runCommand);
   const directory = mkdtempSync(join(tmpdir(), "otl1-bound-pull-"));
   const worktree = join(directory, "checkout");
   try {

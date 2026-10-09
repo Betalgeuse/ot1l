@@ -105,7 +105,7 @@ function notificationText(input: Notification): string {
     .map((id) => `<@${id}>`)
     .join(" ");
   if (input.kind === "change_deployed") {
-    return `${mentions}\n운영 배포와 실제 동작 확인을 완료했어요! ✅\n${input.summary ?? "승인한 To-Be가 운영 환경에서 확인됐습니다."}`;
+    return `${mentions}\n승인한 변경의 반영을 완료했어요! ✅\n${input.summary ?? "상세 반영 결과는 작업 기록에서 확인해 주세요."}`;
   }
   if (input.kind === "change_merged")
     return `${mentions}\n수정안을 main에 병합했어요. 운영 배포와 실제 동작 확인을 기다리고 있습니다.\n${input.bugId}`;

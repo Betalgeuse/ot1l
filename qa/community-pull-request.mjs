@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { isolatedCheckArgs, verifyBoundPullRequest } from "../automation/runner/bound-pull.mjs";
+import { assertCandidateFileModes, assertCandidatePathScope, isolatedCheckArgs, verifyBoundPullRequest } from "../automation/runner/bound-pull.mjs";
 import { maintainerWorkGuide } from "../src/community-maintainer-retention.ts";
 import { readOpenPullRequest } from "../src/community-pull-request.ts";
 
@@ -39,6 +39,7 @@ const run = (binary, args) => {
       files: [{ path: "event-site/src/index.ts" }],
     });
   if (args.at(-1) === "FETCH_HEAD") return "a".repeat(40);
+  if (args.includes("diff")) return "event-site/src/index.ts";
   return "";
 };
 const classification = verifyBoundPullRequest(
@@ -53,6 +54,14 @@ const classification = verifyBoundPullRequest(
   run,
 );
 assert.equal(classification.changeClass, "open");
+assert.throws(() => assertCandidateFileModes("/repo", "a".repeat(40), () =>
+  `120000 blob ${"b".repeat(40)}\tsite/dist/assets/leak.png`), /symlink or submodule/);
+assert.throws(() => assertCandidateFileModes("/repo", "a".repeat(40), () =>
+  `160000 commit ${"b".repeat(40)}\tdesign-preview/submodule`), /symlink or submodule/);
+assert.doesNotThrow(() => assertCandidateFileModes("/repo", "a".repeat(40), () =>
+  `100644 blob ${"b".repeat(40)}\tsite/dist/styles.css`));
+assert.throws(() => assertCandidatePathScope("/repo", "a".repeat(40), ["docs/security.md"], (_binary,args) =>
+  args.includes("merge-base") ? "b".repeat(40) : args.includes("diff") ? "docs/security.md\nsrc/index.ts" : ""), /effective paths mismatch/);
 assert(calls.some(([binary, args]) => binary === "bwrap" && args.slice(-2).join(" ") === "run check"));
 assert(calls.some(([binary, args]) => binary === "git" && args.includes("worktree") && args.includes("add")));
 assert.equal(calls.some(([binary, args]) => binary === "git" && args.includes("checkout")), false);

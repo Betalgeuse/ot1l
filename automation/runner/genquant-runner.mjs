@@ -4,8 +4,8 @@ import { closeSync, constants, mkdtempSync, openSync, readFileSync, rmSync } fro
 import { lstat, mkdir, open, readFile, unlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { isAbsolute, join, resolve } from "node:path";
-import { assertOpenPresentationBoundary, classifyChangePaths } from "./change-policy.mjs";
-import { verifyBoundPullRequest, verifyCandidateCheckout } from "./bound-pull.mjs";
+import { approvalDigest, assertOpenPresentationBoundary, classifyChangePaths } from "./change-policy.mjs";
+import { assertCandidatePathScope, assertCandidateFileModes, verifyBoundPullRequest, verifyCandidateCheckout } from "./bound-pull.mjs";
 import {
   buildFixBranch,
   buildFixPrompt,
@@ -323,6 +323,7 @@ async function fixTaskArtifact(config, lease, taskId, runId) {
       "-C",
       worktree,
       "diff",
+      "--no-renames",
       "--name-only",
       lease.baseSha,
       headSha,
@@ -457,13 +458,13 @@ async function processApprovedMerge(db, config, workerId) {
       throw new Error("merge candidate identity invalid");
     const repository = await ensureRepository(config.BUG_RUNNER_ROOT, config.CODEX_REPOSITORY_URL);
     fetchApprovedPullRequestHead(repository, viewedPrNumber, claim.headSha);
+    assertCandidatePathScope(repository, claim.headSha, paths, command);
+    assertCandidateFileModes(repository, claim.headSha, command);
     const classification = classifyChangePaths(paths);
     if (
       classification.changeClass !== claim.changeClass ||
       JSON.stringify(paths) !== JSON.stringify([...(claim.changedPaths ?? [])].sort()) ||
-      sha256(
-        JSON.stringify({ version: 1, changeClass: classification.changeClass, paths }),
-      ) !== claim.classificationDigest
+      approvalDigest(classification) !== claim.classificationDigest
     )
       throw new Error("merge candidate paths differ from approved classification");
     assertOpenPresentationBoundary(paths, (path) =>
@@ -511,7 +512,7 @@ async function processBoundPullRequest(db, config, workerId) {
   try {
     const repository = await ensureRepository(config.BUG_RUNNER_ROOT, config.CODEX_REPOSITORY_URL);
     const classification = verifyBoundPullRequest(repository, githubRepositorySlug(config.CODEX_REPOSITORY_URL), binding, command);
-    const classificationDigest = sha256(JSON.stringify({ version: 1, changeClass: classification.changeClass, paths: classification.paths }));
+    const classificationDigest = approvalDigest(classification);
     await db("bug_runner_finish_bound_pull", { ...identity, headSha: binding.head_sha, changedPaths: classification.paths,
       changeClass: classification.changeClass, classificationDigest });
     log("bug.runner.bound_pull_verified", { bindingId: identity.bindingId });
@@ -625,13 +626,7 @@ async function processOne(config) {
         summary,
       });
       const classification = classifyChangePaths(fix.paths);
-      const classificationDigest = sha256(
-        JSON.stringify({
-          version: 1,
-          changeClass: classification.changeClass,
-          paths: classification.paths,
-        }),
-      );
+      const classificationDigest = approvalDigest(classification);
       await db("bug_runner_classify_change", {
         teamId: config.SLACK_TEAM_ID,
         prNumber: fix.prNumber,

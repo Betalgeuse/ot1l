@@ -155,9 +155,11 @@ cd /tmp/otl1-public-review && bun run check
 
 승인자가 정확한 SHA를 승인하면 `otl1-bug-deployer.timer`가 병합된 SHA를 DB lease로 가져옵니다. `automation/runner/change-policy.mjs`가 변경 경로 전체를 다시 분류하고, 현재 checkout이 승인 SHA의 정확한 조상일 때만 fast-forward합니다.
 
-- `event-site/**`와 이벤트 시간표 allowlist는 `open-events` adapter로 `otl1-time`을 배포합니다.
-- `src/**`, 루트 Worker 설정·검사 경로는 `core-worker` adapter로 분류하며 Founder 승인 뒤 `otl1-onething-garden`을 배포합니다.
-- runner·운영 파일만 바뀐 경우 runner 계약 검사와 systemd 서비스 재시작을 수행합니다.
-- migration·일반 site·Core·runner·가이드의 알려진 경로 조합은 Core `production` adapter로 처리합니다. migration → Core → 해당되는 site/event → runner 순서를 지킵니다. `design-preview/**` 및 알 수 없는 경로는 자동 운영 배포하지 않습니다.
+- 승인 등급과 배포 대상은 별도입니다. Open 제품 영역끼리 섞여도 PO 승인으로 끝나며 Core Worker도 표시 데이터 변경이면 PO가 배포합니다. 보호 경로가 하나라도 있으면 Founder 검토를 유지합니다.
+- `deploymentTargets`는 migration → Core → site → event → runner 순서에서 실제 소비자만 선택합니다. 공용 CSS와 이벤트 화면 자산은 site와 event 모두 배포합니다. 두 번째 대상이 실패해도 전체 성공으로 기록하지 않습니다.
+- 제품 문서·일반 QA·독립 시안은 `repository` adapter입니다. 저장소 SHA 반영만 기록하고 Worker 배포·서비스 재시작·미리보기 게시를 하지 않습니다. Draft PR은 병합하지 않습니다.
+- runner 재시작 전 검사도 비밀 없는 bubblewrap에서 수행합니다. 배포 호스트에서 후보 QA를 운영 비밀과 함께 실행하지 않습니다. symlink/submodule 후보는 거부하고 rename 이전 경로를 누락한 승인도 거부합니다.
+- 승인 digest v2는 역할 등급·파일 목록뿐 아니라 adapter와 대상 목록을 포함합니다. 새 정책을 설치할 때 기존 대기 요청을 재검증해야 합니다. 이전 승인으로 넓어진 배포 범위를 몰래 실행하지 않습니다.
+- 가입/개인정보·권한·DB·배포/빌드 설정과 운영 capability를 받은 백엔드는 보호합니다. 현재 구조에서 모든 `src/**`를 PO에 개방하면 DB·Slack 키 접근도 열리므로 일반 백엔드 전체 개방은 아직 완료된 범위가 아닙니다.
 
 Broker는 검사된 SHA·승인 파일 목록·배포 버전·health를 대조하고 영수증을 기록합니다. 진행 중인 leased job이 있으면 deployment claim 자체를 보류합니다. PR #134에서 발견한 DB 반환 누락은 migration 088이 `changeClass`, `changedPaths`, `classificationDigest`를 반환하도록 수정합니다. migration 089는 작업과 담당자의 원본을 Slack-native DB로 전환하고, 090은 아직 명세가 없는 의견에도 PO가 PR을 연결할 수 있게 합니다. Draft PR은 검토용이며 승인 큐에 들어가지 않습니다. 자세한 절차는 [함께 만드는 흐름](CONTRIBUTION_FLOW.md)을 따릅니다.
