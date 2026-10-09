@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 const html = await readFile("site/dist/index.html", "utf8");
-const css = await readFile("site/dist/styles.css", "utf8");
-const garden = /<section class="chapter chapter--leaf chapter--reactions"[\s\S]*?<\/section>/.exec(html)?.[0] ?? "";
+const css = await readFile("site/dist/landing.css", "utf8");
+const garden = /<section[^>]*id="community"[\s\S]*?<\/section>/.exec(html)?.[0] ?? "";
 const section = /<aside class="affiliation-marquee[\s\S]*?<\/aside>/.exec(garden)?.[0] ?? "";
 for (const affiliation of ["서울대학교 농업생명과학대학", "서울대학교 공과대학", "서울대학교 경영전문대학원", "배달의민족", "포스텍", "카이스트", "비상교육", "삼성", "전남대학교 의과대학"]) {
   assert.match(section, new RegExp(`alt="${affiliation}"`));

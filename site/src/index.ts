@@ -786,7 +786,10 @@ const siteWorker = {
     const eventSchedule = url.pathname.match(EVENT_SCHEDULE);
     const eventApi = url.pathname.match(EVENT_API);
     let response: Response;
-    if (request.method === "GET" && (url.pathname === "/" || url.pathname === "/index.html")) {
+    if (request.method === "GET" && url.pathname === "/health") {
+      const configured = Boolean(env.ASSETS && env.CORE && env.RATE_LIMITER && env.SITE_CORE_HMAC_SECRET);
+      response = Response.json({status: configured ? "ok" : "unconfigured", service: "otl1-site", configured}, {status:configured ? 200 : 503});
+    } else if (request.method === "GET" && (url.pathname === "/" || url.pathname === "/index.html")) {
       const html = await assetHtml(env, request, "index.html");
       response = new Response(
         renderInterestSlots(html, env).replace("<!-- __REFERRAL_SLOT__ -->", ""),

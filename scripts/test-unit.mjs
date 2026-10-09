@@ -98,6 +98,7 @@ const suites = [
   "referral-direct-join",
   "site-direct-join",
   "site-trust-strip",
+  "site-landing-design",
   "site-referral-composition",
   "site-canonical-domain",
   "community-common-delivery",

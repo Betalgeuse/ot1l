@@ -9,9 +9,12 @@ import {
   verifyApprovedPaths,
   deploymentRange,
   executeDeploymentPlan,
+  siteHealthUrl,
 } from "../automation/runner/genquant-deployer.mjs";
 import { approvalDigest, classifyChangePaths } from "../automation/runner/change-policy.mjs";
 import { sha256 } from "../automation/runner/contract.mjs";
+assert.equal(siteHealthUrl("https://ot1l.hyuk.me/maintainers"),"https://ot1l.hyuk.me/health");
+assert.equal(siteHealthUrl("https://site.example/po?old=1"),"https://site.example/health");
 import {
   applyForwardMigrations,
   migrationConnection,
