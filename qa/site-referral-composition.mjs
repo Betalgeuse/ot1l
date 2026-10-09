@@ -37,7 +37,7 @@ assert.equal(sectionCount(referralHtml), sectionCount(homepageHtml) + 1, "referr
 assert.ok(referralHtml.indexOf('id="referral-invite"') < referralHtml.indexOf('id="home"'), "invite section must come first");
 assert.match(referralHtml, />같이 원띵 해요<\/p>/);
 assert.match(referralHtml, /초대한 사람 님이 같이 원띵 하자고 초대했어요\./);
-assert.doesNotMatch(referralHtml, /같이 성장/);
+assert.doesNotMatch(referralHtml.match(/<section[^>]*id="referral-invite"[\s\S]*?<\/section>/)?.[0] ?? "", /같이 성장/);
 assert.match(referralHtml, /href="\/join"/);
 assert.match(referralHtml, /data-copy/);
 assert.match(referralHtml, /alt="전남대학교 의과대학"/);

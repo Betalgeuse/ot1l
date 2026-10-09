@@ -106,6 +106,10 @@ function deployCoreWorker(checkout, config) {
   return { version, health };
 }
 
+export function siteHealthUrl(configuredUrl) {
+  return new URL("/health", configuredUrl).href;
+}
+
 function deploySite(checkout, config) {
   for (const name of ["CLOUDFLARE_API_TOKEN", "BUG_DEPLOY_SITE_HEALTH_URL"])
     if (typeof config[name] !== "string" || !config[name].trim())
@@ -121,10 +125,14 @@ function deploySite(checkout, config) {
     }));
   const version = deployments.at(-1)?.versions?.find(item => item.percentage === 100)?.version_id;
   if (typeof version !== "string" || !/^[0-9a-f-]{36}$/.test(version)) throw new Error("site_worker_version_missing");
-  const health = JSON.parse(command("curl", ["-fsS", config.BUG_DEPLOY_SITE_HEALTH_URL], {
+  // Legacy installations used /maintainers, which now redirects to HTML /po.
+  // Probe this Worker's actual health endpoint, never its user-facing board.
+  const healthUrl = siteHealthUrl(config.BUG_DEPLOY_SITE_HEALTH_URL);
+  const health = JSON.parse(command("curl", ["-fsS", healthUrl], {
     timeout: 30_000,
   }));
-  if (health.status !== "ok") throw new Error("site_health_failed");
+  if (health.status !== "ok" || health.service !== "otl1-site" || health.configured !== true)
+    throw new Error("site_health_failed");
   return { version, health };
 }
 
