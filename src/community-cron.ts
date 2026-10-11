@@ -1,5 +1,6 @@
 import { sendAgentNotifications } from "./community-agent-notifications";
 import { armBugDeliveryClock } from "./community-bug-clock-client";
+import { runDailyChallenges } from "./community-challenges";
 import { reconcileCommunityChapters } from "./community-chapters";
 import { reconcileNativeFeedback } from "./community-feedback";
 import { runDueGardenDeliveries } from "./community-garden-delivery";
@@ -95,6 +96,22 @@ export async function communityCron(env: CommunityEnv, scheduledTime: number): P
         }),
       );
     }
+  // Independent queue: a puzzle failure must not block ONE THING scheduling.
+  try {
+    await runDailyChallenges(
+      env,
+      new CommunityStore(new NeonStore(env.DATABASE_URL)),
+      new Date(scheduledTime),
+    );
+  } catch (error) {
+    console.error(
+      JSON.stringify({
+        event: "community.cron.queue.failed",
+        queue: "chapter_challenges",
+        errorType: error instanceof Error ? error.name : "Unknown",
+      }),
+    );
+  }
   const channels = [env.COMMUNITY_CHANNEL_ID, env.COMMUNITY_PUBLIC_CHANNEL_ID].filter(
     (v): v is string => Boolean(v),
   );
