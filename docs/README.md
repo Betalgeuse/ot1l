@@ -15,6 +15,7 @@ ONE THING 문서는 **실행 명세**, **제품 원칙**, **시스템 구조**, 
 | 사람 연결, 사교, Table과 공개 이벤트 계획 | [프라이빗 하우스 운영 설계](research/PRIVATE_HOUSE.md) |
 | 이론을 바탕으로 고민한 과정과 판단 변화 | [설계 일지](research/DESIGN_JOURNAL.md) |
 | 다음에 구현할 항목과 미정 정책 | [로드맵](ROADMAP.md) |
+| Chapter 알고리즘·논리 퍼즐 일일 게시 | [일일 문제](CHAPTER_CHALLENGES.md) |
 | 출시한 버전별 결과 | [업데이트 이력](UPDATE_HISTORY.md) |
 
 ## v0.0.54 버그 제보 기반

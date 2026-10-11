@@ -1,5 +1,8 @@
-import { mock } from "bun:test";
+import { mock, setSystemTime } from "bun:test";
 import assert from "node:assert/strict";
+
+// The fixed October event fixtures must not expire as wall-clock time advances.
+setSystemTime(new Date("2026-10-01T00:00:00Z"));
 
 mock.module("cloudflare:workers", () => ({ DurableObject: class {} }));
 const events = new Map();

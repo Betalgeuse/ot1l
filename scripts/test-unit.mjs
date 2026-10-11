@@ -14,6 +14,7 @@ const suites = [
   "community-maintainer-canvases",
   "maintainer-button-routing",
   "community-chapters",
+  "community-challenges",
   "community-event-demands",
   "contributor-hygiene",
   "community-clock",
