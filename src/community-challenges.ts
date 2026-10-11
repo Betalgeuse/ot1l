@@ -1,4 +1,8 @@
-import { type ChallengeTrack, challengeFor } from "./community-challenge-content";
+import {
+  type ChallengeTrack,
+  sourceChallenge,
+  sourcedChallengePayload,
+} from "./community-challenge-sources";
 import type { CommunityEnv } from "./community-runtime";
 import { callSlack } from "./community-social";
 import type { CommunityStore } from "./community-store";
@@ -36,19 +40,6 @@ export function challengeConfig(value: Json): Config {
   )
     throw new Error("Two distinct challenge channels required");
   return { enabled: v.enabled, startDate, targets };
-}
-
-export function challengePayload(track: ChallengeTrack, date: string, index: number) {
-  const item = challengeFor(track, index);
-  const label = track === "dev" ? "오늘의 코딩 테스트" : "오늘의 논리 퍼즐";
-  const note =
-    track === "dev"
-      ? "언어는 자유예요. 풀이 아이디어·시간/공간 복잡도·다른 접근을 이 글의 스레드에서 나눠주세요."
-      : "멘사 스타일의 독창적인 연습 퍼즐이며, 공식 Mensa 문항이나 IQ 검사가 아닙니다. 정답뿐 아니라 추론 과정을 이 글의 스레드에서 나눠주세요.";
-  return {
-    text: `${date} · ${label} #${index + 1}\n*${item.title}*\n\n${item.problem}\n\n${note}\n힌트·해설은 오늘 18시 이후 같은 스레드에 올라와요. 참여는 자유이고 전체 멘션은 하지 않아요.`,
-    solution: `*${date} 문제 해설 · ${item.title}*\n${item.solution}\n\n다른 풀이 또는 문제의 오류가 보이면 이 스레드에 알려주세요.`,
-  };
 }
 
 const marker = (track: ChallengeTrack, date: string, phase: string) =>
@@ -109,14 +100,36 @@ export async function runDailyChallenges(env: Env, store: Store, now: Date): Pro
   for (const target of config.targets) {
     try {
       const scope = { ...control, channelId: target.channelId };
-      const payload = challengePayload(target.track, day, index);
-      // Immutable snapshot keeps retries tied to the original problem and answer.
-      const snapshot = await store.putRecord({
-        ...scope,
-        key: `challenge-content:${day}`,
-        kind: "chapter_challenge_content",
-        body: payload,
-      });
+      const contentKey = { ...scope, key: `challenge-source-content:${day}` };
+      let snapshot = await store.getRecord(contentKey);
+      if (!snapshot) {
+        const selection = {
+          ...scope,
+          key: `challenge-select:${day}:${Math.floor(now.getTime() / 300_000)}`,
+        };
+        await store.putRecord({ ...selection, kind: "chapter_challenge_selection", body: { day } });
+        if (!(await store.claimRecord(selection))) continue;
+        try {
+          const source = await sourceChallenge(target.track, index, day, async (candidate) => {
+            const assigned = await store.putRecord({
+              ...scope,
+              key: `challenge-source:${candidate.id}`,
+              kind: "chapter_challenge_source",
+              body: { day, sourceUrl: candidate.url },
+            });
+            return object(assigned.body).day === day;
+          });
+          snapshot = await store.putRecord({
+            ...contentKey,
+            kind: "chapter_challenge_content",
+            body: sourcedChallengePayload(target.track, day, source),
+          });
+          await store.finishRecord(selection, "sent");
+        } catch (error) {
+          await store.finishRecord(selection, "failed");
+          throw error;
+        }
+      }
       const content = object(snapshot.body);
       let root: string | null = null;
       for (const phase of minute >= "18:00" ? ["problem", "solution"] : ["problem"]) {
@@ -206,6 +219,10 @@ export async function runDailyChallenges(env: Env, store: Store, now: Date): Pro
           channel: target.channelId,
           day,
           errorType: error instanceof Error ? error.name : "Unknown",
+          reason:
+            error instanceof Error && /^(atcoder|mensa|challenge)_[a-z_]+$/.test(error.message)
+              ? error.message
+              : "delivery_failed",
         }),
       );
     }
