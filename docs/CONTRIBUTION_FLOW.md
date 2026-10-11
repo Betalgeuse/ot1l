@@ -20,6 +20,8 @@
 4. Slack 작업 카드에서 **직접 만든 PR 검토 요청**을 누르면 그 작업이 자동 선택됩니다. 가이드 버튼에서는 PR URL만으로 작업을 만들 수 있습니다. BUG 키를 외워 입력하지 않습니다. 본인 AI 도구로 로컬 개발한 경우도 이 경로입니다.
 5. 일반 PR은 격리 검사를 통과한 뒤 같은 스레드에서 정확한 SHA를 승인합니다. Open은 활성 PO/Founder, Core는 Founder가 승인합니다. 운영 키나 SSH 접근은 필요 없습니다.
 
+PR 정보 조회는 GenQuant의 인증된 GitHub 연결에서 수행합니다. Slack Worker는 URL·요청자·작업을 먼저 영속 큐에 저장하며 GitHub 익명 API 응답을 기다리지 않습니다. GitHub 장애·조회 제한 때는 요청을 보존하고 최대 3회 재시도합니다. 카드의 `PR 정보 확인 대기`, `자동 재시도 대기`, `PR 조회 중단`으로 구분하며, Draft는 조회 후 `시안 검토 중`으로 표시하고 병합 큐에 넣지 않습니다. 조회 성공은 검사 통과나 병합 승인이 아닙니다.
+
 자신의 바이브코딩 AI에는 다음과 같이 요청할 수 있습니다.
 
 > 이 저장소의 AGENTS.md와 CONTRIBUTING.md를 먼저 읽어줘. 요청한 변경의 소유 Worker와 승인 경계를 확인하고, 내 fork의 새 브랜치에서 구현·검사한 뒤 PR 링크를 알려줘. 운영 비밀을 요청하거나 로컬에서 배포하지 마. 시안 검토 단계이면 Draft로 남겨줘.
@@ -52,6 +54,7 @@ UI 계약: PO 채널 회원은 DRI 선택과 직접 PR 요청을 사용할 수 �
 - `community-bug-start.ts`: 의견 접수와 구체적인 AI 작업 요청의 분리. 과거 버그 상세 접수는 이력 호환용이며 일반 버튼의 기본 경로가 아닙니다.
 - `community-maintainer-work.ts`, migration 089: Slack 작업 카드와 담당자. 기존 테이블 이름은 호환을 위해 보존하지만 Linear가 상태의 원본은 아닙니다.
 - `community-pull-request.ts`, migration 090: 작업과 PR 연결. Draft 검토와 실행 요청 분리.
+- `community-pr-metadata.ts`, migration 092, `automation/runner/pr-metadata.mjs`: GitHub 조회 영속 큐·인증된 서버 조회·재시도·카드 상태 반영. Worker에 GitHub 병합 토큰을 전달하지 않습니다.
 - migration 088: 승인된 `changeClass`, `changedPaths`, `classificationDigest`를 병합 실행기에 전달.
 - `automation/runner/**`: 정확한 SHA, 파일 범위, 격리 검사, 승인, 병합과 배포. 재시도 시 이미 checkout된 SHA도 같은 승인 범위로 검증.
 - `community-notification-thread.ts`: Slack 수신 기록과 스레드 존재 확인. 삭제된 원본에 새 최상위 글을 만들지 않음.

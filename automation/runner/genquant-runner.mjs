@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 import { isAbsolute, join, resolve } from "node:path";
 import { approvalDigest, assertOpenPresentationBoundary, classifyChangePaths } from "./change-policy.mjs";
 import { assertCandidatePathScope, assertCandidateFileModes, verifyBoundPullRequest, verifyCandidateCheckout } from "./bound-pull.mjs";
+import { processPrMetadata } from "./pr-metadata.mjs";
 import {
   buildFixBranch,
   buildFixPrompt,
@@ -543,6 +544,7 @@ async function processOne(config) {
   });
   if (await processApprovedMerge(db, config, workerId)) return true;
   if (await processBoundPullRequest(db, config, workerId)) return true;
+  if (await processPrMetadata(db, config, workerId, command)) return true;
   const leaseToken = randomUUID();
   const runnerImageDigest = sha256(
     `${process.version}|${command("codex", ["--version"])}|${command("git", ["--version"])}`,
