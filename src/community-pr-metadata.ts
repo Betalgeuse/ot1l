@@ -13,6 +13,8 @@ export function prMetadataStage(row: Record<string, unknown>): string | null {
     {
       github_rate_limited: "GitHub 조회 제한",
       github_unavailable: "GitHub 연결 오류",
+      github_auth_required: "운영자의 GitHub 인증 갱신이 필요해요",
+      github_forbidden: "운영자의 GitHub 조회 권한을 확인해 주세요",
       pr_not_open: "열려 있는 PR이 아니에요",
       pr_wrong_base: "대상 저장소 또는 main 브랜치를 확인해 주세요",
       pr_missing: "GitHub에서 PR을 찾지 못했어요",

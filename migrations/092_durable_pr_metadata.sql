@@ -78,7 +78,7 @@ BEGIN
   err:=CASE WHEN next_status='rejected' THEN 'binding_conflict' ELSE NULL END;
  ELSIF p->>'outcome'='draft' THEN next_status:='draft';
  ELSE
-  err:=CASE WHEN p->>'errorCode' IN('github_rate_limited','github_unavailable','pr_not_open','pr_wrong_base','pr_missing','pr_too_large','pr_changed','pr_invalid_metadata')
+  err:=CASE WHEN p->>'errorCode' IN('github_rate_limited','github_unavailable','github_auth_required','github_forbidden','pr_not_open','pr_wrong_base','pr_missing','pr_too_large','pr_changed','pr_invalid_metadata')
     THEN p->>'errorCode' ELSE 'github_unavailable' END;
   next_status:=CASE WHEN p->>'retryable'='true' AND r.attempt<3 THEN 'queued' ELSE 'rejected' END;
  END IF;

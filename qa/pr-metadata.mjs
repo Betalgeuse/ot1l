@@ -14,6 +14,8 @@ let i=0;assert.throws(()=>readPrMetadata(145,()=>JSON.stringify(++i===1?good:i==
 i=0;assert.throws(()=>readPrMetadata(145,()=>JSON.stringify(++i===1?good:files.slice(0,1))),/pr_changed/);
 assert.throws(()=>readPrMetadata(145,()=>{throw Object.assign(Error('external error'),{stderr:'HTTP 403 API rate limit exceeded'});}),e=>e instanceof PrMetadataError&&e.code==='github_rate_limited'&&e.retryable&&e.retryAfterSeconds===3600);
 assert.throws(()=>readPrMetadata(145,()=>{throw Object.assign(Error('external error'),{stderr:'HTTP 404'});}),e=>e.code==='pr_missing'&&!e.retryable);
+assert.throws(()=>readPrMetadata(145,()=>{throw Object.assign(Error('external error'),{stderr:'HTTP 401'});}),e=>e.code==='github_auth_required'&&!e.retryable);
+assert.throws(()=>readPrMetadata(145,()=>{throw Object.assign(Error('external error'),{stderr:'HTTP 403 Resource not accessible'});}),e=>e.code==='github_forbidden'&&!e.retryable);
 const dbCalls=[];
 const db=async(op,p)=>{dbCalls.push({op,p});return op.includes('claim')?{request_id:4,pr_number:145}:true;};
 await processPrMetadata(db,{SLACK_TEAM_ID:'TQA'},'qa',runner);

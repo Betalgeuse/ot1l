@@ -17,6 +17,8 @@ export function readPrMetadata(prNumber,run) {
     throw new PrMetadataError('github_rate_limited',true,Math.min(delay,86400));
    }
    if(/HTTP 404/.test(diagnostic))throw new PrMetadataError('pr_missing');
+   if(/HTTP 401/.test(diagnostic))throw new PrMetadataError('github_auth_required');
+   if(/HTTP 403/.test(diagnostic))throw new PrMetadataError('github_forbidden');
    throw new PrMetadataError('github_unavailable',true,120);
   }
  };
