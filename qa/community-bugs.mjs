@@ -715,6 +715,10 @@ globalThis.fetch = async (url, options) => {
     }
     if (query.includes("bug_admin_queue"))
       return Response.json({ rows: [[JSON.stringify({ accepted: true, state: "queued" })]] });
+    if (query.includes("community_queue_pr_metadata"))
+      return Response.json({ rows: [[JSON.stringify({ accepted: true, requestId: 1, status: "queued" })]] });
+    if (query.includes("community_pr_metadata_results"))
+      return Response.json({ rows: [["[]"]] });
     if (query.includes("community_chapter_execute"))
       return Response.json({ rows: [["false"]] });
     if (query.includes("community_chapter_list"))
@@ -2114,7 +2118,8 @@ try {
   await submitPullRequestBinding(prContext,prView);
   await submitPullRequestBinding({...prContext,key:"draft-pr-guide-retry"},prView);
   assert.equal(nativeWorkRows.size,countBeforePr+1,"URL-only Draft intake and retry create exactly one work item");
-  assert.equal([...nativeWorkRows.values()].find(w=>w.pr_number===95317).release_stage,"시안 검토 중");
+  assert.equal([...nativeWorkRows.values()].find(w=>w.pr_number===95317).release_stage,"PR 정보 확인 대기");
+  assert(calls.some(c=>c.body.query?.includes("community_queue_pr_metadata")),"metadata lookup is durable; broker determines Draft before any merge validation");
   assert.equal(calls.some(c=>c.body.query?.includes("bug_admin_queue")||c.body.query?.includes("community_bind_pull_request")),false,"Draft intake never queues an implementation or merge");
 
   calls.length = 0;

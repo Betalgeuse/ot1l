@@ -7,6 +7,7 @@ import { runDueGardenDeliveries } from "./community-garden-delivery";
 import { collectCurrentChannelMembers } from "./community-membership";
 import { runMembershipDue } from "./community-membership-schedule";
 import { poMembershipChannels, reconcilePoMembership } from "./community-po-membership";
+import { syncPrMetadataResults } from "./community-pr-metadata";
 import type { CommunityEnv } from "./community-runtime";
 import { runCommunitySchedule } from "./community-scheduler";
 import { reconcileShareInfoChannels } from "./community-share-info-reconcile";
@@ -67,6 +68,18 @@ export async function communityCron(env: CommunityEnv, scheduledTime: number): P
       }),
     );
   }
+  if (env.BUG_RUNNER_ENABLED === "true")
+    try {
+      await syncPrMetadataResults(env);
+    } catch (error) {
+      console.error(
+        JSON.stringify({
+          event: "community.cron.queue.failed",
+          queue: "pr_metadata",
+          errorType: error instanceof Error ? error.name : "Unknown",
+        }),
+      );
+    }
   if (env.BUG_RUNNER_ENABLED === "true")
     try {
       const agent = await sendAgentNotifications(env, new Date(scheduledTime));

@@ -1,27 +1,25 @@
 import assert from "node:assert/strict";
 import { assertCandidateFileModes, assertCandidatePathScope, isolatedCheckArgs, verifyBoundPullRequest } from "../automation/runner/bound-pull.mjs";
 import { maintainerWorkGuide } from "../src/community-maintainer-retention.ts";
-import { readOpenPullRequest } from "../src/community-pull-request.ts";
+import { readPrMetadata } from "../automation/runner/pr-metadata.mjs";
 
-const request = async (url) => {
-  if (url.endsWith("/pulls/17"))
-    return Response.json({
+const request = (_binary, args) => {
+  if (args[1].endsWith("/pulls/17"))
+    return JSON.stringify({
       state: "open",
+      changed_files: 2,
       base: { ref: "main", repo: { full_name: "Betalgeuse/ot1l" } },
       head: { sha: "a".repeat(40), repo: { full_name: "contributor/ot1l" } },
     });
-  return Response.json([
+  return JSON.stringify([
     { filename: "event-site/src/index.ts" },
     { filename: "site/qa/event-schedule.mjs" },
   ]);
 };
-const pull = await readOpenPullRequest("https://github.com/Betalgeuse/ot1l/pull/17", request);
+const pull = readPrMetadata(17, request);
 assert.equal(pull.headSha, "a".repeat(40));
 assert.deepEqual(pull.paths, ["event-site/src/index.ts", "site/qa/event-schedule.mjs"]);
-await assert.rejects(
-  () => readOpenPullRequest("https://github.com/evil/fork/pull/17", request),
-  /형식만/,
-);
+assert.throws(() => readPrMetadata(-1, request), /invalid_metadata/);
 assert.equal(maintainerWorkGuide().blocks[1].elements[1].text.text, "직접 만든 PR 검토 요청");
 assert.equal(maintainerWorkGuide().blocks[1].elements[0].text.text, "피드백·AI 수정 요청");
 assert.match(maintainerWorkGuide().text,/직접 PR을 연결할 필요 없이/);
