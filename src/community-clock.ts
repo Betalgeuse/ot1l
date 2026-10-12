@@ -18,6 +18,7 @@ import { publishGardenRequest } from "./community-clock-garden";
 import { refreshCommunityQueueClock } from "./community-clock-schedule";
 import { communityMaintenanceCron } from "./community-cron";
 import { runDueGardenDeliveries } from "./community-garden-delivery";
+import { runMaintenanceTask, validateMaintenanceTask } from "./community-maintenance-tasks";
 import { runMembershipDue } from "./community-membership-schedule";
 import type { CommunityEnv } from "./community-runtime";
 import { runCommunitySchedule } from "./community-scheduler";
@@ -90,6 +91,25 @@ export class CommunityClock extends DurableObject<CommunityEnv> {
       if (!Number.isFinite(scheduledTime)) throw new InputError("Invalid maintenance time");
       await this.bindScheduledRole("community_maintenance");
       await communityMaintenanceCron(this.env, scheduledTime);
+    });
+  }
+
+  runMaintenanceTask(task: string, scheduledTime: number, channelId?: string): Promise<void> {
+    return this.serialize(async () => {
+      validateMaintenanceTask(this.env, task, scheduledTime, channelId);
+      await this.bindScheduledRole(`maintenance_task:${task}`, channelId);
+      await this.ctx.storage.put("lastRun", { scheduledTime, status: "running" });
+      try {
+        await runMaintenanceTask(this.env, task, scheduledTime, channelId);
+        await this.ctx.storage.put("lastRun", { scheduledTime, status: "finished" });
+      } catch (error) {
+        await this.ctx.storage.put("lastRun", {
+          scheduledTime,
+          status: "failed",
+          code: runtimeFailureCode(error),
+        });
+        throw error;
+      }
     });
   }
 

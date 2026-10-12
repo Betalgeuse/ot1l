@@ -50,6 +50,7 @@ export interface ClockBinding {
       scheduledTime: number,
     ): Promise<{ readonly common: number; readonly personal: number }>;
     runMaintenance(scheduledTime: number): Promise<void>;
+    runMaintenanceTask(task: string, scheduledTime: number, channelId?: string): Promise<void>;
   };
 }
 

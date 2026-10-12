@@ -81,7 +81,12 @@ async function findMessage(
   throw new Error("Challenge history pagination limit");
 }
 
-export async function runDailyChallenges(env: Env, store: Store, now: Date): Promise<number> {
+export async function runDailyChallenges(
+  env: Env,
+  store: Store,
+  now: Date,
+  onlyTrack?: ChallengeTrack,
+): Promise<number> {
   if (!env.COMMUNITY_ADMIN_ID || !env.COMMUNITY_PUBLIC_CHANNEL_ID) return 0;
   const control = {
     teamId: env.SLACK_TEAM_ID,
@@ -98,6 +103,7 @@ export async function runDailyChallenges(env: Env, store: Store, now: Date): Pro
   const index = Math.round((Date.parse(day) - Date.parse(config.startDate)) / 86400_000);
   let delivered = 0;
   for (const target of config.targets) {
+    if (onlyTrack && target.track !== onlyTrack) continue;
     try {
       const scope = { ...control, channelId: target.channelId };
       const contentKey = { ...scope, key: `challenge-source-content:${day}` };
