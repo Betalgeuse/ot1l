@@ -1,4 +1,5 @@
 import { InputError, object, string } from "./input";
+import { runtimeFailureCode } from "./runtime-failure";
 import type { NeonStore } from "./store";
 
 const OPERATIONS = ["expire_due", "audit_retention", "nonce_retention"] as const;
@@ -69,7 +70,12 @@ export async function runRetentionQueues(
       if (!(error instanceof Error)) throw error;
       failed = true;
       console.error(
-        JSON.stringify({ event: "community.retention.failed", operation, errorType: error.name }),
+        JSON.stringify({
+          event: "community.retention.failed",
+          operation,
+          errorType: error.name,
+          errorCode: runtimeFailureCode(error),
+        }),
       );
     }
   }

@@ -21,6 +21,7 @@ import type { CommunityEnv } from "./community-runtime";
 import { runCommunitySchedule } from "./community-scheduler";
 import { CommunityStore } from "./community-store";
 import { InputError } from "./input";
+import { runtimeFailureCode } from "./runtime-failure";
 import { NeonStore } from "./store";
 
 export { armBugDeliveryClock, bugDeliveryClockName } from "./community-bug-clock-client";
@@ -172,8 +173,11 @@ export class CommunityClock extends DurableObject<CommunityEnv> {
     });
   }
 
-  private refreshSchedule(channelId: string): Promise<{ readonly next: number | null }> {
-    return refreshCommunityQueueClock(this.env, this.ctx.storage, channelId);
+  private refreshSchedule(
+    channelId: string,
+    options: { readonly replaceAlarm?: boolean; readonly due?: number | null } = {},
+  ): Promise<{ readonly next: number | null }> {
+    return refreshCommunityQueueClock(this.env, this.ctx.storage, channelId, options);
   }
 
   async inspect(): Promise<ClockInspection> {
@@ -184,13 +188,26 @@ export class CommunityClock extends DurableObject<CommunityEnv> {
     };
   }
 
-  alarm(): Promise<void> {
+  alarm(alarmInfo?: AlarmInvocationInfo): Promise<void> {
+    console.log(
+      JSON.stringify({
+        event: "community.clock.alarm.received",
+        retryCount: alarmInfo?.retryCount ?? 0,
+        isRetry: alarmInfo?.isRetry ?? false,
+      }),
+    );
     return this.serialize(async () => {
       const role = await this.ctx.storage.get<string>("role");
       const channelId = await this.ctx.storage.get<string>("channel");
       if (role === BUG_DELIVERY_CLOCK_ROLE) {
         if (channelId) throw new InputError("Global clock has a channel collision");
+        console.log(
+          JSON.stringify({ event: "community.clock.alarm.start", role: BUG_DELIVERY_CLOCK_ROLE }),
+        );
         await runBugDeliveryClockAlarm(this.env, this.ctx.storage, Date.now());
+        console.log(
+          JSON.stringify({ event: "community.clock.alarm.end", role: BUG_DELIVERY_CLOCK_ROLE }),
+        );
         return;
       }
       if (role && role !== COMMUNITY_SCHEDULE_CLOCK_ROLE)
@@ -201,8 +218,20 @@ export class CommunityClock extends DurableObject<CommunityEnv> {
       }
       if (!channelId) return;
       if (!role) await this.ctx.storage.put("role", COMMUNITY_SCHEDULE_CLOCK_ROLE);
+      const now = new Date(Date.now());
+      const retryAt = now.getTime() + 60_000;
+      // Persist recovery before external I/O. Platform cancellation cannot be
+      // caught, and must not leave an alarm with no future execution scheduled.
+      await this.ctx.storage.setAlarm(retryAt);
+      await this.ctx.storage.put("lastRun", { at: now.getTime(), status: "running", retryAt });
+      console.log(
+        JSON.stringify({
+          event: "community.clock.alarm.start",
+          role: COMMUNITY_SCHEDULE_CLOCK_ROLE,
+          retryAt,
+        }),
+      );
       try {
-        const now = new Date(Date.now());
         let garden: { readonly processed: number; readonly nextDue: number | null } = {
           processed: 0,
           nextDue: null,
@@ -216,6 +245,7 @@ export class CommunityClock extends DurableObject<CommunityEnv> {
               event: "community.clock.queue.failed",
               queue: "garden",
               errorType: error.name,
+              code: runtimeFailureCode(error),
             }),
           );
           garden = { processed: 0, nextDue: now.getTime() + 60_000 };
@@ -242,6 +272,7 @@ export class CommunityClock extends DurableObject<CommunityEnv> {
               event: "community.clock.queue.failed",
               queue: "membership",
               errorType: error.name,
+              code: runtimeFailureCode(error),
             }),
           );
           membership = { ...membership, nextDue: now.getTime() + 60_000 };
@@ -252,27 +283,49 @@ export class CommunityClock extends DurableObject<CommunityEnv> {
         if (membership.interestNextCursor === null)
           await this.ctx.storage.delete("interestReconcileCursor");
         else await this.ctx.storage.put("interestReconcileCursor", membership.interestNextCursor);
-        await this.refreshSchedule(channelId);
-        if (garden.nextDue !== null || garden.processed >= 10 || membership.possiblyMore) {
-          const current = await this.ctx.storage.getAlarm();
-          const immediate = garden.processed >= 10 || membership.possiblyMore;
-          const candidates = [garden.nextDue, membership.nextDue].filter(
-            (candidate): candidate is number => candidate !== null,
-          );
-          const due = immediate
-            ? now.getTime() + 1_000
-            : candidates.length
-              ? Math.min(...candidates)
-              : null;
-          if (due !== null && (current === null || Math.max(now.getTime() + 1_000, due) < current))
-            await this.ctx.storage.setAlarm(Math.max(now.getTime() + 1_000, due));
-        }
+        const immediate =
+          garden.processed >= 10 ||
+          membership.possiblyMore ||
+          membership.nextCursor !== null ||
+          membership.interestNextCursor !== null;
+        const candidates = [garden.nextDue, membership.nextDue].filter(
+          (candidate): candidate is number => candidate !== null,
+        );
+        const due = immediate
+          ? now.getTime() + 1_000
+          : candidates.length
+            ? Math.min(...candidates)
+            : null;
+        // Include membership-only retries, then atomically replace the temporary
+        // safety alarm with the actual deadline. Do not delete it before I/O.
+        const next = await this.refreshSchedule(channelId, { replaceAlarm: true, due });
+        await this.ctx.storage.put("lastRun", {
+          at: now.getTime(),
+          status: "finished",
+          next: next.next,
+        });
+        console.log(
+          JSON.stringify({
+            event: "community.clock.alarm.end",
+            role: COMMUNITY_SCHEDULE_CLOCK_ROLE,
+            next: next.next,
+          }),
+        );
       } catch (error) {
         await this.ctx.storage.put("lastRun", {
           at: Date.now(),
           failure: error instanceof Error ? error.name : "UnknownError",
+          status: "failed",
+          code: runtimeFailureCode(error),
         });
         await this.ctx.storage.setAlarm(Date.now() + 60_000);
+        console.error(
+          JSON.stringify({
+            event: "community.clock.alarm.failed",
+            errorType: error instanceof Error ? error.name : "Unknown",
+            code: runtimeFailureCode(error),
+          }),
+        );
       }
     });
   }
