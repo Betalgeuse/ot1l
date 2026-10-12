@@ -27,7 +27,7 @@ mock.module("../src/community-membership-due", () => ({
   async nextMembershipDue() { return now + 300_000; },
 }));
 const { CommunityClock } = await import("../src/community-clock.ts");
-const { communityMaintenanceCron } = await import("../src/community-cron.ts");
+const { runMaintenanceTask } = await import("../src/community-maintenance-tasks.ts");
 const { runtimeFailureCode } = await import("../src/runtime-failure.ts");
 class Storage {
   values = new Map([["role", "community_schedule"], ["channel", "CPUBLIC"]]);
@@ -62,9 +62,9 @@ try {
   console.log=()=>{}; console.error=()=>{};
   globalThis.fetch=async()=>{order.push("network");throw new Error("offline test");};
   try {
-    await communityMaintenanceCron({...env, COMMUNITY_CHANNEL_ID:"CPUBLIC", COMMUNITY_CLOCK:{getByName(name){
+    await runMaintenanceTask({...env, COMMUNITY_CHANNEL_ID:"CPUBLIC", COMMUNITY_CLOCK:{getByName(name){
       return { async armBugDelivery(){order.push("bug");return{};},async refresh(channel){order.push(`${name}:${channel}`);return{next:now+300_000};} };
-    }}},now);
+    }}},"clock_recovery",now);
     assert.equal(order[1],"TQA:CPUBLIC:CPUBLIC","repair queue alarm before optional DB/Slack work, with deduplicated channels");
     assert.equal(order.filter(x=>x==="TQA:CPUBLIC:CPUBLIC").length,1);
   } finally {globalThis.fetch=originalFetch;console.log=originalLog;console.error=originalError;}

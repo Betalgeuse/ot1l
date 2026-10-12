@@ -84,5 +84,5 @@ for(const channel of ['CDEV','CMATH']){
 }
 assert.equal(await runDailyChallenges(env,store,now('19:50')),0,'the next scheduled pass does not repost catch-up content');
 assert.equal(messages.length,4);
-assert.match(readFileSync(new URL('../src/community-cron.ts',import.meta.url),'utf8'),/await runDailyChallenges\(/);
+assert.match(readFileSync(new URL('../src/community-maintenance-tasks.ts',import.meta.url),'utf8'),/await runDailyChallenges\(/);
 console.log('PASS daily challenges: content, timing, overlap, uncertain acceptance, threads and failures');
