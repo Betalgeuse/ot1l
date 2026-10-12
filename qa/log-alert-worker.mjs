@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
-import { handleLogAlerts, safeLogIncident } from "../src/log-alert-worker.ts";
+import { mock } from "bun:test";
+mock.module("cloudflare:workers",()=>({DurableObject:class {constructor(ctx,env){this.ctx=ctx;this.env=env;}}}));
+const { handleLogAlerts, safeLogIncident } = await import("../src/log-alert-worker.ts");
 
 const calls = [];
 let limiterSuccess = true;
@@ -91,6 +93,11 @@ try {
   );
 
   calls.length = 0;
+  const canceled=trace({event:{scheduledTime:new Date()},outcome:"canceled",logs:[]});
+  assert.equal(await handleLogAlerts([canceled],env),1);
+  assert.match(JSON.stringify(calls.find(c=>c.method==="chat.postMessage").body),/실행 중단 · 복구 미확인/);
+  assert.doesNotMatch(JSON.stringify(calls.find(c=>c.method==="chat.postMessage").body),/분류되지 않은 예외|완료 확인/);
+  calls.length=0;
   limiterSuccess = false;
   assert.equal(await handleLogAlerts([serverError], env), 0);
   assert.equal(

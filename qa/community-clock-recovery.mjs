@@ -19,7 +19,7 @@ mock.module("../src/community-garden-delivery", () => ({
   },
 }));
 mock.module("../src/community-membership-schedule", () => ({
-  async runMembershipDue() { return { possiblyMore: false, nextDue: failMembership ? now + 60_000 : null, nextCursor: null, interestNextCursor: null }; },
+  async runMembershipDue(...args) { if(failMembership)args[6]?.(); return { possiblyMore: false, nextDue: failMembership ? now + 60_000 : null, nextCursor: null, interestNextCursor: null }; },
 }));
 mock.module("../src/community-membership-due", () => ({
   async nextGardenDue() { return null; },
@@ -46,6 +46,7 @@ try {
   activeStorage=new Storage();
   await new CommunityClock({storage:activeStorage},env).alarm();
   assert.equal(activeStorage.alarm, now+60_000, "membership-only failure retry must not be replaced with the five-minute idle deadline");
+  assert.equal(activeStorage.values.get("alarmObservation").completedAt,undefined,"caught membership errors must not produce a completion receipt");
   assertArmedBeforeWork=true; failMembership=false; activeStorage=new Storage();
   await new CommunityClock({storage:activeStorage},env).alarm();
   assert.equal(activeStorage.alarm, now+300_000, "successful completion must retire the provisional one-minute retry");

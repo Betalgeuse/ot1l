@@ -1,10 +1,16 @@
 import { escapeSlackText } from "./community-messages";
 import { callSlack } from "./community-social";
 import type { Json } from "./input";
+import { type AlarmSignal, alarmSignals } from "./log-alert-observation";
+
+export { AlarmIncident } from "./log-alert-incident";
 
 type LogAlertEnv = {
   readonly SLACK_BOT_TOKEN: string;
   readonly COMMUNITY_SYS_ALERT_CHANNEL_ID: string;
+  readonly ALARM_INCIDENTS?: {
+    getByName(key: string): { observe(signal: AlarmSignal): Promise<boolean> };
+  };
   readonly ALERT_RATE_LIMITER: {
     limit(input: { readonly key: string }): Promise<{ readonly success: boolean }>;
   };
@@ -121,8 +127,14 @@ function incidentTime(incident: SafeIncident): string {
 }
 
 function alertMessage(incident: SafeIncident): { readonly text: string; readonly blocks: Json[] } {
-  const severity =
-    incident.outcome !== "ok"
+  const interrupted =
+    incident.outcome === "canceled" &&
+    incident.exceptionCount === 0 &&
+    !incident.eventCode &&
+    !incident.errorType;
+  const severity = interrupted
+    ? "실행 중단 · 복구 미확인"
+    : incident.outcome !== "ok"
       ? "런타임 실패"
       : incident.status && incident.status >= 500
         ? "HTTP 5xx"
@@ -133,7 +145,7 @@ function alertMessage(incident: SafeIncident): { readonly text: string; readonly
         (value, index, values): value is string =>
           Boolean(value) && values.indexOf(value) === index,
       )
-      .join(" · ") || "분류되지 않은 예외";
+      .join(" · ") || (interrupted ? "예외 기록 없음 · 복구 확인 필요" : "분류되지 않은 예외");
   const status = `${incident.kind} · ${incident.outcome}${incident.status === null ? "" : ` · HTTP ${incident.status}`}`;
   const text = `Worker 오류 · ${incident.script} · ${incident.route} · ${error}`;
   return {
@@ -141,7 +153,7 @@ function alertMessage(incident: SafeIncident): { readonly text: string; readonly
     blocks: [
       {
         type: "header",
-        text: { type: "plain_text", text: `🔴 ${severity}` },
+        text: { type: "plain_text", text: `${interrupted ? "🟡" : "🔴"} ${severity}` },
       },
       {
         type: "section",
@@ -179,8 +191,18 @@ export async function handleLogAlerts(
   env: LogAlertEnv,
 ): Promise<number> {
   let sent = 0;
+  const remaining: TraceItem[] = [];
+  for (const trace of traces) {
+    const signals = await alarmSignals(trace);
+    if (signals.length && env.ALARM_INCIDENTS) {
+      for (const signal of signals)
+        if (await env.ALARM_INCIDENTS.getByName(signal.key).observe(signal)) sent += 1;
+      if (signals.some((s) => s.phase === "canceled")) continue;
+    }
+    remaining.push(trace);
+  }
   const fingerprints = new Set<string>();
-  for (const incident of traces
+  for (const incident of remaining
     .flatMap((trace) => {
       const parsed = safeLogIncident(trace);
       return parsed ? [parsed] : [];

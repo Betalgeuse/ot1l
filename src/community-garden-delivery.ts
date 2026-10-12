@@ -162,6 +162,7 @@ export async function runDueGardenDeliveries(
   channelId: string,
   now: number,
   observeDue?: (nextDue: number) => Promise<void>,
+  observeFailure?: () => void,
 ): Promise<{ readonly processed: number; readonly nextDue: number | null }> {
   const db = new NeonStore(env.DATABASE_URL);
   const deliveries = new GardenDeliveryStore(db);
@@ -185,10 +186,12 @@ export async function runDueGardenDeliveries(
       now,
     );
     processed += 1;
+    if (result.messageTs === null) observeFailure?.();
     if (result.nextDue !== null) nextDue = Math.min(nextDue ?? result.nextDue, result.nextDue);
   }
   if (env.GARDEN_RECONCILIATION === "true")
     await runDueGardenRetirements(env, channelId, now, async (retirementDue) => {
+      observeFailure?.();
       nextDue = Math.min(nextDue ?? retirementDue, retirementDue);
     });
   if (nextDue !== null && observeDue) await observeDue(nextDue);

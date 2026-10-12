@@ -26,10 +26,13 @@ try {
   try {await Promise.race([started,new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error("alarm did not execute")),5000);})]);}
   finally{clearTimeout(timer);}
   const running=await(await mf.dispatchFetch("https://test/inspect")).json();
+  const before=running.alarmCycle;
   assert.equal(running.lastRun.status,"running");
   assert.ok(running.next>Date.now(),"alarm must be persisted before the pending external request");
   await mf.dispatchFetch("https://test/interrupt");
   const restarted=await(await mf.dispatchFetch("https://test/inspect")).json();
+  const after=restarted.alarmCycle;
+  assert.equal(after.id,before.id,"same cycle identity survives actual object replacement");
   assert.equal(restarted.role,"community_schedule");
   assert.equal(restarted.lastRun.status,"running","interruption is not falsely recorded as finished");
   assert.ok(restarted.next!==null,"pending retry survives a real workerd Durable Object reset");
