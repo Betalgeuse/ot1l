@@ -80,7 +80,9 @@ export async function canonicalFeedbackContext(
     text,
     blocks: [
       { type: "section", text: { type: "mrkdwn", text } },
-      { type: "actions", elements: [maintainerButton("Product Owner가 되어 직접 고치기")] },
+      ...(channelId === context.env.COMMUNITY_MAINTAINERS_CHANNEL_ID
+        ? []
+        : [{ type: "actions", elements: [maintainerButton("Product Owner가 되어 직접 고치기")] }]),
     ],
     unfurl_links: false,
     unfurl_media: false,

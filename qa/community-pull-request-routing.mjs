@@ -13,12 +13,11 @@ globalThis.fetch=async(url,options={})=>{
   const u=new URL(url),body=options.body?JSON.parse(options.body):{};
   effects.push({url:u,body});
   if(u.hostname==='api.github.com') {
-    if(u.pathname.endsWith('/files')) return Response.json([{filename:'event-site/src/index.ts'}]);
-    return Response.json({state:'open',draft,title:'개선 결과',base:{ref:'main',repo:{full_name:'Betalgeuse/ot1l'}},head:{sha:'a'.repeat(40),repo:{full_name:'contributor/ot1l'}}});
+    throw Error('Worker must never query GitHub directly');
   }
   if(u.pathname==='/sql') {
     const op=body.params?.[0];
-    const result=body.query.includes('community_bind_pull_request') ? {accepted:true,bindingId:1}
+    const result=body.query.includes('community_queue_pr_metadata') ? {accepted:true,requestId:1}
       : op==='members' ? [{userId:'UPO',displayName:'Operator'}] : op==='surface_get' ? '1.000001' : work;
     return Response.json({rows:[[JSON.stringify(result)]]});
   }
@@ -46,11 +45,13 @@ try {
   const response=await communityInteraction(submission,env,p=>pending.push(p));
   assert.equal((await response.json()).response_action,'clear');
   await Promise.all(pending);
-  const bound=effects.find(e=>e.body.query?.includes('community_bind_pull_request'));
+  const bound=effects.find(e=>e.body.query?.includes('community_queue_pr_metadata'));
   const payload=JSON.parse(bound.body.params[0]);
   assert.equal(payload.actorId,'UPO');
   assert.equal(payload.workKey,'BUG-BOUNDTEST01');
-  assert.equal(payload.headRepository,'contributor/ot1l');
+  assert.equal(payload.prNumber,17);
+  assert.equal(payload.headSha,undefined,'Worker does not invent a SHA before broker lookup');
+  assert.equal(effects.some(e=>e.url.hostname==='api.github.com'),false);
   const receipt=effects.find(e=>e.url.pathname.endsWith('chat.postEphemeral')).body;
   assert.equal(receipt.user,'UPO');
   assert.equal(receipt.channel,'CPO');
@@ -59,7 +60,7 @@ try {
   draft=true;
   await communityInteraction(submission,env,p=>pending.push(p));
   await Promise.all(pending);
-  assert.equal(effects.filter(e=>e.body.query?.includes('community_bind_pull_request')).length,boundCount,'Draft PR cannot enter merge queue');
-  assert.match(effects.filter(e=>e.url.pathname.endsWith('chat.postEphemeral')).at(-1).body.text,/자동 병합·배포는 시작하지 않습니다/);
+  assert.equal(effects.filter(e=>e.body.query?.includes('community_bind_pull_request')).length,boundCount,'Worker cannot put even a draft into merge queue');
+  assert.match(effects.filter(e=>e.url.pathname.endsWith('chat.postEphemeral')).at(-1).body.text,/Draft는 시안 검토만/);
   console.log('PASS real interaction router: PO button, actor-bound modal, fork PR submit and private receipt; ordinary and forged actors denied');
 } finally {globalThis.fetch=original;}

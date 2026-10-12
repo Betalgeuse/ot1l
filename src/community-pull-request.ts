@@ -6,18 +6,13 @@ import {
   refreshMaintainerWorkSurfaces,
   setMaintainerWorkReleaseStage,
 } from "./community-maintainer-work";
-import { notificationThread } from "./community-notification-thread";
+
 import { type CommunityContext, ephemeral } from "./community-runtime";
 import { callSlack } from "./community-social";
-import { InputError, list, object, string } from "./input";
+import { InputError, object, string } from "./input";
 import { NeonStore } from "./store";
 
 const PULL_URL = /^https:\/\/github[.]com\/Betalgeuse\/ot1l\/pull\/([1-9]\d*)$/;
-
-async function sha256Hex(value: string): Promise<string> {
-  const bytes = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
-  return [...new Uint8Array(bytes)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
-}
 
 function metadata(context: CommunityContext): string {
   return JSON.stringify({
@@ -84,69 +79,6 @@ export function pullRequestFormErrors(
   return { pull_url: "https://github.com/Betalgeuse/ot1l/pull/번호 형식의 PR 주소를 넣어 주세요." };
 }
 
-export async function readOpenPullRequest(
-  pullUrl: string,
-  request: typeof fetch = fetch,
-): Promise<{
-  number: number;
-  headSha: string;
-  headRepository: string;
-  paths: string[];
-  title: string;
-  draft: boolean;
-}> {
-  const match = PULL_URL.exec(pullUrl);
-  if (!match)
-    throw new InputError(
-      "https://github.com/Betalgeuse/ot1l/pull/{number} 형식만 사용할 수 있어요.",
-    );
-  const number = Number(match[1]);
-  const headers = { accept: "application/vnd.github+json", "user-agent": "otl1-po-work" };
-  const response = await request(`https://api.github.com/repos/Betalgeuse/ot1l/pulls/${number}`, {
-    headers,
-    signal: AbortSignal.timeout(6000),
-  });
-  if (!response.ok) throw new InputError("GitHub에서 PR을 확인할 수 없어요.");
-  const pull = object(await response.json());
-  const head = object(pull.head);
-  const repository = object(head.repo);
-  if (
-    pull.state !== "open" ||
-    object(pull.base).ref !== "main" ||
-    object(object(pull.base).repo).full_name !== "Betalgeuse/ot1l"
-  )
-    throw new InputError("열려 있고 base가 main인 PR만 연결할 수 있어요.");
-  if (
-    typeof repository.full_name !== "string" ||
-    !/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repository.full_name)
-  )
-    throw new InputError("PR의 원본 저장소를 확인할 수 없어요.");
-  const headSha = string(head.sha);
-  if (!/^[a-f0-9]{40}$/.test(headSha)) throw new InputError("PR head SHA를 확인할 수 없어요.");
-  const filesResponse = await request(
-    `https://api.github.com/repos/Betalgeuse/ot1l/pulls/${number}/files?per_page=100`,
-    { headers, signal: AbortSignal.timeout(6000) },
-  );
-  if (!filesResponse.ok) throw new InputError("GitHub에서 PR 변경 파일을 확인할 수 없어요.");
-  const files = list(await filesResponse.json());
-  if (
-    files.length < 1 ||
-    files.length > 100 ||
-    files.some((file) => typeof object(file).filename !== "string")
-  )
-    throw new InputError("PR 전체 변경 경로를 한 번에 검증할 수 없어요.");
-  const link = filesResponse.headers.get("link") ?? "";
-  if (/rel="next"/.test(link)) throw new InputError("변경 파일이 100개를 넘어 연결할 수 없어요.");
-  return {
-    number,
-    title: typeof pull.title === "string" ? pull.title.slice(0, 1000) : `PR #${number}`,
-    draft: pull.draft === true,
-    headSha,
-    headRepository: string(repository.full_name),
-    paths: files.map((file) => string(object(file).filename)).sort(),
-  };
-}
-
 export async function submitPullRequestBinding(
   context: CommunityContext,
   view: Record<string, unknown>,
@@ -161,7 +93,10 @@ export async function submitPullRequestBinding(
   if (!workKey && object(object(view.state).values).work_key)
     workKey = modalValue(view, "work_key");
   const pullUrl = modalValue(view, "pull_url");
-  const pull = await readOpenPullRequest(pullUrl);
+  const match = PULL_URL.exec(pullUrl);
+  if (!match || !Number.isSafeInteger(Number(match[1])))
+    throw new InputError("올바른 PR 주소를 넣어 주세요.");
+  const pull = { number: Number(match[1]), title: `직접 만든 PR #${match[1]} 검증·검토` };
   const store = new MaintainerOpsStore(context.env);
   const existing = await store.execute("work_by_pr", { prNumber: pull.number });
   if (!workKey && existing && typeof existing === "object" && !Array.isArray(existing))
@@ -194,79 +129,25 @@ export async function submitPullRequestBinding(
     { workKey, prNumber: pull.number, prUrl: pullUrl },
     context.scope.userId,
   );
-  if (pull.draft) {
-    await setMaintainerWorkReleaseStage(context.env, workKey, "시안 검토 중");
-    await ephemeral(context, {
-      text: `Draft PR #${pull.number}을 시안 검토로 연결했어요. 자동 병합·배포는 시작하지 않습니다.`,
-    });
-    return;
-  }
-  const pathsDigest = await sha256Hex(JSON.stringify(pull.paths));
   const result = object(
     await new NeonStore(context.env.DATABASE_URL).queryJson(
-      "SELECT otl.community_bind_pull_request($1::jsonb)",
+      "SELECT otl.community_queue_pr_metadata($1::jsonb)",
       [
         JSON.stringify({
           teamId: context.scope.teamId,
           actorId: context.scope.userId,
           founderId: context.env.COMMUNITY_ADMIN_ID,
           workKey,
-          pullUrl,
-          ...pull,
-          pathsDigest,
+          prNumber: pull.number,
         }),
       ],
     ),
   );
   if (result.accepted !== true)
-    throw new InputError(
-      result.reason === "automatic_work_running"
-        ? "봇이 이미 수정 중이에요. 실행이 끝난 뒤 PR을 연결해 주세요."
-        : "이미 검증·승인 중인 PR이 있거나, 연결할 수 없는 작업이에요.",
-    );
-  if (result.headShaChanged === true) {
-    const work = await store.getWork(workKey);
-    const channel = context.env.COMMUNITY_MAINTAINERS_CHANNEL_ID;
-    const surface = channel
-      ? await store.execute("surface_get", { workKey, channelId: channel })
-      : null;
-    const thread = typeof surface === "string" ? surface : work?.source_thread;
-    if (channel && typeof thread === "string") {
-      const replies = await notificationThread(context.env.SLACK_BOT_TOKEN, channel, thread);
-      for (const reply of replies ?? []) {
-        if (!reply.bot_id) continue;
-        const controls = list(reply.blocks ?? [])
-          .map(object)
-          .flatMap((block) => list(block.elements ?? []).map(object));
-        const outdated = controls.some((control) => {
-          if (
-            control.action_id !== "community_feedback_merge_approve" ||
-            typeof control.value !== "string"
-          )
-            return false;
-          try {
-            const binding = object(JSON.parse(control.value));
-            return (
-              binding.key === workKey &&
-              binding.prNumber === pull.number &&
-              binding.headSha !== pull.headSha
-            );
-          } catch {
-            return false;
-          }
-        });
-        if (outdated)
-          await callSlack(context.env.SLACK_BOT_TOKEN, "chat.update", {
-            channel,
-            ts: string(reply.ts),
-            text: "새 수정본을 검증하고 있어요. 이전 승인 버튼은 종료됐습니다.",
-            blocks: [],
-          });
-      }
-    }
-  }
+    throw new InputError("이 작업의 실행 상태를 확인한 뒤 다시 요청해 주세요.");
+  await setMaintainerWorkReleaseStage(context.env, workKey, "PR 정보 확인 대기");
   await refreshMaintainerWorkSurfaces(context.env, workKey);
   await ephemeral(context, {
-    text: `PR #${pull.number}을 ${workKey}에 연결했어요. 검사가 끝나면 po-work의 작업 스레드에 승인 버튼이 나타나요.`,
+    text: `PR #${pull.number} 검토 요청을 저장했어요. GenQuant가 GitHub 정보를 조회하고 재시도합니다. 검증 후 같은 작업 스레드에 승인 버튼이 나타나요. Draft는 시안 검토만 합니다.`,
   });
 }

@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { runCommunitySchedule } from "../src/community-scheduler.ts";
 
 const wrangler = JSON.parse(readFileSync(new URL("../wrangler.jsonc", import.meta.url), "utf8"));
-assert.deepEqual(wrangler.triggers.crons, ["0 1 * * *", "0 9 * * *", "*/5 * * * *"]);
+assert.deepEqual(wrangler.triggers.crons, ["0 1 * * *", "0 9 * * *", "*/5 * * * *", "1-59/5 * * * *"]);
 
 let dispatch = null;
 let claimed = false;
@@ -65,5 +65,20 @@ try {
   assert.equal(posts.length, 1);
   assert.equal(emojiCalls, 1, "an existing dispatch skips message recomposition and Slack emoji lookup");
   assert.equal(dispatchWrites, 1);
+  const actions = posts[0].blocks.flatMap(b => b.elements ?? []);
+  for (const id of ["community_quick_goal", "community_quick_review", "community_maintainer_activate", "community_bug_open"])
+    assert.ok(actions.some(a => a.action_id === id), `missing daily control: ${id}`);
+  assert.ok(actions.filter(a => a.value).every(a => JSON.parse(a.value).ownerId === "actor"));
+
+  // A failure after common delivery must not stop the common root from landing.
+  dispatch = null; claimed = false;
+  await assert.rejects(runCommunitySchedule({
+    SLACK_TEAM_ID: "TQA", SLACK_BOT_TOKEN: "token", COMMUNITY_CHANNEL_ID: "CPUBLIC",
+    COMMUNITY_PUBLIC_CHANNEL_ID: "CPUBLIC", COMMUNITY_ADMIN_ID: "UADMIN",
+    COMMUNITY_INTRO_CHANNEL_ID: "CINTRO", COMMUNITY_FEEDBACK_CHANNEL_ID: "CFEEDBACK",
+    COMMUNITY_MAINTAINERS_CHANNEL_ID: "CPO",
+  }, { ...store, async reminderTriggerDue() { throw new Error("personal queue unavailable"); } }, new Date("2026-09-29T01:00:00Z")), /personal queue unavailable/);
+  assert.equal(posts.length, 2);
+  assert.equal(dispatch.status, "sent");
   console.log("PASS missed 10:00 scrum catches up from DB membership without Slack profile dependency");
 } finally { globalThis.fetch = originalFetch; }

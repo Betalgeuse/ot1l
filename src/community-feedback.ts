@@ -364,7 +364,7 @@ export async function sendDailyMaintainerPrompt(
         { type: "section", text: { type: "mrkdwn", text } },
         {
           type: "actions",
-          elements: [feedbackButton("피드백·작업 제안", true), maintainerButton()],
+          elements: [feedbackButton("피드백·작업 제안", true)],
         },
       ],
     });

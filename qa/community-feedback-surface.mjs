@@ -187,6 +187,9 @@ try {
         call.body.channel === "CFEEDBACK",
     ).length;
     const routed = await canonicalFeedbackContext(poContext, report, "BUG-PO-ROUTE");
+    const poCard = calls.findLast(call => call.method === "chat.postMessage" && call.body.channel === "CMAINTAIN");
+    assert.ok(poCard);
+    assert.equal(poCard.body.blocks.flatMap(block => block.elements ?? []).some(element => element.action_id === "community_maintainer_activate"), false);
     assert.equal(routed.scope.channelId,"CMAINTAIN");
     assert.notEqual(routed.thread,thread,"daily prompt cannot own every proposal thread");
     historyMessages=[{ts:routed.thread,thread_ts:routed.thread,text:"버그 키: BUG-PO-ROUTE"}];
@@ -281,7 +284,7 @@ try {
   assert.equal(maintainerPrompt.body.blocks.at(-1).elements[0].style, "primary");
   assert.deepEqual(
     maintainerPrompt.body.blocks.at(-1).elements.map((element) => element.action_id),
-    ["community_bug_open", "community_maintainer_activate"],
+    ["community_bug_open"],
   );
   const dailyPrompt = calls.find(
     (call) => call.method === "chat.postMessage" && call.body.channel === "CFEEDBACK",

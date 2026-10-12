@@ -131,7 +131,7 @@ npm run reconcile:garden -- --team T_REPLACE --channel C_REPLACE --through 2026-
 
 `reporter_thread`와 `admin_channel`처럼 다시 읽을 수 있는 영구 메시지는 Slack이 수락한 뒤 응답이나 DB 완료 기록을 잃어도 제한된 history에서 동일 payload를 대조해 중복 게시를 막습니다. `reporter_ephemeral`은 Slack history로 다시 읽을 수 없으므로 **at-least-once**입니다. Slack 수락 뒤 응답 또는 DB finish를 잃으면 비공개 receipt가 재시도 때 중복될 수 있습니다. 이 제한은 당사자에게만 보이는 receipt를 누락시키지 않기 위한 명시적으로 수용한 tradeoff이며, exactly-once로 표현하지 않습니다.
 
-버그 delivery는 팀마다 하나인 전역 `CommunityClock` 인스턴스가 활동과 정확한 재시도·24시간 만료 시각에 실행됩니다. private reconciliation, 만료, delivery claim 중 하나라도 한 번에 10건의 전체 batch를 채우면 `possiblyMore`로 기록하고 5분 뒤 다시 실행하며, 모든 단계가 batch보다 적어질 때까지 한 시간 idle 검사로 늦추지 않습니다. 활동·실패·미처리 backlog가 계속되는 상한 모양은 5분 간격, 하루 288번 alarm이고, 완전히 비면 한 시간 안전 검사만 남도록 설계했습니다. 이 수치는 호출 모양의 상한일 뿐 실제 Neon 사용량이나 무료 범위를 증명하지 않습니다. 운영 비용은 실제 alarm invocation과 DB query 지표로 따로 측정합니다. 각 실행은 다음 alarm을 먼저 저장한 뒤 만료와 전달 재시도만 제한된 배치로 처리합니다. `*/5` Cron은 사라진 alarm을 다시 거는 backup/nudge이며 delivery SQL을 실행하지 않습니다. 전역 Durable Object alarm이 주 실행 경로입니다. GitHub Actions는 사용하지 않습니다.
+버그 delivery는 팀마다 하나인 전역 `CommunityClock` 인스턴스가 활동과 정확한 재시도·24시간 만료 시각에 실행됩니다. private reconciliation, 만료, delivery claim 중 하나라도 한 번에 10건의 전체 batch를 채우면 `possiblyMore`로 기록하고 5분 뒤 다시 실행하며, 모든 단계가 batch보다 적어질 때까지 한 시간 idle 검사로 늦추지 않습니다. 활동·실패·미처리 backlog가 계속되는 상한 모양은 5분 간격, 하루 288번 alarm이고, 완전히 비면 한 시간 안전 검사만 남도록 설계했습니다. 이 수치는 호출 모양의 상한일 뿐 실제 Neon 사용량이나 무료 범위를 증명하지 않습니다. 운영 비용은 실제 alarm invocation과 DB query 지표로 따로 측정합니다. 각 실행은 다음 alarm을 먼저 저장한 뒤 만료와 전달 재시도만 제한된 배치로 처리합니다. `1-59/5` 유지보수 Cron의 전용 객체가 사라진 alarm을 다시 거는 backup/nudge이며 delivery SQL을 실행하지 않습니다. 버그 전역 alarm은 주 실행 경로로 유지하며 `*/5`는 스크럼 전용 신호로 분리합니다. GitHub Actions는 사용하지 않습니다. 스크럼 장애 진단·중복 없는 복구·출시 게이트는 [DAILY_SCRUM_RELIABILITY.md](DAILY_SCRUM_RELIABILITY.md)를 따릅니다.
 
 비공개 reconciliation, 24시간 만료, delivery claim 중 어느 단계든 한 번에 10건을 처리하면 남은 작업이 있을 수 있다고 보고 5분 안에 다시 실행합니다. 다음 실행에서 세 단계가 모두 10건 미만이어야 한 시간 안전 검사로 돌아갑니다.
 
@@ -154,6 +154,16 @@ GitHub 저장소 알림은 Slack GitHub App이 담당합니다. OT1L 봇은 별�
 Slack에는 Worker 이름, 실행 종류, outcome, HTTP 상태, 예외 개수와 Cloudflare의 잘림 여부만 보냅니다. 요청 URL, query, 헤더, cookie, 본문, IP, 원본 로그, 예외 메시지, stack trace, DB 주소와 secret은 읽거나 전송하지 않습니다. Slack 전송 실패는 Tail Worker 자체의 구조화 오류 로그로 남기며 정상 전달로 위장하지 않습니다.
 
 ## 장애와 알려진 경계
+
+### 예약 작업 중단과 복구
+
+`Alarm · canceled`는 실행 중단 관찰이며 CPU 초과, 코드 예외, 데이터 유실이나 자동 복구 완료를 뜻하지 않습니다. 예외가 0건이고 당시 상세 기록에 접근할 수 없다면 원인을 확정하지 않습니다. 2026-10-12 13:30 알림은 이 범주였으며 과거 로그 API 조회는 토큰 권한 부족으로 거부됐습니다. 이후 관찰한 13:45 Alarm과 스크럼·maintenance는 정상 종료했지만 객체별 연결 증거 없이 동일 작업의 복구라고 단정하지 않습니다.
+
+채널별 queue alarm은 외부 작업 전에 1분 복구 알람과 `lastRun.status=running`을 저장합니다. 작업 종료 후 실제 due로 교체하고, 회원관리만 실패한 경우에도 해당 재시도 시각을 포함합니다. 정상 종료 시 임시 1분 알람을 남겨 무한 빈 폴링을 만들지 않습니다. 유지보수 Cron은 가입 이벤트나 cursor가 없어도 queue clock을 재확인하며, 이미 지연된 알람을 다시 5분 뒤로 밀지 않습니다. 기존 dispatch·outbox의 claim/lease/수락 대조는 유지하고 알림을 끄거나 강제 재게시하지 않습니다.
+
+`community.clock.alarm.received/start/end/failed`와 `lastRun`으로 수신·역할·진행·종료·다음 실행을 구분합니다. `finished`는 실행 종료이며 각 큐의 성공은 delivery/queue 상태로 별도 확인합니다. 회원관리·retention 오류에는 제한된 `subrequest_limit`, `connection_limit`, `timeout_or_abort`, `network_failure`, `unclassified` 코드만 추가합니다. 예외 원문·비밀·회원 정보는 기록하지 않습니다. `unclassified`를 임의의 quota 오류로 해석하지 않습니다.
+
+검증: `bun qa/community-clock-recovery.mjs`는 이전 코드에서 회원관리 전용 1분 재시도가 5분으로 밀리는 실패를 재현합니다. `node qa/community-alarm-runtime.mjs`는 실제 workerd/SQLite에서 외부 I/O 중 객체를 강제 종료하고 재시작하여 복구 알람과 미완료 기록이 남는지 확인합니다. 모두 로컬 가짜 Neon만 사용하며 운영 중단을 주입하지 않습니다. 이는 중단에 대한 복구 보강이지 Cloudflare의 모든 취소 원인을 제거했다는 증명이 아닙니다.
 
 공개 초대는 현재 `/join`의 공식 Slack 공유 초대 redirect를 사용합니다. referral form 기반 direct-join은 삭제하지 않고 보류 상태로 유지합니다. 복원 전에는 Site POST, Turnstile, Core 예약, Slack redirect, `team_join` 이메일 귀속, welcome·자기소개 안내를 한 신규 사용자 세션에서 모두 확인해야 합니다. 일반 초대 우회로 들어온 사용자는 소개자 귀속과 lifetime 한도 예약이 자동으로 생기지 않습니다.
 

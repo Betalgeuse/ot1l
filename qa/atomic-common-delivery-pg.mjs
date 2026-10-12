@@ -21,7 +21,7 @@ const psql = async (sql) =>
 try {
   await run("mkdir", ["-p", socket]);
   await run(join(pgBin, "initdb"), ["-D", data, "--no-locale", "--encoding=UTF8", "--auth=trust"]);
-  await run(join(pgBin, "pg_ctl"), ["-D", data, "-o", `-F -k ${socket} -p ${port}`, "-l", join(temp, "postgres.log"), "-w", "start"]);
+  await run(join(pgBin, "pg_ctl"), ["-D", data, "-o", `-F -k ${socket} -p ${port} -c listen_addresses=''`, "-l", join(temp, "postgres.log"), "-w", "start"]);
   started = true;
   await run(join(pgBin, "createdb"), ["atomic"]);
   const files = (await readdir(join(root, "migrations")))

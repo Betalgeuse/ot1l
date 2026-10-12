@@ -9,6 +9,7 @@ export async function refreshCommunityQueueClock(
   env: CommunityEnv,
   storage: DurableObjectStorage,
   channelId: string,
+  options: { readonly replaceAlarm?: boolean; readonly due?: number | null } = {},
 ): Promise<{ readonly next: number | null }> {
   if (env.DATABASE_MAINTENANCE === "true") throw new InputError("Database maintenance");
   if (
@@ -50,6 +51,7 @@ export async function refreshCommunityQueueClock(
     [
       gardenDue === null ? null : new Date(gardenDue).toISOString(),
       membershipDue === null ? null : new Date(membershipDue).toISOString(),
+      options.due == null ? null : new Date(options.due).toISOString(),
     ]
       .filter((value): value is string => value !== null)
       .sort()[0] ?? null,
@@ -60,7 +62,9 @@ export async function refreshCommunityQueueClock(
     const alarmAt = Math.max(observedNow + 1_000, next);
     const previous = await storage.getAlarm();
     await storage.setAlarm(
-      previous !== null && previous > observedNow ? Math.min(previous, alarmAt) : alarmAt,
+      !options.replaceAlarm && previous !== null
+        ? Math.max(observedNow + 1_000, Math.min(previous, alarmAt))
+        : alarmAt,
     );
   }
   return { next: await storage.getAlarm() };
