@@ -3172,15 +3172,12 @@ try {
   assert.deepEqual(maintenanceLogs, []);
 
   calls.length = 0;
-  await communityCron(env, scheduledTime);
-  assert.equal(
-    calls.some(
-      (call) =>
-        call.body.query?.includes("community_execute") && call.body.params?.[0] === "get_record",
-    ),
-    true,
-    "Cron backup must keep the normal community schedule independent from bug delivery",
-  );
+  const scrumCalls = [];
+  await communityCron({ ...env, COMMUNITY_CLOCK: { getByName(name) {
+    return { async runScrum(channel, at) { scrumCalls.push({ name, channel, at }); return { common: 0, personal: 0 }; } };
+  } } }, scheduledTime);
+  assert.deepEqual(scrumCalls.map(c => c.name), ["scrum:TQA:CPUBLIC", "scrum:TQA:CADMIN"]);
+  assert.equal(calls.length, 0, "Cron relays to isolated scrum objects without inline DB/Slack/bug work");
 
   calls.length = 0;
   releaseFeedbackEnabled = true;

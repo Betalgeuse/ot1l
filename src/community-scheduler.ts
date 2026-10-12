@@ -116,13 +116,6 @@ export async function runCommunitySchedule(
   const local = new Date(nowDate.getTime() + 9 * 60 * 60 * 1000).toISOString();
   const date = local.slice(0, 10);
   const minute = local.slice(11, 16);
-  await sendDailyFeedbackPrompt(env, store, date, minute);
-  await sendDailyMaintainerPrompt(env, store, date, minute);
-  if (
-    env.COMMUNITY_INTRO_CHANNEL_ID &&
-    env.COMMUNITY_PUBLIC_CHANNEL_ID === env.COMMUNITY_CHANNEL_ID
-  )
-    await sendDailyIntroductionReminders(env, store, date, minute);
   const optionalDay = isOptionalDay(date);
   const settings = await store.getRecord({ ...scope, key: "group-schedule" });
   const minutes = (value: string) => Number(value.slice(0, 2)) * 60 + Number(value.slice(3));
@@ -139,10 +132,6 @@ export async function runCommunitySchedule(
     ...(env.COMMUNITY_GUIDE_CANVAS_URL ? { guideUrl: env.COMMUNITY_GUIDE_CANVAS_URL } : {}),
     ...(env.COMMUNITY_INTRO_CANVAS_URL ? { introductionUrl: env.COMMUNITY_INTRO_CANVAS_URL } : {}),
   };
-  const targetedDue =
-    !optionalDay && publicChannel
-      ? await store.reminderTriggerDue(scope.teamId, scope.channelId, now)
-      : false;
   let common = 0;
   const eligibleMembers =
     publicChannel && !optionalDay && scheduledKinds.length
@@ -185,7 +174,13 @@ export async function runCommunitySchedule(
     reviewThreadV2: env.REVIEW_THREAD_V2 === "true",
     memberActions: publicChannel,
     navigation,
+    throwOnFailure: true,
   });
+  // A broken personal-reminder query cannot prevent the shared daily root.
+  const targetedDue =
+    !optionalDay && publicChannel
+      ? await store.reminderTriggerDue(scope.teamId, scope.channelId, now)
+      : false;
   if (optionalDay || (publicChannel && !targetedDue)) return { common, personal: 0 };
   const personal = await sendReminderBatches({
     token: env.SLACK_BOT_TOKEN,
@@ -198,4 +193,22 @@ export async function runCommunitySchedule(
     navigation,
   });
   return { common, personal };
+}
+
+// Non-scrum prompts run only in the separate maintenance invocation.
+export async function runCommunityPrompts(
+  env: CommunityScheduleEnv,
+  store: ScheduleStore,
+  nowDate: Date,
+): Promise<void> {
+  const local = new Date(nowDate.getTime() + 9 * 60 * 60 * 1000).toISOString();
+  const date = local.slice(0, 10);
+  const minute = local.slice(11, 16);
+  await sendDailyFeedbackPrompt(env, store, date, minute);
+  await sendDailyMaintainerPrompt(env, store, date, minute);
+  if (
+    env.COMMUNITY_INTRO_CHANNEL_ID &&
+    env.COMMUNITY_PUBLIC_CHANNEL_ID === env.COMMUNITY_CHANNEL_ID
+  )
+    await sendDailyIntroductionReminders(env, store, date, minute);
 }

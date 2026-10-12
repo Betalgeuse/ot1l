@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
-import { validateProductionConfig } from "../scripts/deploy-production-worker.mjs";
+import { validateProductionConfig, PRODUCTION_CRONS } from "../scripts/deploy-production-worker.mjs";
+import { readFileSync } from "node:fs";
+const manifest = JSON.parse(readFileSync(new URL("../wrangler.jsonc", import.meta.url), "utf8"));
+assert.deepEqual(manifest.triggers.crons, PRODUCTION_CRONS, "Broker and checked-in schedule must agree");
 
 const valid = {
   name: "otl1-onething-garden",

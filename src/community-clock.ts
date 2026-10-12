@@ -14,9 +14,12 @@ import {
 } from "./community-clock-bug";
 import { publishGardenRequest } from "./community-clock-garden";
 import { refreshCommunityQueueClock } from "./community-clock-schedule";
+import { communityMaintenanceCron } from "./community-cron";
 import { runDueGardenDeliveries } from "./community-garden-delivery";
 import { runMembershipDue } from "./community-membership-schedule";
 import type { CommunityEnv } from "./community-runtime";
+import { runCommunitySchedule } from "./community-scheduler";
+import { CommunityStore } from "./community-store";
 import { InputError } from "./input";
 import { NeonStore } from "./store";
 
@@ -34,6 +37,66 @@ export class CommunityClock extends DurableObject<CommunityEnv> {
       () => undefined,
     );
     return result;
+  }
+
+  // Cron is the sole trigger owner. These dedicated per-channel objects provide
+  // serialization and a DO CPU budget, not a second daily alarm scheduler.
+  runScrum(
+    channelId: string,
+    scheduledTime: number,
+  ): Promise<{ readonly common: number; readonly personal: number }> {
+    return this.serialize(async () => {
+      if (
+        !Number.isFinite(scheduledTime) ||
+        ![this.env.COMMUNITY_PUBLIC_CHANNEL_ID, this.env.COMMUNITY_CHANNEL_ID].includes(channelId)
+      )
+        throw new InputError("Invalid scrum scope");
+      await this.bindScheduledRole("daily_scrum", channelId);
+      if (
+        this.env.COMMUNITY_ENABLED !== "true" ||
+        this.env.DATABASE_MAINTENANCE === "true" ||
+        !this.env.COMMUNITY_ADMIN_ID
+      )
+        return { common: 0, personal: 0 };
+      await this.ctx.storage.put("lastRun", { scheduledTime, status: "running" });
+      try {
+        const result = await runCommunitySchedule(
+          {
+            ...this.env,
+            COMMUNITY_CHANNEL_ID: channelId,
+            COMMUNITY_ADMIN_ID: this.env.COMMUNITY_ADMIN_ID,
+          },
+          new CommunityStore(new NeonStore(this.env.DATABASE_URL)),
+          new Date(scheduledTime),
+        );
+        await this.ctx.storage.put("lastRun", { scheduledTime, status: "finished", ...result });
+        return result;
+      } catch (error) {
+        await this.ctx.storage.put("lastRun", {
+          scheduledTime,
+          status: "failed",
+          failure: error instanceof Error ? error.name : "Unknown",
+        });
+        throw error;
+      }
+    });
+  }
+
+  runMaintenance(scheduledTime: number): Promise<void> {
+    return this.serialize(async () => {
+      if (!Number.isFinite(scheduledTime)) throw new InputError("Invalid maintenance time");
+      await this.bindScheduledRole("community_maintenance");
+      await communityMaintenanceCron(this.env, scheduledTime);
+    });
+  }
+
+  private async bindScheduledRole(role: string, channel?: string): Promise<void> {
+    const previous = await this.ctx.storage.get<string>("role");
+    const bound = await this.ctx.storage.get<string>("channel");
+    if ((previous && previous !== role) || (bound && bound !== channel))
+      throw new InputError("Scheduled object role cannot change");
+    await this.ctx.storage.put("role", role);
+    if (channel) await this.ctx.storage.put("channel", channel);
   }
 
   publishGarden(input: GardenRequest): Promise<string> {

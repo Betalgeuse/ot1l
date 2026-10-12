@@ -44,6 +44,11 @@ export interface ClockBinding {
     armBugDelivery(input: BugDeliveryArm): Promise<BugDeliveryArmResult>;
     inspect(): Promise<ClockInspection>;
     publishGarden(input: GardenRequest): Promise<string>;
+    runScrum(
+      channelId: string,
+      scheduledTime: number,
+    ): Promise<{ readonly common: number; readonly personal: number }>;
+    runMaintenance(scheduledTime: number): Promise<void>;
   };
 }
 
