@@ -9,7 +9,7 @@ const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
 export function prepareLogAlertConfig(value, manifest) {
   validateLogAlertConfig(value);
   const bindings = value.durable_objects?.bindings ?? [];
-  if (bindings.some(b => b.name === "ALARM_INCIDENTS" && b.class_name !== "AlarmIncident"))
+  if (bindings.some(b => b.name === "ALARM_INCIDENTS" && (b.class_name !== "AlarmIncident" || b.script_name)))
     throw new Error("Log alert namespace conflict");
   const migration = manifest.migrations?.find(m => m.tag === "alarm-incidents-v1");
   if (JSON.stringify(migration?.new_sqlite_classes) !== JSON.stringify(["AlarmIncident"]))

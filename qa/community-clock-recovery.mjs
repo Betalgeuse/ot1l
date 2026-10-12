@@ -5,6 +5,7 @@ const now = Date.parse("2026-10-12T04:30:00Z");
 let activeStorage;
 let assertArmedBeforeWork = false;
 let failMembership = true;
+mock.module("../src/community-alarm-proof",()=>({alarmWorkIsClear:async()=>true}));
 mock.module("cloudflare:workers", () => ({ DurableObject: class {
   constructor(ctx, env) { this.ctx = ctx; this.env = env; }
 } }));

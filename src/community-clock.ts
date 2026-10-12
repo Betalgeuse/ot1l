@@ -1,5 +1,6 @@
 import { DurableObject } from "cloudflare:workers";
 import { beginAlarmObservation, finishAlarmObservation } from "./community-alarm-observation";
+import { alarmWorkIsClear } from "./community-alarm-proof";
 import {
   BUG_DELIVERY_CLOCK_ROLE,
   type BugDeliveryArm,
@@ -220,7 +221,7 @@ export class CommunityClock extends DurableObject<CommunityEnv> {
               !last.skipped &&
               last.failed === 0 &&
               last.possiblyMore === false,
-          ),
+          ) && (await alarmWorkIsClear(this.env, role)),
         );
         console.log(
           JSON.stringify({ event: "community.clock.alarm.end", role: BUG_DELIVERY_CLOCK_ROLE }),
@@ -339,7 +340,10 @@ export class CommunityClock extends DurableObject<CommunityEnv> {
           this.ctx.storage,
           cycle,
           COMMUNITY_SCHEDULE_CLOCK_ROLE,
-          !queueFailed && !immediate && garden.nextDue === null,
+          !queueFailed &&
+            !immediate &&
+            garden.nextDue === null &&
+            (await alarmWorkIsClear(this.env, COMMUNITY_SCHEDULE_CLOCK_ROLE, channelId)),
         );
         await this.ctx.storage.put("lastRun", {
           at: now.getTime(),

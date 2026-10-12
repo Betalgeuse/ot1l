@@ -1,0 +1,36 @@
+import assert from "node:assert/strict";
+import {execFile} from "node:child_process";
+import {mkdtemp,readdir,rm,mkdir} from "node:fs/promises";
+import {tmpdir} from "node:os";
+import {join,resolve} from "node:path";
+import {promisify} from "node:util";
+import {COMMUNITY_ALARM_CLEAR,BUG_ALARM_CLEAR} from "../src/community-alarm-proof.ts";
+const exec=promisify(execFile),root=resolve(import.meta.dirname,"..");
+const pg=process.env.PG_BIN??"/opt/homebrew/opt/postgresql@17/bin";
+const temp=await mkdtemp(join(tmpdir(),"otl1-alarm-proof-")),data=join(temp,"data"),socket=join(temp,"socket");
+const env={...process.env,PGHOST:socket,PGPORT:String(59000+Math.floor(Math.random()*3000)),PGDATABASE:"postgres"};
+const run=(bin,args)=>exec(bin,args,{cwd:root,env,encoding:"utf8"});
+const sql=async s=>(await run(join(pg,"psql"),["-XAtq","-v","ON_ERROR_STOP=1","-c",s])).stdout.trim();
+let started=false;
+try{
+ await mkdir(socket);
+ await run(join(pg,"initdb"),["-D",data,"--no-locale","--encoding=UTF8","--auth=trust"]);
+ await run(join(pg,"pg_ctl"),["-D",data,"-o",`-F -k ${socket} -p ${env.PGPORT} -c listen_addresses=''`,"-l",join(temp,"server.log"),"-w","start"]);started=true;
+ const migrations=(await readdir(join(root,"migrations"))).filter(n=>/^\d{3}_.*\.sql$/.test(n)&&Number(n.slice(0,3))<=65).sort();
+ for(const n of migrations.filter(n=>Number(n.slice(0,3))<=5))await run(join(pg,"psql"),["-Xq","-v","ON_ERROR_STOP=1","-f",`migrations/${n}`]);
+ await run(join(pg,"psql"),["-Xq","-v","ON_ERROR_STOP=1","--single-transaction","-f","migrations/006_normalized_foundation.sql","-f","migrations/007_normalized_legacy.sql"]);
+ for(const n of migrations.filter(n=>Number(n.slice(0,3))>=8))await run(join(pg,"psql"),["-Xq","-v","ON_ERROR_STOP=1","-f",`migrations/${n}`]);
+ const params=["TQA","CQA","2026-10-12T09:00:00Z","true","true","true","true","true"];
+ const query=COMMUNITY_ALARM_CLEAR.replace(/\$(\d+)/g,(_,i)=>`'${params[Number(i)-1].replaceAll("'","''")}'`);
+ assert.equal(await sql(query),"true");
+ assert.equal(await sql(BUG_ALARM_CLEAR.replace('$1',"'TQA'").replace('$2',"'2026-10-12T09:00:00Z'")),"true");
+ await sql(`SELECT otl.enqueue_garden_projection('TQA','CQA','U1','2026-10-12',1,'1.1','1.1','interaction','recorded',NULL)`);
+ assert.equal(await sql(query),"false","pending work prevents a green completion");
+ await sql(`UPDATE otl.community_garden_deliveries SET status='claimed',attempts=3,worker_id='qa',lease_token='qa',lease_expires_at='2026-10-13'`);
+ assert.equal(await sql(query),"false","an unexpired claim cannot be mistaken for an empty queue");
+ await sql(`UPDATE otl.community_garden_deliveries SET status='failed',worker_id=NULL,lease_token=NULL,lease_expires_at=NULL,error_code='transport_error'`);
+ assert.equal(await sql(query),"false","exhausted failed deliveries do not turn into success when claim returns no rows");
+ await sql(`UPDATE otl.community_garden_deliveries SET status='sent',message_ts='9.1'`);
+ assert.equal(await sql(query),"true");
+ console.log("PASS actual PostgreSQL receipt gate: pending, uncertain claim and exhausted failure remain unconfirmed; sent completes");
+}finally{if(started)await run(join(pg,"pg_ctl"),["-D",data,"-m","fast","-w","stop"]);await rm(temp,{recursive:true,force:true});}

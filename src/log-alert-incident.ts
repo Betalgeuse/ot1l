@@ -48,7 +48,7 @@ function message(s: State, status: string): { text: string; blocks: Json[] } {
         : "예약 실행 중단 · 복구 확인 중";
   const description =
     status === "recovered"
-      ? "같은 작업 식별자의 완료 기록을 확인했어요. 중단 원인까지 밝혀졌다는 뜻은 아닙니다."
+      ? "같은 실행의 종료 기록과 현재 처리 대상 큐에 미처리 항목이 없음을 확인했어요. 중단 원인까지 밝혀졌다는 뜻은 아닙니다."
       : status === "unresolved"
         ? "두 번의 정기 점검 간격 동안 같은 작업의 완료를 확인하지 못했어요. 운영 점검이 필요합니다."
         : "실행이 중단됐어요. 같은 작업의 완료 기록이 도착하면 이 메시지를 갱신합니다.";
