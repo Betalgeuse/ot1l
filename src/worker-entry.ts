@@ -8,7 +8,7 @@ type RequestHandler = (request: Request, runtime: Runtime, context: Context) => 
 export function createWorkerHandler(handler: RequestHandler): ExportedHandler<CloudflareBindings> {
   return {
     async scheduled(controller: ScheduledController, env: Env): Promise<void> {
-      await communityCron(env, controller.scheduledTime);
+      await communityCron(env, controller.scheduledTime, controller.cron);
     },
     async fetch(request: Request, env: Env, context: Context): Promise<Response> {
       const configured = [

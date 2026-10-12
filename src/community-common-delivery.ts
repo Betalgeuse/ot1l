@@ -56,6 +56,7 @@ export async function sendCommonDeliveries(input: {
   readonly reviewThreadV2?: boolean;
   readonly memberActions?: boolean;
   readonly navigation?: MemberNavigation;
+  readonly throwOnFailure?: boolean;
 }): Promise<number> {
   let sent = 0;
   for (let index = 0; index < 4; index += 1) {
@@ -65,6 +66,15 @@ export async function sendCommonDeliveries(input: {
       leaseToken: crypto.randomUUID(),
     });
     if (!delivery) return sent;
+    console.log(
+      JSON.stringify({
+        event: "community.scrum.delivery.claimed",
+        date: delivery.date,
+        kind: delivery.kind,
+        attempt: delivery.attempt,
+        safeToPost: delivery.safeToPost,
+      }),
+    );
     try {
       const reconciled =
         delivery.attempt > 1
@@ -110,6 +120,15 @@ export async function sendCommonDeliveries(input: {
       );
       sent += 1;
     } catch (error) {
+      console.error(
+        JSON.stringify({
+          event: "community.scrum.delivery.failed",
+          date: delivery.date,
+          kind: delivery.kind,
+          attempt: delivery.attempt,
+          code: error instanceof CommunitySlackError ? reminderRetryCode(error) : "transport_error",
+        }),
+      );
       await input.store.finishCommonDelivery({
         ...input.scope,
         leaseToken: delivery.leaseToken,
@@ -120,6 +139,7 @@ export async function sendCommonDeliveries(input: {
           ? { retryAfterSeconds: error.retryAfterSeconds }
           : {}),
       });
+      if (input.throwOnFailure) throw error;
       return sent;
     }
   }

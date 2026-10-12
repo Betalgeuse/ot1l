@@ -5,6 +5,8 @@ import { fileURLToPath } from "node:url";
 
 const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
 
+export const PRODUCTION_CRONS = ["0 1 * * *", "0 9 * * *", "*/5 * * * *", "1-59/5 * * * *"];
+
 export function validateProductionConfig(value) {
   if (typeof value !== "object" || value === null || Array.isArray(value))
     throw new TypeError("Production Wrangler config must be an object");
@@ -44,5 +46,9 @@ if (process.argv[1] && import.meta.url === new URL(`file://${resolve(process.arg
     "--config",
     configPath,
     "--keep-vars",
+    // Private production configs may predate the isolated maintenance lane.
+    // Apply the reviewed schedule manifest without copying or rewriting vars.
+    "--triggers",
+    ...PRODUCTION_CRONS,
   ], { cwd: root, stdio: "inherit" });
 }

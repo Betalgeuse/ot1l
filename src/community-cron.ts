@@ -9,13 +9,72 @@ import { runMembershipDue } from "./community-membership-schedule";
 import { poMembershipChannels, reconcilePoMembership } from "./community-po-membership";
 import { syncPrMetadataResults } from "./community-pr-metadata";
 import type { CommunityEnv } from "./community-runtime";
-import { runCommunitySchedule } from "./community-scheduler";
+import { runCommunityPrompts } from "./community-scheduler";
 import { reconcileShareInfoChannels } from "./community-share-info-reconcile";
 import { CommunityStore } from "./community-store";
 import { runTownhallEventDue } from "./community-townhall-events";
 import { NeonStore } from "./store";
 
-export async function communityCron(env: CommunityEnv, scheduledTime: number): Promise<void> {
+// Different scheduled invocations have separate CPU budgets. try/catch or
+// Promise.all inside the maintenance invocation cannot survive exceededCpu.
+export const SCRUM_CRONS = ["0 1 * * *", "0 9 * * *", "*/5 * * * *"] as const;
+export const MAINTENANCE_CRON = "1-59/5 * * * *";
+
+export async function communityCron(
+  env: CommunityEnv,
+  scheduledTime: number,
+  cron = "*/5 * * * *",
+): Promise<void> {
+  if (cron === MAINTENANCE_CRON) {
+    if (!env.COMMUNITY_CLOCK) throw new Error("Scheduled work binding missing");
+    await env.COMMUNITY_CLOCK.getByName(`maintenance:${env.SLACK_TEAM_ID}`).runMaintenance(
+      scheduledTime,
+    );
+    return;
+  }
+  if (env.COMMUNITY_ENABLED !== "true" || env.DATABASE_MAINTENANCE === "true") return;
+  if (!env.COMMUNITY_ADMIN_ID) return;
+  if (SCRUM_CRONS.some((value) => value === cron)) {
+    // Public daily scrum comes first, including when a private channel fails.
+    const channels = new Set([env.COMMUNITY_PUBLIC_CHANNEL_ID, env.COMMUNITY_CHANNEL_ID]);
+    let failed = false;
+    for (const channel of channels) {
+      if (!channel) continue;
+      console.log(JSON.stringify({ event: "community.scrum.start", scheduledTime, cron, channel }));
+      try {
+        if (!env.COMMUNITY_CLOCK) throw new Error("Scrum binding missing");
+        const result = await env.COMMUNITY_CLOCK.getByName(
+          `scrum:${env.SLACK_TEAM_ID}:${channel}`,
+        ).runScrum(channel, scheduledTime);
+        console.log(
+          JSON.stringify({ event: "community.scrum.end", scheduledTime, cron, channel, ...result }),
+        );
+      } catch (error) {
+        failed = true;
+        console.error(
+          JSON.stringify({
+            event: "community.scrum.failed",
+            scheduledTime,
+            cron,
+            channel,
+            errorType: error instanceof Error ? error.name : "Unknown",
+          }),
+        );
+      }
+    }
+    if (failed) throw new Error("Daily scrum dispatch failed");
+    return;
+  }
+  throw new Error("Unknown community cron");
+}
+
+export async function communityMaintenanceCron(
+  env: CommunityEnv,
+  scheduledTime: number,
+): Promise<void> {
+  const stage = (queue: string) =>
+    console.log(JSON.stringify({ event: "community.maintenance.stage", queue, scheduledTime }));
+  stage("bug_clock");
   try {
     await armBugDeliveryClock(env, { reason: "cron", observedAt: scheduledTime });
   } catch (error) {
@@ -30,6 +89,7 @@ export async function communityCron(env: CommunityEnv, scheduledTime: number): P
   }
   if (env.COMMUNITY_ENABLED !== "true" || env.DATABASE_MAINTENANCE === "true") return;
   if (!env.COMMUNITY_ADMIN_ID) return;
+  stage("po_membership");
   if (poMembershipChannels(env).length)
     try {
       await reconcilePoMembership(env);
@@ -41,6 +101,7 @@ export async function communityCron(env: CommunityEnv, scheduledTime: number): P
         }),
       );
     }
+  stage("feedback");
   try {
     await reconcileNativeFeedback(env);
   } catch (error) {
@@ -51,6 +112,7 @@ export async function communityCron(env: CommunityEnv, scheduledTime: number): P
       }),
     );
   }
+  stage("events");
   try {
     const eventStore = new CommunityStore(new NeonStore(env.DATABASE_URL));
     const eventTransitions = await runTownhallEventDue(
@@ -68,6 +130,7 @@ export async function communityCron(env: CommunityEnv, scheduledTime: number): P
       }),
     );
   }
+  stage("pr_metadata");
   if (env.BUG_RUNNER_ENABLED === "true")
     try {
       await syncPrMetadataResults(env);
@@ -80,6 +143,7 @@ export async function communityCron(env: CommunityEnv, scheduledTime: number): P
         }),
       );
     }
+  stage("agent_notifications");
   if (env.BUG_RUNNER_ENABLED === "true")
     try {
       const agent = await sendAgentNotifications(env, new Date(scheduledTime));
@@ -94,7 +158,8 @@ export async function communityCron(env: CommunityEnv, scheduledTime: number): P
         }),
       );
     }
-  if (Math.floor(scheduledTime / 60_000) % 15 === 0)
+  stage("share_info");
+  if (Math.floor(scheduledTime / 60_000) % 15 === 1)
     try {
       const shareStore = new CommunityStore(new NeonStore(env.DATABASE_URL));
       const chapters = await reconcileCommunityChapters(env, shareStore);
@@ -109,7 +174,8 @@ export async function communityCron(env: CommunityEnv, scheduledTime: number): P
         }),
       );
     }
-  // Independent queue: a puzzle failure must not block ONE THING scheduling.
+  stage("chapter_challenges");
+  // Maintenance-only: no challenge failure can consume the scrum invocation.
   try {
     await runDailyChallenges(
       env,
@@ -129,6 +195,7 @@ export async function communityCron(env: CommunityEnv, scheduledTime: number): P
     (v): v is string => Boolean(v),
   );
   for (const channel of new Set(channels)) {
+    stage("garden");
     let garden: { readonly processed: number } = { processed: 0 };
     try {
       garden = await runDueGardenDeliveries(env, channel, scheduledTime);
@@ -142,6 +209,7 @@ export async function communityCron(env: CommunityEnv, scheduledTime: number): P
         }),
       );
     }
+    stage("membership");
     let membership = {
       possiblyMore: false,
       nextDue: null as number | null,
@@ -174,15 +242,18 @@ export async function communityCron(env: CommunityEnv, scheduledTime: number): P
         channel,
         membership.nextCursor,
       );
-    let result: { readonly common: number; readonly personal: number } = { common: 0, personal: 0 };
+    stage("prompts");
     try {
       const scheduleStore = new CommunityStore(new NeonStore(env.DATABASE_URL));
-      result = await runCommunitySchedule(
+      await runCommunityPrompts(
         { ...env, COMMUNITY_CHANNEL_ID: channel, COMMUNITY_ADMIN_ID: env.COMMUNITY_ADMIN_ID },
         scheduleStore,
         new Date(scheduledTime),
       );
-      if (result.common > 0 && channel === env.COMMUNITY_PUBLIC_CHANNEL_ID) {
+      if (
+        channel === env.COMMUNITY_PUBLIC_CHANNEL_ID &&
+        Math.floor(scheduledTime / 60_000) % 60 === 1
+      ) {
         try {
           const snapshot = await collectCurrentChannelMembers(
             env.SLACK_BOT_TOKEN,
@@ -221,7 +292,6 @@ export async function communityCron(env: CommunityEnv, scheduledTime: number): P
         scheduledTime,
         gardenProcessed: garden.processed,
         membershipPossiblyMore: membership.possiblyMore,
-        ...result,
       }),
     );
   }

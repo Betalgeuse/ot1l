@@ -43,9 +43,11 @@ mock.module("../src/community-bug-delivery-scheduler.ts", () => ({
 }));
 mock.module("../src/community-scheduler.ts", () => ({
   runCommunitySchedule: (...args) => scheduleRun(...args),
+  runCommunityPrompts: async () => {},
 }));
 mock.module("../src/community-scheduler", () => ({
   runCommunitySchedule: (...args) => scheduleRun(...args),
+  runCommunityPrompts: async () => {},
 }));
 mock.module("../src/community-garden-delivery.ts", () => ({
   deliverGardenByKey: async () => "garden",
@@ -105,6 +107,21 @@ function clock(storage, env = {}) {
 }
 
 const now = Date.parse("2026-09-11T00:00:00Z");
+{
+  const scrumStorage = new FakeStorage();
+  const scrum = clock(scrumStorage, { DATABASE_URL: "postgresql://qa:qa@example.neon.tech/test" });
+  const before = scheduleRuns.length;
+  await Promise.all([scrum.runScrum("CPUBLIC", now), scrum.runScrum("CPUBLIC", now)]);
+  assert.equal(scheduleRuns.length, before + 2);
+  assert.equal(scrumStorage.values.get("role"), "daily_scrum");
+  assert.equal(scrumStorage.values.get("lastRun").status, "finished");
+  assert.equal(scrumStorage.alarm, null, "scrum RPC must not create a competing alarm scheduler");
+  await assert.rejects(scrum.runScrum("COTHER", now), /Invalid scrum scope/);
+  await assert.rejects(scrum.runScrum("CADMIN", now), /role cannot change/);
+  await assert.rejects(scrum.armBugDelivery({ reason: "cron", observedAt: now }), /role cannot change/);
+  await assert.rejects(scrum.runMaintenance(now), /role cannot change/);
+  scheduleRuns.length = before;
+}
 assert.equal(nextAlarmTime([], now), null);
 assert.equal(nextAlarmTime(["18:00", "10:00", "10:00"], now), Date.parse("2026-09-11T01:00:00Z"));
 assert.equal(
