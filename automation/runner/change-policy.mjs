@@ -33,6 +33,8 @@ const OPEN_EVENT_PATHS = new Set([
 const OPEN_PRESENTATION_PATH = /^src\/slack-presentation\/[a-z0-9-]+[.]ts$/;
 
 const MIGRATION_PATH = /^migrations\/([0-9]{3})_[a-z0-9_]+[.]sql$/;
+const LOG_ALERT_PATH = (path) => /^src\/log-alert(?:-[a-z0-9-]+)?[.]ts$/.test(path) ||
+  path.startsWith("log-alerts/") || path === "scripts/deploy-log-alert-worker.mjs";
 
 const CORE_WORKER_PATH = (path) =>
   path.startsWith("src/") ||
@@ -47,6 +49,7 @@ const CORE_WORKER_PATH = (path) =>
   path.startsWith("scripts/");
 
 const PRODUCTION_PATH = (path) =>
+  LOG_ALERT_PATH(path) ||
   path.startsWith("migrations/") ||
   CORE_WORKER_PATH(path) ||
   (path.startsWith("site/") && !openEventPath(path));
@@ -129,6 +132,7 @@ export function deploymentTargets(paths) {
     if (OPEN_DOCUMENT(path) || OPEN_PREVIEW(path) || OPEN_QA(path) || GUIDE_PATHS.has(path)) continue;
     if (path.startsWith("migrations/")) targets.add("migrations");
     else if (RUNNER_PATHS(path)) targets.add("runner");
+    else if (LOG_ALERT_PATH(path)) targets.add("log-alerts");
     else if (path.startsWith("src/")) targets.add("core-worker");
     else if (path.startsWith("event-site/")) targets.add("open-events");
     else if (path.startsWith("site/")) {
@@ -141,7 +145,7 @@ export function deploymentTargets(paths) {
       targets.add("open-events");
     }
   }
-  return ["migrations", "core-worker", "site-worker", "open-events", "runner"].filter(target => targets.has(target));
+  return ["migrations", "core-worker", "site-worker", "open-events", "log-alerts", "runner"].filter(target => targets.has(target));
 }
 
 function adapterFor(paths) {
