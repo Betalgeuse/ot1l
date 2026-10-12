@@ -191,12 +191,20 @@ export async function handleLogAlerts(
   env: LogAlertEnv,
 ): Promise<number> {
   let sent = 0;
+  let observationFailed = false;
   const remaining: TraceItem[] = [];
   for (const trace of traces) {
     const signals = await alarmSignals(trace);
     if (signals.length && env.ALARM_INCIDENTS) {
-      for (const signal of signals)
-        if (await env.ALARM_INCIDENTS.getByName(signal.key).observe(signal)) sent += 1;
+      try {
+        for (const signal of signals)
+          if (await env.ALARM_INCIDENTS.getByName(signal.key).observe(signal)) sent += 1;
+      } catch {
+        observationFailed = true;
+        console.error(JSON.stringify({ event: "log_alert.observation_delivery_failed" }));
+      }
+      // A lost RPC response can mean the incident card was already accepted.
+      // Do not post a duplicate fallback; continue delivering unrelated failures.
       if (signals.some((s) => s.phase === "canceled")) continue;
     }
     remaining.push(trace);
@@ -221,6 +229,7 @@ export async function handleLogAlerts(
     });
     sent += 1;
   }
+  if (observationFailed) throw new Error("alarm_observation_delivery_failed");
   return sent;
 }
 

@@ -98,6 +98,10 @@ try {
   assert.match(JSON.stringify(calls.find(c=>c.method==="chat.postMessage").body),/실행 중단 · 복구 미확인/);
   assert.doesNotMatch(JSON.stringify(calls.find(c=>c.method==="chat.postMessage").body),/분류되지 않은 예외|완료 확인/);
   calls.length=0;
+  const correlated=trace({event:{scheduledTime:new Date()},outcome:"canceled",durableObjectId:"a".repeat(64),logs:[{level:"log",message:[JSON.stringify({event:"community.alarm.observation",role:"community_schedule",phase:"start",cycleId:"11111111-1111-4111-8111-111111111111"})]}]});
+  await assert.rejects(handleLogAlerts([correlated,serverError],{...env,ALARM_INCIDENTS:{getByName(){return{async observe(){throw new Error("synthetic RPC loss");}};}}}),/alarm_observation_delivery_failed/);
+  assert.equal(calls.filter(c=>c.method==="chat.postMessage").length,1,"correlation failure must not hide an unrelated real failure or duplicate a possibly accepted card");
+  calls.length=0;
   limiterSuccess = false;
   assert.equal(await handleLogAlerts([serverError], env), 0);
   assert.equal(
