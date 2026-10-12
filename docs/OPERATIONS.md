@@ -149,6 +149,8 @@ pre-release QA 배포는 기존 Worker의 승인된 검증 시나리오에만 �
 
 ### 공개 `#sys-alert`와 서버 오류
 
+알림 Worker 변경(`src/log-alert*.ts`, `log-alerts/**`, 전용 배포 스크립트)은 Founder 전용 `log-alerts` 배포 대상으로 분류합니다. `core-worker`에만 반영하고 알림 배포가 끝났다고 보고하지 않습니다. Tail-only Worker는 HTTP health 대신 실제 배포 버전 영수증을 기록하며, 알림 전달·복구 카드 확인은 별도 운영 QA입니다. 정책 도입 PR은 runner 경로만 먼저 변경해 기존 승인 digest 범위로 배포할 수 있게 하고, 그다음 실제 알림 변경 PR을 새 대상으로 재검증합니다. 기존 대기 승인은 재사용하지 않습니다.
+
 GitHub 저장소 알림은 Slack GitHub App이 담당합니다. OT1L 봇은 별도 `otl1-log-alerts` Tail Worker에서 Core, 이벤트 시간표와 홈페이지 Worker의 실행 결과를 받아 예외, HTTP 5xx, 비정상 outcome만 `#sys-alert`에 게시합니다. 동일 서비스·실행 종류·outcome·상태 코드는 60초에 한 번으로 제한합니다.
 
 Slack에는 Worker 이름, 실행 종류, outcome, HTTP 상태, 예외 개수와 Cloudflare의 잘림 여부만 보냅니다. 요청 URL, query, 헤더, cookie, 본문, IP, 원본 로그, 예외 메시지, stack trace, DB 주소와 secret은 읽거나 전송하지 않습니다. Slack 전송 실패는 Tail Worker 자체의 구조화 오류 로그로 남기며 정상 전달로 위장하지 않습니다.

@@ -110,6 +110,22 @@ export function siteHealthUrl(configuredUrl) {
   return new URL("/health", configuredUrl).href;
 }
 
+export function deployLogAlerts(checkout, config, execute = command) {
+  if (typeof config.CLOUDFLARE_API_TOKEN !== "string" || !config.CLOUDFLARE_API_TOKEN)
+    throw new Error("log_alerts_deployer_unconfigured");
+  const productionConfig = resolve(checkout, ".wrangler.log-alerts.json");
+  const env = { ...process.env, CLOUDFLARE_API_TOKEN: config.CLOUDFLARE_API_TOKEN,
+    OTL1_LOG_ALERT_WRANGLER_CONFIG: productionConfig };
+  execute("node", ["scripts/deploy-log-alert-worker.mjs"], { cwd: checkout, env, timeout: 600_000 });
+  const deployments = JSON.parse(execute(join(checkout, "node_modules/.bin/wrangler"),
+    ["deployments", "list", "--config", productionConfig, "--json"], { cwd: checkout, env }));
+  const version = deployments.at(-1)?.versions?.find(item => item.percentage === 100)?.version_id;
+  if (typeof version !== "string" || !/^[0-9a-f-]{36}$/.test(version)) throw new Error("log_alerts_version_missing");
+  // A tail-only Worker has no public health endpoint. Record the actual
+  // destination/version, not another Worker's HTTP health as fake acceptance.
+  return { version, service: "otl1-log-alerts", acceptance: "tail_delivery_not_probed" };
+}
+
 function deploySite(checkout, config) {
   for (const name of ["CLOUDFLARE_API_TOKEN", "BUG_DEPLOY_SITE_HEALTH_URL"])
     if (typeof config[name] !== "string" || !config[name].trim())
@@ -313,6 +329,7 @@ export async function deployOnce(environment = process.env) {
       "core-worker": () => deployCoreWorker(checkout, config),
       "site-worker": () => deploySite(checkout, config),
       "open-events": () => deployOpenEvents(checkout, config),
+      "log-alerts": () => deployLogAlerts(checkout, config),
       runner: () => {
         // The candidate check already ran without credentials in bubblewrap.
         // Never run candidate test code in the credential-bearing host process.

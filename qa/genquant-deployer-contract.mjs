@@ -10,6 +10,7 @@ import {
   deploymentRange,
   executeDeploymentPlan,
   siteHealthUrl,
+  deployLogAlerts,
 } from "../automation/runner/genquant-deployer.mjs";
 import { approvalDigest, classifyChangePaths } from "../automation/runner/change-policy.mjs";
 import { sha256 } from "../automation/runner/contract.mjs";
@@ -36,6 +37,17 @@ assert.deepEqual(classifyRunnerDeploymentPaths([
   paths: ["event-site/src/index.ts", "site/dist/event-schedule.js"],
 });
 assert.equal(classifyRunnerDeploymentPaths(["src/community-townhall-events.ts"]).adapter, "core-worker");
+assert.equal(classifyRunnerDeploymentPaths(["src/log-alert-worker.ts"]).adapter, "log-alerts");
+assert.equal(classifyRunnerDeploymentPaths(["log-alerts/wrangler.jsonc"]).changeClass, "core");
+assert.equal(classifyRunnerDeploymentPaths(["src/log-alert-worker.ts", "src/community-clock.ts"]).adapter, "production");
+assert.deepEqual(Object.keys(executeDeploymentPlan(["src/log-alert-worker.ts"], {"log-alerts":()=>({version:"fake"})})),["log-alerts"]);
+assert.throws(()=>executeDeploymentPlan(["src/log-alert-worker.ts"],{"core-worker":()=>({})}),/missing_deployment_target_log-alerts/);
+const tailCalls=[];
+assert.deepEqual(deployLogAlerts("/repo",{CLOUDFLARE_API_TOKEN:"test-only"},(_bin,args)=>{
+  tailCalls.push(args);
+  return args[0]==="deployments"?JSON.stringify([{versions:[{percentage:100,version_id:"12345678-1234-1234-1234-123456789abc"}]}]):"";
+}),{version:"12345678-1234-1234-1234-123456789abc",service:"otl1-log-alerts",acceptance:"tail_delivery_not_probed"});
+assert.equal(tailCalls[0][0],"scripts/deploy-log-alert-worker.mjs");
 assert.equal(classifyRunnerDeploymentPaths(["package.json"]).adapter, "production");
 assert.equal(classifyRunnerDeploymentPaths(["migrations/082_forward.sql"]).adapter, "production");
 assert.equal(classifyRunnerDeploymentPaths(["site/src/index.ts"]).adapter, "site-worker");
