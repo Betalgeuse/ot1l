@@ -2,6 +2,7 @@ import { sendAgentNotifications } from "./community-agent-notifications";
 import { armBugDeliveryClock } from "./community-bug-clock-client";
 import { runDailyChallenges } from "./community-challenges";
 import { reconcileCommunityChapters } from "./community-chapters";
+import { armCommunityClock } from "./community-clock-client";
 import { reconcileNativeFeedback } from "./community-feedback";
 import { runDueGardenDeliveries } from "./community-garden-delivery";
 import { collectCurrentChannelMembers } from "./community-membership";
@@ -13,6 +14,7 @@ import { runCommunityPrompts } from "./community-scheduler";
 import { reconcileShareInfoChannels } from "./community-share-info-reconcile";
 import { CommunityStore } from "./community-store";
 import { runTownhallEventDue } from "./community-townhall-events";
+import { runtimeFailureCode } from "./runtime-failure";
 import { NeonStore } from "./store";
 
 // Different scheduled invocations have separate CPU budgets. try/catch or
@@ -89,6 +91,23 @@ export async function communityMaintenanceCron(
   }
   if (env.COMMUNITY_ENABLED !== "true" || env.DATABASE_MAINTENANCE === "true") return;
   if (!env.COMMUNITY_ADMIN_ID) return;
+  stage("community_clock_backup");
+  // The scheduled maintenance invocation restores missing queue alarms after
+  // platform cancellation, even when no new Slack event or cursor is present.
+  for (const channel of new Set([env.COMMUNITY_PUBLIC_CHANNEL_ID, env.COMMUNITY_CHANNEL_ID])) {
+    if (!channel) continue;
+    try {
+      await armCommunityClock(env, channel);
+    } catch (error) {
+      console.error(
+        JSON.stringify({
+          event: "community.clock.backup.failed",
+          errorType: error instanceof Error ? error.name : "Unknown",
+          code: runtimeFailureCode(error),
+        }),
+      );
+    }
+  }
   stage("po_membership");
   if (poMembershipChannels(env).length)
     try {

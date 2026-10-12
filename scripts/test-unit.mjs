@@ -19,6 +19,7 @@ const suites = [
   "community-event-demands",
   "contributor-hygiene",
   "community-clock",
+  "community-clock-recovery",
   "community-cron-isolation",
   "community-emoji",
   "encouragement-thread-delivery",
@@ -112,4 +113,5 @@ const suites = [
 ];
 for (const suite of suites) execFileSync("bun", [`qa/${suite}.mjs`], { stdio: "inherit" });
 execFileSync("node", ["qa/community-scrum-runtime.mjs"], { stdio: "inherit" });
+execFileSync("node", ["qa/community-alarm-runtime.mjs"], { stdio: "inherit" });
 console.log(`Passed ${suites.length} isolated synthetic suites.`);

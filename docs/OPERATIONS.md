@@ -155,6 +155,16 @@ Slack에는 Worker 이름, 실행 종류, outcome, HTTP 상태, 예외 개수와
 
 ## 장애와 알려진 경계
 
+### 예약 작업 중단과 복구
+
+`Alarm · canceled`는 실행 중단 관찰이며 CPU 초과, 코드 예외, 데이터 유실이나 자동 복구 완료를 뜻하지 않습니다. 예외가 0건이고 당시 상세 기록에 접근할 수 없다면 원인을 확정하지 않습니다. 2026-10-12 13:30 알림은 이 범주였으며 과거 로그 API 조회는 토큰 권한 부족으로 거부됐습니다. 이후 관찰한 13:45 Alarm과 스크럼·maintenance는 정상 종료했지만 객체별 연결 증거 없이 동일 작업의 복구라고 단정하지 않습니다.
+
+채널별 queue alarm은 외부 작업 전에 1분 복구 알람과 `lastRun.status=running`을 저장합니다. 작업 종료 후 실제 due로 교체하고, 회원관리만 실패한 경우에도 해당 재시도 시각을 포함합니다. 정상 종료 시 임시 1분 알람을 남겨 무한 빈 폴링을 만들지 않습니다. 유지보수 Cron은 가입 이벤트나 cursor가 없어도 queue clock을 재확인하며, 이미 지연된 알람을 다시 5분 뒤로 밀지 않습니다. 기존 dispatch·outbox의 claim/lease/수락 대조는 유지하고 알림을 끄거나 강제 재게시하지 않습니다.
+
+`community.clock.alarm.received/start/end/failed`와 `lastRun`으로 수신·역할·진행·종료·다음 실행을 구분합니다. `finished`는 실행 종료이며 각 큐의 성공은 delivery/queue 상태로 별도 확인합니다. 회원관리·retention 오류에는 제한된 `subrequest_limit`, `connection_limit`, `timeout_or_abort`, `network_failure`, `unclassified` 코드만 추가합니다. 예외 원문·비밀·회원 정보는 기록하지 않습니다. `unclassified`를 임의의 quota 오류로 해석하지 않습니다.
+
+검증: `bun qa/community-clock-recovery.mjs`는 이전 코드에서 회원관리 전용 1분 재시도가 5분으로 밀리는 실패를 재현합니다. `node qa/community-alarm-runtime.mjs`는 실제 workerd/SQLite에서 외부 I/O 중 객체를 강제 종료하고 재시작하여 복구 알람과 미완료 기록이 남는지 확인합니다. 모두 로컬 가짜 Neon만 사용하며 운영 중단을 주입하지 않습니다. 이는 중단에 대한 복구 보강이지 Cloudflare의 모든 취소 원인을 제거했다는 증명이 아닙니다.
+
 공개 초대는 현재 `/join`의 공식 Slack 공유 초대 redirect를 사용합니다. referral form 기반 direct-join은 삭제하지 않고 보류 상태로 유지합니다. 복원 전에는 Site POST, Turnstile, Core 예약, Slack redirect, `team_join` 이메일 귀속, welcome·자기소개 안내를 한 신규 사용자 세션에서 모두 확인해야 합니다. 일반 초대 우회로 들어온 사용자는 소개자 귀속과 lifetime 한도 예약이 자동으로 생기지 않습니다.
 
 DB에 저장됐는지, Slack에 게시됐는지, 회원이 확인했는지를 따로 봅니다. 발송 실패나 응답이 불확실한 상태에서는 실제 채널과 발송 기록을 대조한 뒤 복구합니다. 무조건 다시 보내지 않습니다.

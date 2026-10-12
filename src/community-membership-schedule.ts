@@ -13,6 +13,7 @@ import { CommunityReferralStore } from "./community-referral-store";
 import { runRetentionQueues } from "./community-retention-schedule";
 import type { CommunityEnv } from "./community-runtime";
 import { InputError, object, string } from "./input";
+import { runtimeFailureCode } from "./runtime-failure";
 import type { NeonStore } from "./store";
 import { StoreError } from "./store-types";
 
@@ -52,7 +53,7 @@ export async function runMembershipDue(
           event: "community.membership.queue.failed",
           queue: name,
           errorType: error.name,
-          ...(error instanceof StoreError ? { errorCode: error.code } : {}),
+          errorCode: error instanceof StoreError ? error.code : runtimeFailureCode(error),
         }),
       );
     }
