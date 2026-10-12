@@ -35,6 +35,7 @@ export type ClockInspection = {
   readonly next: number | null;
   readonly role: string | null;
   readonly lastRun: Readonly<Record<string, unknown>> | null;
+  readonly alarmCycle?: Readonly<Record<string, unknown>> | null;
 };
 
 export interface ClockBinding {

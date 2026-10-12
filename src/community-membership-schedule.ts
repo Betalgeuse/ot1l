@@ -30,6 +30,7 @@ export async function runMembershipDue(
   now: number,
   cursor?: string,
   interestCursor?: string,
+  observeFailure?: () => void,
 ): Promise<{
   readonly possiblyMore: boolean;
   readonly nextDue: number | null;
@@ -191,6 +192,7 @@ export async function runMembershipDue(
   await attempt("next_due", async () => {
     nextDue = await nextMembershipDue(env, db, channelId, now);
   });
+  if (failed) observeFailure?.();
   return {
     possiblyMore,
     nextDue: failed ? Math.min(nextDue ?? now + 60_000, now + 60_000) : nextDue,

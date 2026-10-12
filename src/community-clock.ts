@@ -1,4 +1,6 @@
 import { DurableObject } from "cloudflare:workers";
+import { beginAlarmObservation, finishAlarmObservation } from "./community-alarm-observation";
+import { alarmWorkIsClear } from "./community-alarm-proof";
 import {
   BUG_DELIVERY_CLOCK_ROLE,
   type BugDeliveryArm,
@@ -185,6 +187,8 @@ export class CommunityClock extends DurableObject<CommunityEnv> {
       next: await this.ctx.storage.getAlarm(),
       role: (await this.ctx.storage.get<string>("role")) ?? null,
       lastRun: (await this.ctx.storage.get<Readonly<Record<string, unknown>>>("lastRun")) ?? null,
+      alarmCycle:
+        (await this.ctx.storage.get<Readonly<Record<string, unknown>>>("alarmObservation")) ?? null,
     };
   }
 
@@ -201,10 +205,24 @@ export class CommunityClock extends DurableObject<CommunityEnv> {
       const channelId = await this.ctx.storage.get<string>("channel");
       if (role === BUG_DELIVERY_CLOCK_ROLE) {
         if (channelId) throw new InputError("Global clock has a channel collision");
+        const cycle = await beginAlarmObservation(this.ctx.storage, role, Date.now());
         console.log(
           JSON.stringify({ event: "community.clock.alarm.start", role: BUG_DELIVERY_CLOCK_ROLE }),
         );
         await runBugDeliveryClockAlarm(this.env, this.ctx.storage, Date.now());
+        const last = await this.ctx.storage.get<Record<string, unknown>>("lastRun");
+        await finishAlarmObservation(
+          this.ctx.storage,
+          cycle,
+          role,
+          Boolean(
+            last &&
+              !last.failure &&
+              !last.skipped &&
+              last.failed === 0 &&
+              last.possiblyMore === false,
+          ) && (await alarmWorkIsClear(this.env, role)),
+        );
         console.log(
           JSON.stringify({ event: "community.clock.alarm.end", role: BUG_DELIVERY_CLOCK_ROLE }),
         );
@@ -223,6 +241,12 @@ export class CommunityClock extends DurableObject<CommunityEnv> {
       // Persist recovery before external I/O. Platform cancellation cannot be
       // caught, and must not leave an alarm with no future execution scheduled.
       await this.ctx.storage.setAlarm(retryAt);
+      const cycle = await beginAlarmObservation(
+        this.ctx.storage,
+        COMMUNITY_SCHEDULE_CLOCK_ROLE,
+        now.getTime(),
+      );
+      let queueFailed = false;
       await this.ctx.storage.put("lastRun", { at: now.getTime(), status: "running", retryAt });
       console.log(
         JSON.stringify({
@@ -237,9 +261,18 @@ export class CommunityClock extends DurableObject<CommunityEnv> {
           nextDue: null,
         };
         try {
-          garden = await runDueGardenDeliveries(this.env, channelId, now.getTime());
+          garden = await runDueGardenDeliveries(
+            this.env,
+            channelId,
+            now.getTime(),
+            undefined,
+            () => {
+              queueFailed = true;
+            },
+          );
         } catch (error) {
           if (!(error instanceof Error)) throw error;
+          queueFailed = true;
           console.error(
             JSON.stringify({
               event: "community.clock.queue.failed",
@@ -264,9 +297,13 @@ export class CommunityClock extends DurableObject<CommunityEnv> {
             now.getTime(),
             await this.ctx.storage.get<string>("referralReconcileCursor"),
             await this.ctx.storage.get<string>("interestReconcileCursor"),
+            () => {
+              queueFailed = true;
+            },
           );
         } catch (error) {
           if (!(error instanceof Error)) throw error;
+          queueFailed = true;
           console.error(
             JSON.stringify({
               event: "community.clock.queue.failed",
@@ -299,6 +336,15 @@ export class CommunityClock extends DurableObject<CommunityEnv> {
         // Include membership-only retries, then atomically replace the temporary
         // safety alarm with the actual deadline. Do not delete it before I/O.
         const next = await this.refreshSchedule(channelId, { replaceAlarm: true, due });
+        await finishAlarmObservation(
+          this.ctx.storage,
+          cycle,
+          COMMUNITY_SCHEDULE_CLOCK_ROLE,
+          !queueFailed &&
+            !immediate &&
+            garden.nextDue === null &&
+            (await alarmWorkIsClear(this.env, COMMUNITY_SCHEDULE_CLOCK_ROLE, channelId)),
+        );
         await this.ctx.storage.put("lastRun", {
           at: now.getTime(),
           status: "finished",

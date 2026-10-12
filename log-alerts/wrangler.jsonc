@@ -4,6 +4,8 @@
   "main": "../src/log-alert-worker.ts",
   "compatibility_date": "2026-10-03",
   "workers_dev": false,
+  "durable_objects": {"bindings": [{"name":"ALARM_INCIDENTS","class_name":"AlarmIncident"}]},
+  "migrations": [{"tag":"alarm-incidents-v1","new_sqlite_classes":["AlarmIncident"]}],
   "vars": {
     "COMMUNITY_SYS_ALERT_CHANNEL_ID": "C_REPLACE_SYS_ALERT"
   },
