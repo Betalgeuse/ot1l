@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { challengeFor, algorithmChallenges } from '../src/community-challenge-content.ts';
-import { runDailyChallenges, challengePayload, challengeConfig, CHALLENGE_CONFIG_KEY } from '../src/community-challenges.ts';
+import { sourceChallenge, sourcedChallengePayload, mensaCandidates, allowedChallengeUrl } from '../src/community-challenge-sources.ts';
+import { runDailyChallenges, challengeConfig, CHALLENGE_CONFIG_KEY } from '../src/community-challenges.ts';
 const env={SLACK_TEAM_ID:'TQA',SLACK_BOT_TOKEN:'test',COMMUNITY_ADMIN_ID:'UFOUNDER',COMMUNITY_PUBLIC_CHANNEL_ID:'CPUBLIC'};
 const config={enabled:true,startDate:'2026-10-12',targets:[{track:'dev',channelId:'CDEV'},{track:'math',channelId:'CMATH'}]};
 const now=s=>new Date(`2026-10-12T${s}:00+09:00`), records=new Map(), messages=[], calls=[];
@@ -12,8 +12,19 @@ const store={
  async claimRecord(s){const r=records.get(key(s));if(r?.status!=='pending')return false;r.status='claimed';return true;},
  async finishRecord(s,status){records.get(key(s)).status=status;return true;},
 };
-let lost=false,mismatch=false,blocked=false;
+let lost=false,mismatch=false,blocked=false,sourceBlocked=false,sourceReads=0;
+const sourceFixture={id:'mensa-test',title:'British Mensa · Test',publisher:'British Mensa',url:'https://mensa.org.uk/puzzle/test/',solutionUrl:'https://mensa.org.uk/puzzle/test/',solutionLabel:'Show Answer'};
 globalThis.fetch=async(url,options)=>{
+ const parsed=new URL(url);
+ if(parsed.hostname!=='slack.com'){
+  sourceReads++;
+  if(sourceBlocked)return new Response('Unavailable',{status:503});
+  assert.equal(options.headers?.Authorization,undefined,'Slack token never sent to source');
+  const html=parsed.hostname==='atcoder.jp'
+   ?parsed.pathname.endsWith('editorial')?'<span>Official</span><a>Editorial</a>':`<title>${parsed.pathname.endsWith('_c')?'C':'B'} - Verified fixture</title><time class='fixtime'>2022-07-17 21:00:00+0900</time><time class='fixtime'>2022-07-17 22:40:00+0900</time>Problem Statement Sample Input<a href="${parsed.pathname}/editorial">Editorial</a>`
+   :parsed.pathname==='/puzzle/'?Array.from({length:12},(_,i)=>`<article><h3><a href="https://mensa.org.uk/puzzle/${12-i}-10-26/">${12-i}/10/26</a></h3><div class="elementor-post__excerpt"><p>How many cars wait in the grid?</p></div></article>`).join(''):'Show Answer<div class="ee-toggle-element__element">Answer on original site</div>';
+  return new Response(html,{headers:{'content-type':'text/html'}});
+ }
  const u=new URL(url),method=u.pathname.split('/').at(-1),p=options.method==='GET'?Object.fromEntries(u.searchParams):JSON.parse(options.body);calls.push({method,p});
  if(method==='conversations.info')return Response.json({ok:true,channel:{name:mismatch?'wrong':p.channel==='CDEV'?'chapter-dev':'chapter-math',is_archived:false,is_private:false}});
  if(method==='conversations.history'||method==='conversations.replies'){
@@ -28,13 +39,23 @@ globalThis.fetch=async(url,options)=>{
  throw Error(`unexpected API ${method}`);
 };
 assert.throws(()=>challengeConfig({...config,targets:[config.targets[0],config.targets[0]]}));
-assert.throws(()=>challengeFor('math',-1));
+assert.equal(allowedChallengeUrl('https://mensa.org.uk.evil.example/puzzle/test/'),false);
+assert.equal(allowedChallengeUrl('https://user:password@mensa.org.uk/puzzle/test/'),false);
+assert.doesNotMatch(sourcedChallengePayload('math','2026-10-12',sourceFixture).text,/공식 Mensa|IQ 검사|자동 가입/);
+assert.equal(mensaCandidates('<article><h3><a href="https://mensa.org.uk/puzzle/word/">1/10/26</a></h3><div class="elementor-post__excerpt">Rearrange letters to form a word</div></article>','2026-10-12').length,0);
 assert.equal(await runDailyChallenges(env,store,now('08:59')),0);assert.equal(calls.length,0);
 assert.equal(await runDailyChallenges(env,store,new Date('2026-10-11T09:00:00+09:00')),0);
+config.enabled=false;
+assert.equal(await runDailyChallenges(env,store,now('09:00')),0);
+assert.equal(sourceReads,0,'disabled config must not fetch or reserve a problem');
+assert.equal(messages.length,0,'disabled config is not a successful delivery');
+config.enabled=true;
 lost=true;
 await Promise.all([runDailyChallenges(env,store,now('09:00')),runDailyChallenges(env,store,now('09:00'))]);
 assert.equal(messages.length,2,'one root per channel despite overlapping cron');
+const readsAfterSelection=sourceReads;
 assert.equal(await runDailyChallenges(env,store,now('09:05')),1,'lost receipt recovered');assert.equal(messages.length,2);
+assert.equal(sourceReads,readsAfterSelection,'retry uses persisted source snapshot');
 assert.equal(await runDailyChallenges(env,store,now('17:59')),0);
 assert.equal(await runDailyChallenges(env,store,now('18:00')),2);assert.equal(messages.length,4);
 for(const m of messages){assert.equal(m.blocks[0].type,'section');assert.ok(m.blocks[0].block_id.startsWith('otl1_challenge_'));assert.doesNotMatch(m.text,/<!channel>|<!here>/);}
@@ -47,13 +68,21 @@ mismatch=true;await runDailyChallenges(env,store,new Date('2026-10-13T09:00:00+0
 blocked=true;await runDailyChallenges(env,store,new Date('2026-10-13T09:05:00+09:00'));assert.equal(messages.length,3);blocked=false;
 await runDailyChallenges(env,store,new Date('2026-10-13T09:10:00+09:00'));assert.equal(messages.length,5);
 await runDailyChallenges(env,store,new Date('2026-10-17T09:00:00+09:00'));assert.equal(messages.length,7,'weekends included');
-assert.match(challengeFor('dev',algorithmChallenges.length).title,/복습/);
-for(let i=0;i<365;i++){
- for(const track of ['dev','math']){const p=challengePayload(track,'2026-10-12',i);assert.ok(p.text.length<3000);assert.ok(p.solution.length<3000);}
- const round=Math.floor(i/7),n=3+round%17,c=challengeFor('math',i);
- if(i%7===0){const s=[];for(let a=0;a<60;a++)for(let b=0;b<60;b++)if(2*a+3*b===5*n+8&&3*a+2*b===5*n+12)s.push([a,b]);assert.deepEqual(s,[[n+4,n]]);}
- if(i%7===1){const a=2+round%7,s=[];for(let x=10;x<100;x++)if(Math.floor(x/10)+x%10===2*a-1&&x-(x%10*10+Math.floor(x/10))===9)s.push(x);assert.deepEqual(s,[11*a-1]);}
- if(i%7===4){const s=[];for(let x=1;x<=34;x++)if(x%5===2+round%3&&x%7===1+round%5)s.push(x);assert.equal(s.length,1);assert.ok(c.solution.startsWith(`${s[0]}.`));}
+sourceBlocked=true;
+await runDailyChallenges(env,store,new Date('2026-10-18T09:00:00+09:00'));assert.equal(messages.length,7,'no fabricated fallback on source failure');
+sourceBlocked=false;
+const seen=new Set();const a=await sourceChallenge('math',0,'2026-10-12',async s=>{if(seen.has(s.id))return false;seen.add(s.id);return true;});
+const b=await sourceChallenge('math',1,'2026-10-13',async s=>{if(seen.has(s.id))return false;seen.add(s.id);return true;});assert.notEqual(a.id,b.id);
+await assert.rejects(sourceChallenge('dev',0,'2026-10-12',async()=>true,async()=>new Response('<title>B - Missing solution</title>',{headers:{'content-type':'text/html'}})));
+await assert.rejects(sourceChallenge('math',0,'2026-10-12',async()=>false),/pool_empty/);
+records.clear();messages.length=0;
+assert.equal(await runDailyChallenges(env,store,now('19:45')),4,'activation after 18:00 catches up both phases today');
+for(const channel of ['CDEV','CMATH']){
+ const channelMessages=messages.filter(m=>m.channel===channel);
+ assert.equal(channelMessages.length,2);
+ assert.equal(channelMessages[1].thread_ts,channelMessages[0].ts,'late solution stays on the recovered problem');
 }
+assert.equal(await runDailyChallenges(env,store,now('19:50')),0,'the next scheduled pass does not repost catch-up content');
+assert.equal(messages.length,4);
 assert.match(readFileSync(new URL('../src/community-cron.ts',import.meta.url),'utf8'),/await runDailyChallenges\(/);
 console.log('PASS daily challenges: content, timing, overlap, uncertain acceptance, threads and failures');
