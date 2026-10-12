@@ -45,6 +45,11 @@ assert.doesNotMatch(sourcedChallengePayload('math','2026-10-12',sourceFixture).t
 assert.equal(mensaCandidates('<article><h3><a href="https://mensa.org.uk/puzzle/word/">1/10/26</a></h3><div class="elementor-post__excerpt">Rearrange letters to form a word</div></article>','2026-10-12').length,0);
 assert.equal(await runDailyChallenges(env,store,now('08:59')),0);assert.equal(calls.length,0);
 assert.equal(await runDailyChallenges(env,store,new Date('2026-10-11T09:00:00+09:00')),0);
+config.enabled=false;
+assert.equal(await runDailyChallenges(env,store,now('09:00')),0);
+assert.equal(sourceReads,0,'disabled config must not fetch or reserve a problem');
+assert.equal(messages.length,0,'disabled config is not a successful delivery');
+config.enabled=true;
 lost=true;
 await Promise.all([runDailyChallenges(env,store,now('09:00')),runDailyChallenges(env,store,now('09:00'))]);
 assert.equal(messages.length,2,'one root per channel despite overlapping cron');
@@ -70,5 +75,14 @@ const seen=new Set();const a=await sourceChallenge('math',0,'2026-10-12',async s
 const b=await sourceChallenge('math',1,'2026-10-13',async s=>{if(seen.has(s.id))return false;seen.add(s.id);return true;});assert.notEqual(a.id,b.id);
 await assert.rejects(sourceChallenge('dev',0,'2026-10-12',async()=>true,async()=>new Response('<title>B - Missing solution</title>',{headers:{'content-type':'text/html'}})));
 await assert.rejects(sourceChallenge('math',0,'2026-10-12',async()=>false),/pool_empty/);
+records.clear();messages.length=0;
+assert.equal(await runDailyChallenges(env,store,now('19:45')),4,'activation after 18:00 catches up both phases today');
+for(const channel of ['CDEV','CMATH']){
+ const channelMessages=messages.filter(m=>m.channel===channel);
+ assert.equal(channelMessages.length,2);
+ assert.equal(channelMessages[1].thread_ts,channelMessages[0].ts,'late solution stays on the recovered problem');
+}
+assert.equal(await runDailyChallenges(env,store,now('19:50')),0,'the next scheduled pass does not repost catch-up content');
+assert.equal(messages.length,4);
 assert.match(readFileSync(new URL('../src/community-cron.ts',import.meta.url),'utf8'),/await runDailyChallenges\(/);
 console.log('PASS daily challenges: content, timing, overlap, uncertain acceptance, threads and failures');
