@@ -15,15 +15,15 @@
 | 신호 | 실행 대상 | 책임 |
 | --- | --- | --- |
 | `0 1 * * *`, `0 9 * * *`, `*/5 * * * *` | `scrum:<team>:<channel>` 전용 CommunityClock RPC | 목표·후기 root와 개인 reminder, public 채널 우선 |
-| `1,31 * * * *` | `maintenance:<team>` 별도 CommunityClock RPC | 반시간 backup reconciler와 maintenance |
-| `1-59/5 * * * *` | `clock_recovery` 전용 task RPC | bug clock alarm 재무장만 수행하고 Neon을 열지 않음 |
+| `1,31 * * * *` | `maintenance:<team>` 별도 CommunityClock RPC | 반시간 backup reconciler와 maintenance. `community_clock_recovery`가 garden·membership 채널 alarm을 다시 확인 |
+| `1-59/5 * * * *` | `clock_recovery`와 `events` task RPC | bug clock alarm 재무장은 Neon 없이 수행. 이벤트는 캐시 due·무효화·6시간 만료 때만 Neon을 열고 다음 due를 저장 |
 | 기존 bug / community alarm | 기존 역할의 객체 | 기존 outbox 및 회원·garden 재시도. 공통 daily root는 생성하지 않음 |
 
 Cron은 DB·Slack 업무를 직접 실행하지 않고 내부 RPC를 전달한다. 채널별 객체는 동시 실행을 직렬화하고 역할/채널을 영속 저장한다. scrum 객체에는 alarm을 만들지 않는다. **Cron이 유일한 스케줄 소유자이며, DO는 실행·직렬화 경계다.** 다른 큐가 CPU를 소모해도 scrum 실행의 CPU 예산을 사용하지 않는다. binding이 없으면 inline fallback하지 않고 실패한다.
 
 [Cloudflare DO 제한 문서](https://developers.cloudflare.com/durable-objects/platform/limits/)는 RPC/Alarm CPU 기본 한도를 30초로 명시한다. 로컬 runtime 검사는 RPC 경계와 동작을 검증하지만 운영 CPU 여유를 측정하지는 않는다. 계정 요금제를 바꾸거나 과금 한도를 올리는 변경은 포함하지 않는다.
 
-공통 root를 먼저 전송하고 그 뒤 개인 reminder 조건을 조회한다. feedback·PO·share-info·PR metadata·agent notification·garden·membership backup은 KST 매시 01분과 31분 tick에 맞춘다. exact due delivery는 기존 task/alarm 경로에서 처리한다. `clock_recovery`는 bug clock alarm만 DB 없이 재무장한다. 추가 Cron은 Broker 배포 스크립트가 `--triggers`로 적용한다.
+공통 root를 먼저 전송하고 그 뒤 개인 reminder 조건을 조회한다. feedback·PO·share-info·PR metadata·agent notification·garden·membership backup은 KST 매시 01분과 31분 tick에 맞춘다. Personal reminder는 `reminderSeenThrough:<date>` watermark로 처리해 5분 tick 사이에 도착한 시간을 놓치지 않는다. `done:<date>:<kind>`는 common dispatch가 `sent`일 때만 기록한다. 버그 clock은 5분마다 Neon 없이 재무장하고, garden·membership channel alarm 복구는 30분 정렬 task다. Townhall event cache는 다음 미래 due, last refresh 시각을 DO storage에 보관하며 변경 RPC로 무효화한다. 추가 Cron은 Broker 배포 스크립트가 `--triggers`로 적용한다.
 
 ## 유지하는 Slack UI 계약
 
@@ -60,15 +60,17 @@ Cron은 DB·Slack 업무를 직접 실행하지 않고 내부 RPC를 전달한�
 
 ### 원인과 wake budget
 
-5분 maintenance와 scrum 호출, 60초 queue 재시도가 idle 시간에도 Neon을 열어 compute가 suspend할 idle 구간을 없앴다. 이제 일반 backup reconcilers는 KST 매시 :01과 :31에 정렬하고, scrum은 DO 저장 schedule/done cache로 due가 없는 tick을 Neon 없이 종료한다. schedule cache는 최대 1시간마다 새로 읽고 편집 직후 RPC로 무효화한다. 빈 cache는 Neon에서 읽어 fail-safe로 동작한다. exact due 전달은 기존 task/alarm deadline을 유지한다. `clock_recovery`는 Neon을 열지 않는다.
+5분 maintenance와 scrum 호출, 60초 queue 재시도가 idle 시간에도 Neon을 열어 compute가 suspend할 idle 구간을 없앴다. 이제 일반 backup reconcilers는 KST 매시 :01과 :31에 정렬하고, scrum은 DO 저장 schedule/done cache로 due가 없는 tick을 Neon 없이 종료한다. schedule cache는 최대 1시간마다 새로 읽고 편집 직후 RPC로 무효화한다. 빈 cache는 Neon에서 읽어 fail-safe로 동작한다. 공통 `done`은 DB dispatch가 `sent`로 확인된 뒤에만 기록하고, personal reminder는 성공한 tick의 KST 분 watermark를 갱신한다. Event task는 `1-59/5` tick에서 cache가 due거나 invalidated 되었거나 6시간보다 오래됐을 때만 DB를 연다. `clock_recovery`는 Neon을 열지 않는다.
 
 | 경로 | KST cadence | idle일 때 Neon window |
 | --- | --- | --- |
 | maintenance backup reconciler | :01, :31 | 최대 48개/일 |
 | schedule cache miss/refresh | maintenance tick과 정렬 | 위 window에 포함 |
 | daily goal/review root | 10:00, 18:00 | 2개/일 |
+| Townhall event due/cache refresh | 5분 RPC, DB는 due/miss/invalidation/6시간 expiry 때만 | idle cache refresh는 :01 maintenance window에 포함 |
+| garden·membership clock recovery | :01, :31 | 위 window에 포함 |
 | bug clock safety scan | 6시간 간격 | 최대 4개/일 |
-| clock recovery | 5분 RPC | 0개/일 |
+| bug clock recovery | 5분 RPC | 0개/일 |
 | **계약** | KST 날짜 기준 | **distinct 5분 window 최대 60개** |
 
 위 표는 정해진 cadence의 예상치다. 실제 운영의 Neon 사용량이나 무료 범위를 뜻하지 않으며, 활동·backlog·due alarm은 별도 wake를 만들 수 있다.

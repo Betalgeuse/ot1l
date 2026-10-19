@@ -2,6 +2,7 @@ import { sendAgentNotifications } from "./community-agent-notifications";
 import { armBugDeliveryClock } from "./community-bug-clock-client";
 import { runDailyChallenges } from "./community-challenges";
 import { reconcileCommunityChapters } from "./community-chapters";
+import { armCommunityClock } from "./community-clock-client";
 import { reconcileNativeFeedback } from "./community-feedback";
 import { runDueGardenDeliveries } from "./community-garden-delivery";
 import { collectCurrentChannelMembers } from "./community-membership";
@@ -18,6 +19,7 @@ import { NeonStore } from "./store";
 
 export const TEAM_MAINTENANCE_TASKS = [
   "clock_recovery",
+  "community_clock_recovery",
   "po_membership",
   "feedback",
   "events",
@@ -31,6 +33,7 @@ export const CHANNEL_MAINTENANCE_TASKS = ["garden", "membership", "prompts"] as 
 
 export const MAINTENANCE_CADENCE_MINUTES: Readonly<Record<string, number>> = {
   clock_recovery: 5,
+  community_clock_recovery: 30,
   po_membership: 30,
   feedback: 30,
   events: 5,
@@ -48,6 +51,7 @@ export function maintenanceCadenceDue(task: string, at: number): boolean {
   const cadence = MAINTENANCE_CADENCE_MINUTES[task];
   if (!cadence) throw new InputError("Invalid maintenance task scope");
   const minute = new Date(at).getUTCMinutes();
+  if (task === "events") return minute % 5 === 1;
   return cadence === 30 ? minute === 1 || minute === 31 : minute % cadence === 1 % cadence;
 }
 
@@ -76,7 +80,7 @@ export async function runMaintenanceTask(
   task: string,
   at: number,
   channel?: string,
-): Promise<void> {
+): Promise<undefined | string | null> {
   validateMaintenanceTask(env, task, at, channel);
   if (task !== "clock_recovery" && !maintenanceCadenceDue(task, at)) return;
   if (task === "clock_recovery") {
@@ -87,6 +91,17 @@ export async function runMaintenanceTask(
       failed = true;
     }
     if (failed) throw new Error("Clock recovery failed; independent clocks continued");
+    return;
+  }
+  if (task === "community_clock_recovery") {
+    if (
+      env.COMMUNITY_ENABLED !== "true" ||
+      env.DATABASE_MAINTENANCE === "true" ||
+      !env.COMMUNITY_ADMIN_ID
+    )
+      return;
+    for (const channel of new Set([env.COMMUNITY_PUBLIC_CHANNEL_ID, env.COMMUNITY_CHANNEL_ID]))
+      if (channel) await armCommunityClock(env, channel);
     return;
   }
   if (
@@ -105,7 +120,11 @@ export async function runMaintenanceTask(
       return;
     case "events":
       await runTownhallEventDue({ env, store }, new Date(at).toISOString());
-      return;
+      return store.nextTownhallEventDue(
+        env.SLACK_TEAM_ID,
+        env.COMMUNITY_RELEASE_CHANNEL_ID ?? "",
+        new Date(at).toISOString(),
+      );
     case "pr_metadata":
       if (env.BUG_RUNNER_ENABLED === "true") await syncPrMetadataResults(env);
       return;

@@ -21,6 +21,7 @@ const suites = [
   "community-clock",
   "neon-wake-budget",
   "community-clock-recovery",
+  "community-event-clock-cache",
   "community-alarm-observation",
   "community-cron-isolation",
   "community-maintenance-isolation",

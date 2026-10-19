@@ -26,9 +26,13 @@ let bugRun = async (_env, scheduledTime) => {
 };
 const scheduleRuns = [];
 let groupSchedule = { enabled: true, goalTime: "10:00", reviewTime: "18:00" };
+let reminderTimes = { goal: ["11:00"], review: ["20:00"] };
+let scheduleFailure = false;
+const commonDispatchStatus = "sent";
 let neonReads = 0;
 const scheduleRun = async (...args) => {
   scheduleRuns.push(args);
+  if (scheduleFailure) throw new Error("delivery did not complete");
   return { common: 0, personal: 0 };
 };
 
@@ -60,11 +64,12 @@ mock.module("../src/community-garden-delivery.ts", () => ({
 mock.module("../src/store.ts", () => ({
   StoreError: class StoreError extends Error {},
   NeonStore: class {
-    constructor() {}
     async queryJson(_query, params) {
       neonReads += 1;
-      if (params.length === 2 && params[0] === "TQA") return { goal: ["11:00"], review: ["20:00"] };
+      if (params.length === 2 && params[0] === "TQA") return reminderTimes;
       const input = JSON.parse(params[1]);
+      if (input.key?.startsWith("common:"))
+        return { ...input, kind: "dispatch", status: commonDispatchStatus, body: {} };
       if (input.key === "group-schedule")
         return {
           teamId: input.teamId,
@@ -152,7 +157,11 @@ const now = Date.parse("2026-09-11T00:00:00Z");
   groupSchedule = { enabled: true, goalTime: "09:30", reviewTime: "18:00" };
   await scrum.invalidateScrumSchedule("CPUBLIC");
   await scrum.runScrum("CPUBLIC", Date.parse("2026-09-11T00:30:00Z"));
-  assert.equal(neonReads, readsAfterCacheMiss + 2, "schedule edit invalidates the schedule and personal-time cache");
+  assert.equal(
+    neonReads,
+    readsAfterCacheMiss + 3,
+    "schedule refresh and confirmed dispatch-state read open Neon after invalidation",
+  );
   assert.equal(scheduleRuns.length, before + 3, "edited 09:30 schedule runs on its new due tick");
   assert.equal(scrumStorage.values.get("role"), "daily_scrum");
   assert.equal(scrumStorage.values.get("lastRun").status, "finished");
@@ -165,6 +174,53 @@ const now = Date.parse("2026-09-11T00:00:00Z");
   );
   await assert.rejects(scrum.runMaintenance(now), /role cannot change/);
   scheduleRuns.length = before;
+}
+{
+  const storage = new FakeStorage();
+  const testClock = clock(storage, { DATABASE_URL: "postgresql://qa:qa@example.neon.tech/test" });
+  groupSchedule = { enabled: true, goalTime: "10:00", reviewTime: "18:00" };
+  reminderTimes = { goal: [], review: [] };
+  scheduleFailure = true;
+  const tick = Date.parse("2026-09-14T01:00:00Z");
+  await assert.rejects(testClock.runScrum("CPUBLIC", tick), /delivery did not complete/);
+  assert.equal(
+    storage.values.has("done:2026-09-14:goal"),
+    false,
+    "failed delivery must not mark done",
+  );
+  scheduleFailure = false;
+  await testClock.runScrum("CPUBLIC", tick + 5 * 60_000);
+  assert.equal(
+    scheduleRuns.length > 0,
+    true,
+    "next tick opens the database and retries the delivery",
+  );
+  assert.equal(
+    storage.values.get("done:2026-09-14:goal"),
+    true,
+    "confirmed sent dispatch marks done",
+  );
+  scheduleFailure = true;
+  reminderTimes = { goal: ["09:32"], review: [] };
+  const reminderStorage = new FakeStorage();
+  const reminderClock = clock(reminderStorage, {
+    DATABASE_URL: "postgresql://qa:qa@example.neon.tech/test",
+  });
+  const reminderTick = Date.parse("2026-09-14T00:35:00Z");
+  await assert.rejects(
+    reminderClock.runScrum("CPUBLIC", reminderTick),
+    /delivery did not complete/,
+  );
+  assert.equal(
+    reminderStorage.values.has("reminderSeenThrough:2026-09-14"),
+    false,
+    "failed tick must not advance reminder watermark",
+  );
+  scheduleFailure = false;
+  await reminderClock.runScrum("CPUBLIC", reminderTick + 5 * 60_000);
+  assert.equal(reminderStorage.values.get("reminderSeenThrough:2026-09-14"), "09:40");
+  scheduleFailure = false;
+  reminderTimes = { goal: ["11:00"], review: ["20:00"] };
 }
 assert.equal(nextAlarmTime([], now), null);
 assert.equal(nextAlarmTime(["18:00", "10:00", "10:00"], now), Date.parse("2026-09-11T01:00:00Z"));

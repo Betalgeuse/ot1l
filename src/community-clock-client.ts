@@ -35,3 +35,12 @@ export async function armCommunityClock(
   if (!env.COMMUNITY_CLOCK) return { next: null };
   return env.COMMUNITY_CLOCK.getByName(`${env.SLACK_TEAM_ID}:${channelId}`).refresh(channelId);
 }
+
+export async function invalidateTownhallEventDue(
+  env: CommunityEnv & { readonly COMMUNITY_CLOCK?: ClockBinding },
+): Promise<void> {
+  if (!env.COMMUNITY_CLOCK) return;
+  await env.COMMUNITY_CLOCK.getByName(
+    `maintenance-task:${env.SLACK_TEAM_ID}:events:team`,
+  ).invalidateTownhallEventDue();
+}

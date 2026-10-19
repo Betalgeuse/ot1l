@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { invalidateTownhallEventDue } from "./community-clock-client";
 import { readEventScheduleToken } from "./community-event-link";
 import { authenticateReferralServiceRequest } from "./community-referral-service-auth";
 import { CommunityReferralStore } from "./community-referral-store";
@@ -139,6 +140,7 @@ export async function handleEventWebRequest(
         dayEnd: value.dayEnd,
         stepMinutes: value.stepMinutes,
       });
+      await invalidateTownhallEventDue(env);
       await store.townhallEventLifecycle("configure", {
         ...identity,
         actorId: identity.userId,
@@ -150,6 +152,7 @@ export async function handleEventWebRequest(
         autoCancel: value.autoCancel,
         now: new Date().toISOString(),
       });
+      await invalidateTownhallEventDue(env);
       const event = await store.townhallEventSeries("configure", {
         ...identity,
         actorId: identity.userId,
@@ -157,6 +160,7 @@ export async function handleEventWebRequest(
         occurrenceCount: value.occurrenceCount,
         durationMinutes: value.durationMinutes,
       });
+      await invalidateTownhallEventDue(env);
       if (!event) throw new InputError("이벤트를 찾을 수 없습니다.");
       await syncTownhallEventMessage(env, event);
       return Response.json({ event: await eventForWeb(env, event) });
@@ -168,6 +172,7 @@ export async function handleEventWebRequest(
         actorId: identity.userId,
         selected: value.selected,
       });
+      await invalidateTownhallEventDue(env);
       await syncTownhallEventMessage(env, event);
       return Response.json({ event: await eventForWeb(env, event) });
     }
@@ -179,10 +184,12 @@ export async function handleEventWebRequest(
         startsAt: value.startsAt,
         now: new Date().toISOString(),
       });
+      await invalidateTownhallEventDue(env);
       const event = await store.townhallEventSeries("finalize", {
         ...identity,
         actorId: identity.userId,
       });
+      await invalidateTownhallEventDue(env);
       if (!event) throw new InputError("이벤트를 찾을 수 없습니다.");
       await syncTownhallEventMessage(env, event);
       await postEventThreadStatus(

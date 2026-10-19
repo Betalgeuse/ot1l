@@ -4,7 +4,7 @@ import { validateMaintenanceTask, TEAM_MAINTENANCE_TASKS, CHANNEL_MAINTENANCE_TA
 const seen=[];
 const env={SLACK_TEAM_ID:'TQA',COMMUNITY_ENABLED:'true',COMMUNITY_ADMIN_ID:'UADMIN',COMMUNITY_PUBLIC_CHANNEL_ID:'CPUBLIC',COMMUNITY_CHANNEL_ID:'CPRIVATE',COMMUNITY_CLOCK:{getByName(name){return{async runMaintenanceTask(task,at,channel){seen.push({name,task,channel});assert.equal(at,123);if(task==='agent_notifications')throw Error('Too many subrequests.');}};}}};
 await assert.rejects(communityMaintenanceCron(env,123),/independent tasks continued/);
-assert.equal(seen.length,TEAM_MAINTENANCE_TASKS.length+2*CHANNEL_MAINTENANCE_TASKS.length);
+assert.equal(seen.length,TEAM_MAINTENANCE_TASKS.length-1+2*CHANNEL_MAINTENANCE_TASKS.length);
 assert.equal(new Set(seen.map(s=>s.name)).size,seen.length,'each bounded task has a separate RPC object');
 assert.ok(seen.findIndex(s=>s.task==='chapter_math')>seen.findIndex(s=>s.task==='agent_notifications'),'notification quota failure cannot suppress math');
 assert.equal(seen.filter(s=>s.task==='membership').length,2);

@@ -14,9 +14,26 @@ export async function communityCron(
 ): Promise<void> {
   if (cron === CLOCK_RECOVERY_CRON) {
     if (!env.COMMUNITY_CLOCK) throw new Error("Scheduled work binding missing");
-    await env.COMMUNITY_CLOCK.getByName(
-      `maintenance-task:${env.SLACK_TEAM_ID}:clock_recovery:team`,
-    ).runMaintenanceTask("clock_recovery", scheduledTime);
+    const tasks = ["clock_recovery", "events"] as const;
+    let failed = false;
+    for (const task of tasks) {
+      try {
+        await env.COMMUNITY_CLOCK.getByName(
+          `maintenance-task:${env.SLACK_TEAM_ID}:${task}:team`,
+        ).runMaintenanceTask(task, scheduledTime);
+      } catch (error) {
+        failed = true;
+        console.error(
+          JSON.stringify({
+            event: "community.cron.queue.failed",
+            queue: task,
+            errorType: error instanceof Error ? error.name : "Unknown",
+            code: runtimeFailureCode(error),
+          }),
+        );
+      }
+    }
+    if (failed) throw new Error("Clock recovery task failed");
     return;
   }
   if (cron === MAINTENANCE_CRON) {
@@ -80,7 +97,10 @@ export async function communityMaintenanceCron(
     env.COMMUNITY_ADMIN_ID
   ) {
     tasks.push(
-      ...TEAM_MAINTENANCE_TASKS.filter((task) => task !== "clock_recovery").map((task) => ({
+      { task: "community_clock_recovery" },
+      ...TEAM_MAINTENANCE_TASKS.filter(
+        (task) => !["clock_recovery", "community_clock_recovery", "events"].includes(task),
+      ).map((task) => ({
         task,
       })),
     );

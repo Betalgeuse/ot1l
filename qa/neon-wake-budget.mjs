@@ -24,6 +24,11 @@ for (let i = 0; i < 24 * 60; i += 5) {
   // Existing 60-second alarms shared every five-minute window on the old path.
   if (i % 5 === 0) oldWindows.add(Math.floor(at / 300_000));
 }
+// Events refresh on a six-hour stale cache at :01, which is already a
+// half-hour maintenance window. Channel community clock recovery also shares
+// those maintenance windows; the bug clock RPC does not query Neon.
+for (const hour of [0, 6, 12, 18])
+  windows.add(Math.floor((dayStart + (hour * 60 + 1) * 60_000) / 300_000));
 const measured = windows.size;
 assert.equal(NEON_WAKE_WINDOW_BUDGET, 60);
 assert.ok(measured <= NEON_WAKE_WINDOW_BUDGET, `${measured} windows exceeds budget`);
@@ -31,6 +36,14 @@ assert.equal(oldWindows.size, 288);
 assert.equal(maintenanceCadenceDue("feedback", Date.parse("2026-10-19T00:01:00Z")), true);
 assert.equal(maintenanceCadenceDue("feedback", Date.parse("2026-10-19T00:06:00Z")), false);
 assert.equal(maintenanceCadenceDue("events", Date.parse("2026-10-19T00:06:00Z")), true);
+assert.equal(
+  maintenanceCadenceDue("community_clock_recovery", Date.parse("2026-10-19T00:01:00Z")),
+  true,
+);
+assert.equal(
+  maintenanceCadenceDue("community_clock_recovery", Date.parse("2026-10-19T00:06:00Z")),
+  false,
+);
 
 const roots = [];
 const schedule = { enabled: true, goalTime: "10:00", reviewTime: "18:00" };
