@@ -108,6 +108,33 @@ export class CommunityScheduleStore {
   async getRecord(input: RecordKey): Promise<CommunityRecord | null> {
     return parseCommunityRecord(await this.call("get_record", input));
   }
+  async reminderDueTimes(
+    teamId: string,
+    channelId: string,
+  ): Promise<{ readonly goal: readonly string[]; readonly review: readonly string[] }> {
+    const result = object(
+      await this.db.queryJson(
+        `SELECT jsonb_build_object(
+          'goal',coalesce((SELECT jsonb_agg(times.value ORDER BY times.value) FROM (
+            SELECT DISTINCT to_char(goal_time,'HH24:MI') AS value
+            FROM otl.community_preferences WHERE team_id=$1 AND channel_id=$2 AND enabled
+          ) times),'[]'::jsonb),
+          'review',coalesce((SELECT jsonb_agg(times.value ORDER BY times.value) FROM (
+            SELECT DISTINCT to_char(review_time,'HH24:MI') AS value
+            FROM otl.community_preferences WHERE team_id=$1 AND channel_id=$2 AND enabled
+          ) times),'[]'::jsonb)
+        )`,
+        [teamId, channelId],
+      ),
+    );
+    const parseTimes = (value: unknown) =>
+      list(value).map((item) => {
+        const time = string(item);
+        if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) throw new InputError("Invalid reminder time");
+        return time;
+      });
+    return { goal: parseTimes(result.goal), review: parseTimes(result.review) };
+  }
   async claimRecord(input: RecordKey): Promise<boolean> {
     return bool(await this.call("claim_record", input));
   }

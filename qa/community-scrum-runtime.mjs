@@ -33,9 +33,14 @@ const mf = new Miniflare({
     }
     if (url.host !== "example.neon.tech") throw new Error(`unexpected outbound host: ${url.host}`);
     const {query, params} = await request.json();
+    const reply = value => Response.json({ rows: [[value === null ? null : JSON.stringify(value)]] });
+    if (query.includes("jsonb_build_object") && !query.includes("community_execute")) {
+      calls.push("reminder_due_times");
+      if (blocked) return new Response("database unavailable", {status:503});
+      return reply({ goal: ["11:00"], review: ["20:00"] });
+    }
     const op = query.includes("community_execute") ? params[0] : query;
     const p = JSON.parse(params.at(-1)); calls.push(op);
-    const reply = value => Response.json({ rows: [[value === null ? null : JSON.stringify(value)]] });
     if (blocked) return new Response("database unavailable", {status:503});
     if (op === "get_record") return reply(p.key === "group-schedule"
       ? { ...p, kind:"settings", status:"pending", body:{enabled:true,goalTime:"10:00",reviewTime:"18:00"} }

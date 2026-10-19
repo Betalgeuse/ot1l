@@ -2,7 +2,7 @@ import { runDueBugDeliveries } from "./community-bug-delivery-scheduler";
 import type { CommunityEnv } from "./community-runtime";
 
 const ACTIVE_TICK_MS = 5 * 60 * 1_000;
-const SAFETY_SCAN_MS = 60 * 60 * 1_000;
+const SAFETY_SCAN_MS = 6 * 60 * 60 * 1_000;
 
 export type ClockStorage = {
   get<T>(key: string): Promise<T | undefined>;

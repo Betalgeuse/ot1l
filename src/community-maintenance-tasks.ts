@@ -2,7 +2,6 @@ import { sendAgentNotifications } from "./community-agent-notifications";
 import { armBugDeliveryClock } from "./community-bug-clock-client";
 import { runDailyChallenges } from "./community-challenges";
 import { reconcileCommunityChapters } from "./community-chapters";
-import { armCommunityClock } from "./community-clock-client";
 import { reconcileNativeFeedback } from "./community-feedback";
 import { runDueGardenDeliveries } from "./community-garden-delivery";
 import { collectCurrentChannelMembers } from "./community-membership";
@@ -29,6 +28,28 @@ export const TEAM_MAINTENANCE_TASKS = [
   "chapter_math",
 ] as const;
 export const CHANNEL_MAINTENANCE_TASKS = ["garden", "membership", "prompts"] as const;
+
+export const MAINTENANCE_CADENCE_MINUTES: Readonly<Record<string, number>> = {
+  clock_recovery: 5,
+  po_membership: 30,
+  feedback: 30,
+  events: 5,
+  pr_metadata: 30,
+  agent_notifications: 30,
+  share_info: 30,
+  chapter_dev: 5,
+  chapter_math: 5,
+  garden: 30,
+  membership: 30,
+  prompts: 5,
+};
+
+export function maintenanceCadenceDue(task: string, at: number): boolean {
+  const cadence = MAINTENANCE_CADENCE_MINUTES[task];
+  if (!cadence) throw new InputError("Invalid maintenance task scope");
+  const minute = new Date(at).getUTCMinutes();
+  return cadence === 30 ? minute === 1 || minute === 31 : minute % cadence === 1 % cadence;
+}
 
 export function validateMaintenanceTask(
   env: CommunityEnv,
@@ -57,6 +78,7 @@ export async function runMaintenanceTask(
   channel?: string,
 ): Promise<void> {
   validateMaintenanceTask(env, task, at, channel);
+  if (task !== "clock_recovery" && !maintenanceCadenceDue(task, at)) return;
   if (task === "clock_recovery") {
     let failed = false;
     try {
@@ -64,22 +86,6 @@ export async function runMaintenanceTask(
     } catch {
       failed = true;
     }
-    if (
-      env.COMMUNITY_ENABLED !== "true" ||
-      env.DATABASE_MAINTENANCE === "true" ||
-      !env.COMMUNITY_ADMIN_ID
-    ) {
-      if (failed) throw new Error("Bug clock recovery failed");
-      return;
-    }
-    for (const c of new Set([env.COMMUNITY_PUBLIC_CHANNEL_ID, env.COMMUNITY_CHANNEL_ID]))
-      if (c) {
-        try {
-          await armCommunityClock(env, c);
-        } catch {
-          failed = true;
-        }
-      }
     if (failed) throw new Error("Clock recovery failed; independent clocks continued");
     return;
   }
@@ -107,10 +113,8 @@ export async function runMaintenanceTask(
       if (env.BUG_RUNNER_ENABLED === "true") await sendAgentNotifications(env, new Date(at));
       return;
     case "share_info":
-      if (Math.floor(at / 60_000) % 15 === 1) {
-        await reconcileCommunityChapters(env, store);
-        await reconcileShareInfoChannels(env, at, store);
-      }
+      await reconcileCommunityChapters(env, store);
+      await reconcileShareInfoChannels(env, at, store);
       return;
     case "chapter_dev":
     case "chapter_math": {

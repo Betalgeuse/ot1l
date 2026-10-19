@@ -12,10 +12,10 @@ mock.module("../src/community-scheduler", () => ({
   },
   async runCommunityPrompts() { throw new Error("maintenance prompts reached scrum"); },
 }));
-const { communityCron, SCRUM_CRONS, MAINTENANCE_CRON } = await import("../src/community-cron.ts");
+const { communityCron, SCRUM_CRONS, MAINTENANCE_CRON, CLOCK_RECOVERY_CRON } = await import("../src/community-cron.ts");
 const { createWorkerHandler } = await import("../src/worker-entry.ts");
 const configured = JSON.parse(readFileSync(new URL("../wrangler.jsonc", import.meta.url), "utf8"));
-assert.deepEqual(configured.triggers.crons, [...SCRUM_CRONS, MAINTENANCE_CRON]);
+assert.deepEqual(configured.triggers.crons, [...SCRUM_CRONS, MAINTENANCE_CRON, CLOCK_RECOVERY_CRON]);
 const env = {
   DATABASE_URL: "postgresql://qa:qa@example.neon.tech/test",
   COMMUNITY_ENABLED: "true", COMMUNITY_ADMIN_ID: "UADMIN", SLACK_TEAM_ID: "TQA",

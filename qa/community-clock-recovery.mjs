@@ -65,8 +65,7 @@ try {
     await runMaintenanceTask({...env, COMMUNITY_CHANNEL_ID:"CPUBLIC", COMMUNITY_CLOCK:{getByName(name){
       return { async armBugDelivery(){order.push("bug");return{};},async refresh(channel){order.push(`${name}:${channel}`);return{next:now+300_000};} };
     }}},"clock_recovery",now);
-    assert.equal(order[1],"TQA:CPUBLIC:CPUBLIC","repair queue alarm before optional DB/Slack work, with deduplicated channels");
-    assert.equal(order.filter(x=>x==="TQA:CPUBLIC:CPUBLIC").length,1);
+    assert.deepEqual(order,["bug"],"clock recovery re-arms the bug clock without refreshing queue state from Neon");
   } finally {globalThis.fetch=originalFetch;console.log=originalLog;console.error=originalError;}
   assert.equal(runtimeFailureCode(new Error("Too many subrequests. token=private")),"subrequest_limit");
   assert.equal(runtimeFailureCode(new Error("postgresql://private.example")),"unclassified");

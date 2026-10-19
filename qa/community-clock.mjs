@@ -25,7 +25,9 @@ let bugRun = async (_env, scheduledTime) => {
   return maintenanceResult();
 };
 const scheduleRuns = [];
-let scheduleRun = async (...args) => {
+let groupSchedule = { enabled: true, goalTime: "10:00", reviewTime: "18:00" };
+let neonReads = 0;
+const scheduleRun = async (...args) => {
   scheduleRuns.push(args);
   return { common: 0, personal: 0 };
 };
@@ -42,16 +44,40 @@ mock.module("../src/community-bug-delivery-scheduler.ts", () => ({
   runDueBugDeliveries: (...args) => bugRun(...args),
 }));
 mock.module("../src/community-scheduler.ts", () => ({
+  parseCommunitySchedule: (value) => value,
   runCommunitySchedule: (...args) => scheduleRun(...args),
   runCommunityPrompts: async () => {},
 }));
 mock.module("../src/community-scheduler", () => ({
+  parseCommunitySchedule: (value) => value,
   runCommunitySchedule: (...args) => scheduleRun(...args),
   runCommunityPrompts: async () => {},
 }));
 mock.module("../src/community-garden-delivery.ts", () => ({
   deliverGardenByKey: async () => "garden",
   runDueGardenDeliveries: async () => ({ processed: 0, nextDue: null }),
+}));
+mock.module("../src/store.ts", () => ({
+  StoreError: class StoreError extends Error {},
+  NeonStore: class {
+    constructor() {}
+    async queryJson(_query, params) {
+      neonReads += 1;
+      if (params.length === 2 && params[0] === "TQA") return { goal: ["11:00"], review: ["20:00"] };
+      const input = JSON.parse(params[1]);
+      if (input.key === "group-schedule")
+        return {
+          teamId: input.teamId,
+          channelId: input.channelId,
+          userId: input.userId,
+          key: input.key,
+          kind: "group_schedule",
+          status: "sent",
+          body: groupSchedule,
+        };
+      return null;
+    }
+  },
 }));
 
 const {
@@ -75,6 +101,9 @@ class FakeStorage {
   }
   async delete(key) {
     return this.values.delete(key);
+  }
+  async list({ prefix }) {
+    return new Map([...this.values].filter(([key]) => key.startsWith(prefix)));
   }
   async getAlarm() {
     return this.alarm;
@@ -111,14 +140,29 @@ const now = Date.parse("2026-09-11T00:00:00Z");
   const scrumStorage = new FakeStorage();
   const scrum = clock(scrumStorage, { DATABASE_URL: "postgresql://qa:qa@example.neon.tech/test" });
   const before = scheduleRuns.length;
-  await Promise.all([scrum.runScrum("CPUBLIC", now), scrum.runScrum("CPUBLIC", now)]);
+  const scrumNow = Date.parse("2026-09-11T01:00:00Z");
+  await Promise.all([scrum.runScrum("CPUBLIC", scrumNow), scrum.runScrum("CPUBLIC", scrumNow)]);
   assert.equal(scheduleRuns.length, before + 2);
+  const readsAfterCacheMiss = neonReads;
+  assert.ok(readsAfterCacheMiss > 0, "empty cache must read the schedule from Neon");
+  await scrum.runScrum("CPUBLIC", Date.parse("2026-09-11T01:05:00Z"));
+  await scrum.runScrum("CPUBLIC", Date.parse("2026-09-11T01:10:00Z"));
+  assert.equal(neonReads, readsAfterCacheMiss, "after goal done, the later tick is storage-only");
+  assert.equal(scheduleRuns.length, before + 2);
+  groupSchedule = { enabled: true, goalTime: "09:30", reviewTime: "18:00" };
+  await scrum.invalidateScrumSchedule("CPUBLIC");
+  await scrum.runScrum("CPUBLIC", Date.parse("2026-09-11T00:30:00Z"));
+  assert.equal(neonReads, readsAfterCacheMiss + 2, "schedule edit invalidates the schedule and personal-time cache");
+  assert.equal(scheduleRuns.length, before + 3, "edited 09:30 schedule runs on its new due tick");
   assert.equal(scrumStorage.values.get("role"), "daily_scrum");
   assert.equal(scrumStorage.values.get("lastRun").status, "finished");
   assert.equal(scrumStorage.alarm, null, "scrum RPC must not create a competing alarm scheduler");
   await assert.rejects(scrum.runScrum("COTHER", now), /Invalid scrum scope/);
   await assert.rejects(scrum.runScrum("CADMIN", now), /role cannot change/);
-  await assert.rejects(scrum.armBugDelivery({ reason: "cron", observedAt: now }), /role cannot change/);
+  await assert.rejects(
+    scrum.armBugDelivery({ reason: "cron", observedAt: now }),
+    /role cannot change/,
+  );
   await assert.rejects(scrum.runMaintenance(now), /role cannot change/);
   scheduleRuns.length = before;
 }
@@ -234,12 +278,12 @@ try {
   assert.deepEqual(await clock(idleStorage).armBugDelivery({ reason: "cron", observedAt: now }), {
     role: "bug_delivery",
     armed: true,
-    next: now + 3_600_000,
+    next: now + 6 * 3_600_000,
   });
   bugRuns.length = 0;
   await clock(idleStorage).alarm();
   assert.deepEqual(bugRuns, [], "an early empty alarm must not query Neon");
-  assert.equal(idleStorage.alarm, now + 3_600_000);
+  assert.equal(idleStorage.alarm, now + 6 * 3_600_000);
 
   const failingStorage = new FakeStorage();
   await clock(failingStorage).armBugDelivery({
@@ -341,7 +385,7 @@ try {
     Date.now = () => now + 300_000;
     await clock(backlogStorage).alarm();
     assert.equal(run, 2);
-    assert.equal(backlogStorage.alarm, now + 300_000 + 3_600_000);
+    assert.equal(backlogStorage.alarm, now + 300_000 + 6 * 3_600_000);
     assert.equal(backlogStorage.values.get("lastRun").possiblyMore, false);
     Date.now = () => now;
   }

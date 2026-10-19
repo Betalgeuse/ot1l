@@ -49,6 +49,7 @@ export interface ClockBinding {
       channelId: string,
       scheduledTime: number,
     ): Promise<{ readonly common: number; readonly personal: number }>;
+    invalidateScrumSchedule(channelId: string): Promise<void>;
     runMaintenance(scheduledTime: number): Promise<void>;
     runMaintenanceTask(task: string, scheduledTime: number, channelId?: string): Promise<void>;
   };

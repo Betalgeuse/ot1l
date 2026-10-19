@@ -19,6 +19,7 @@ const suites = [
   "community-event-demands",
   "contributor-hygiene",
   "community-clock",
+  "neon-wake-budget",
   "community-clock-recovery",
   "community-alarm-observation",
   "community-cron-isolation",

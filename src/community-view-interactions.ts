@@ -166,6 +166,9 @@ export async function handleCommunityView(input: ViewInteraction): Promise<Respo
         if (input.id === "community_group_submit")
           await input.store.setGroupSchedule(input.scope, prefs);
         else await input.store.preferences(input.scope, prefs);
+        await input.env.COMMUNITY_CLOCK?.getByName(
+          `scrum:${input.env.SLACK_TEAM_ID}:${input.scope.channelId}`,
+        ).invalidateScrumSchedule(input.scope.channelId);
         await armCommunityClock(input.env, input.scope.channelId);
         await ephemeral(input.context, {
           text: `설정 저장! ONE THING ${prefs.goalTime} · 후기 ${prefs.reviewTime} · ${prefs.enabled ? "켜짐" : "꺼짐"} (한국 시간)`,

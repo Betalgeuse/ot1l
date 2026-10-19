@@ -3,13 +3,22 @@ import type { CommunityEnv } from "./community-runtime";
 import { runtimeFailureCode } from "./runtime-failure";
 
 export const SCRUM_CRONS = ["0 1 * * *", "0 9 * * *", "*/5 * * * *"] as const;
-export const MAINTENANCE_CRON = "1-59/5 * * * *";
+export const MAINTENANCE_CRON = "1,31 * * * *";
+export const CLOCK_RECOVERY_CRON = "1-59/5 * * * *";
+export const NEON_WAKE_WINDOW_BUDGET = 60;
 
 export async function communityCron(
   env: CommunityEnv,
   scheduledTime: number,
   cron = "*/5 * * * *",
 ): Promise<void> {
+  if (cron === CLOCK_RECOVERY_CRON) {
+    if (!env.COMMUNITY_CLOCK) throw new Error("Scheduled work binding missing");
+    await env.COMMUNITY_CLOCK.getByName(
+      `maintenance-task:${env.SLACK_TEAM_ID}:clock_recovery:team`,
+    ).runMaintenanceTask("clock_recovery", scheduledTime);
+    return;
+  }
   if (cron === MAINTENANCE_CRON) {
     if (!env.COMMUNITY_CLOCK) throw new Error("Scheduled work binding missing");
     await env.COMMUNITY_CLOCK.getByName(`maintenance:${env.SLACK_TEAM_ID}`).runMaintenance(
@@ -46,6 +55,7 @@ export async function communityCron(
             cron,
             channel,
             errorType: error instanceof Error ? error.name : "Unknown",
+            code: runtimeFailureCode(error),
           }),
         );
       }
