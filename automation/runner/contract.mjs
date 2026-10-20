@@ -202,8 +202,11 @@ export function validateRunnerConfig(env) {
     "CODEX_ACCOUNT_ALIAS",
   ];
   for (const name of required) text(env[name], name, 2_000);
+  const pollMode = env.BUG_RUNNER_POLL_MODE ?? "wake-window";
+  if (!["wake-window", "continuous"].includes(pollMode))
+    fail("CONFIGURATION", "BUG_RUNNER_POLL_MODE must be wake-window or continuous");
   githubRepositorySlug(env.CODEX_REPOSITORY_URL);
-  return env;
+  return { ...env, BUG_RUNNER_POLL_MODE: pollMode };
 }
 
 export function assertDigest(value, name) {

@@ -3,7 +3,7 @@ Description=Check for approved OT1L GenQuant deployments
 
 [Timer]
 OnBootSec=30s
-OnUnitInactiveSec=60s
+OnCalendar=*-*-* *:01,03,31,33:30 UTC
 AccuracySec=5s
 Persistent=true
 Unit=otl1-bug-deployer.service

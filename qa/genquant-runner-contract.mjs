@@ -9,6 +9,7 @@ import {
   parseTaskStatus,
   parseTaskUrl,
   reproductionPath,
+  validateRunnerConfig,
 } from "../automation/runner/contract.mjs";
 import { fetchApprovedPullRequestHead } from "../automation/runner/genquant-runner.mjs";
 
@@ -26,6 +27,26 @@ assert.equal(
   "Betalgeuse/ot1l",
 );
 assert.throws(() => githubRepositorySlug("https://example.com/Betalgeuse/ot1l.git"), /invalid/);
+
+const runnerConfig = {
+  BUG_RUNNER_DATABASE_URL: "postgresql://runner:placeholder@db.example.neon.tech/otl1l",
+  SLACK_TEAM_ID: "T_REPLACE",
+  CODEX_ENVIRONMENT_ID: "REPLACE_ENVIRONMENT_ID",
+  CODEX_BASE_BRANCH: "main",
+  CODEX_REPOSITORY_URL: "https://github.com/Betalgeuse/ot1l.git",
+  BUG_RUNNER_ROOT: "/tmp/otl1-bug-runner",
+  CODEX_ACCOUNT_ALIAS: "primary",
+};
+assert.equal(validateRunnerConfig(runnerConfig).BUG_RUNNER_POLL_MODE, "wake-window");
+assert.equal(
+  validateRunnerConfig({ ...runnerConfig, BUG_RUNNER_POLL_MODE: "continuous" })
+    .BUG_RUNNER_POLL_MODE,
+  "continuous",
+);
+assert.throws(
+  () => validateRunnerConfig({ ...runnerConfig, BUG_RUNNER_POLL_MODE: "unknown" }),
+  /BUG_RUNNER_POLL_MODE must be wake-window or continuous/,
+);
 
 const packet = {
   schemaVersion: "bug_packet.v1",

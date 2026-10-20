@@ -20,6 +20,7 @@ import {
   sha256,
   validateRunnerConfig,
 } from "./contract.mjs";
+import { inWakeWindow, msUntilNextWakeWindow } from "./wake-window.mjs";
 
 const sleep = (milliseconds) =>
   new Promise((resolveSleep) => setTimeout(resolveSleep, milliseconds));
@@ -715,7 +716,14 @@ export async function runLoop(environment = process.env) {
   do {
     const processed = await processOne(config);
     if (once) return;
-    if (!processed) await sleep(15_000);
+    if (!processed) {
+      if (config.BUG_RUNNER_POLL_MODE === "continuous" || inWakeWindow(new Date())) {
+        await sleep(15_000);
+      } else {
+        const jitterMs = Math.floor(Math.random() * 10_001);
+        await sleep(msUntilNextWakeWindow(new Date()) + jitterMs);
+      }
+    }
   } while (true);
 }
 
