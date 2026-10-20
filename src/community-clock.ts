@@ -1,4 +1,6 @@
 import { DurableObject } from "cloudflare:workers";
+import { isOptionalDay } from "./calendar";
+import { dbAlarmRetryDelayMinutes } from "./community-alarm-backoff";
 import { beginAlarmObservation, finishAlarmObservation } from "./community-alarm-observation";
 import { alarmWorkIsClear } from "./community-alarm-proof";
 import {
@@ -18,10 +20,14 @@ import { publishGardenRequest } from "./community-clock-garden";
 import { refreshCommunityQueueClock } from "./community-clock-schedule";
 import { communityMaintenanceCron } from "./community-cron";
 import { runDueGardenDeliveries } from "./community-garden-delivery";
-import { runMaintenanceTask, validateMaintenanceTask } from "./community-maintenance-tasks";
+import {
+  MAINTENANCE_CADENCE_MINUTES,
+  runMaintenanceTask,
+  validateMaintenanceTask,
+} from "./community-maintenance-tasks";
 import { runMembershipDue } from "./community-membership-schedule";
 import type { CommunityEnv } from "./community-runtime";
-import { runCommunitySchedule } from "./community-scheduler";
+import { parseCommunitySchedule, runCommunitySchedule } from "./community-scheduler";
 import { CommunityStore } from "./community-store";
 import { InputError } from "./input";
 import { runtimeFailureCode } from "./runtime-failure";
@@ -56,23 +62,149 @@ export class CommunityClock extends DurableObject<CommunityEnv> {
       )
         throw new InputError("Invalid scrum scope");
       await this.bindScheduledRole("daily_scrum", channelId);
+      const adminId = this.env.COMMUNITY_ADMIN_ID;
       if (
         this.env.COMMUNITY_ENABLED !== "true" ||
         this.env.DATABASE_MAINTENANCE === "true" ||
-        !this.env.COMMUNITY_ADMIN_ID
+        !adminId
       )
         return { common: 0, personal: 0 };
       await this.ctx.storage.put("lastRun", { scheduledTime, status: "running" });
       try {
+        const local = new Date(scheduledTime + 9 * 60 * 60 * 1000).toISOString();
+        const date = local.slice(0, 10);
+        const minute = local.slice(11, 16);
+        let scheduleCache = await this.ctx.storage.get<{
+          readonly fetchedAt: number;
+          readonly value: {
+            readonly schedule: {
+              readonly enabled: boolean;
+              readonly goalTime: string;
+              readonly reviewTime: string;
+            } | null;
+            readonly reminderTimes: {
+              readonly goal: readonly string[];
+              readonly review: readonly string[];
+            };
+          };
+        }>("scrumSchedule");
+        let cacheFresh = Boolean(
+          scheduleCache &&
+            scheduledTime >= scheduleCache.fetchedAt &&
+            scheduledTime - scheduleCache.fetchedAt < 60 * 60_000,
+        );
+        if (!cacheFresh) {
+          const settings = await new CommunityStore(new NeonStore(this.env.DATABASE_URL)).getRecord(
+            {
+              teamId: this.env.SLACK_TEAM_ID,
+              channelId,
+              userId: adminId,
+              key: "group-schedule",
+            },
+          );
+          const reminderTimes = await new CommunityStore(
+            new NeonStore(this.env.DATABASE_URL),
+          ).reminderDueTimes(this.env.SLACK_TEAM_ID, channelId);
+          scheduleCache = {
+            fetchedAt: scheduledTime,
+            value: {
+              schedule: settings ? parseCommunitySchedule(settings.body) : null,
+              reminderTimes,
+            },
+          };
+          await this.ctx.storage.put("scrumSchedule", scheduleCache);
+          cacheFresh = true;
+        }
+        const cachedSchedule = scheduleCache?.value.schedule;
+        const optionalDay = isOptionalDay(date);
+        const dueKinds = cachedSchedule?.enabled
+          ? (["goal", "review"] as const).filter((kind) => {
+              if (optionalDay && kind === "review") return false;
+              const due = optionalDay
+                ? "10:00"
+                : kind === "goal"
+                  ? cachedSchedule.goalTime
+                  : cachedSchedule.reviewTime;
+              const end = optionalDay || kind === "review" ? "22:00" : cachedSchedule.reviewTime;
+              return minute >= due && minute < end;
+            })
+          : [];
+        const kindWindowOpen = cachedSchedule
+          ? dueKinds.some(
+              (kind) =>
+                minute ===
+                (kind === "goal"
+                  ? optionalDay
+                    ? "10:00"
+                    : cachedSchedule.goalTime
+                  : cachedSchedule.reviewTime),
+            )
+          : false;
+        const reminderSeenThrough = await this.ctx.storage.get<string>(
+          `reminderSeenThrough:${date}`,
+        );
+        const personalReminderDue =
+          !optionalDay &&
+          this.env.COMMUNITY_PUBLIC_CHANNEL_ID === channelId &&
+          [
+            ...(scheduleCache?.value.reminderTimes.goal ?? []),
+            ...(scheduleCache?.value.reminderTimes.review ?? []),
+          ].some((time) => time > (reminderSeenThrough ?? "00:00") && time <= minute);
+        const hasDoneKind = await Promise.all(
+          dueKinds.map((kind) => this.ctx.storage.get<boolean>(`done:${date}:${kind}`)),
+        );
+        if (
+          cacheFresh &&
+          !kindWindowOpen &&
+          !personalReminderDue &&
+          hasDoneKind.every((done) => done === true)
+        ) {
+          if (this.env.COMMUNITY_PUBLIC_CHANNEL_ID === channelId && !optionalDay) {
+            await this.ctx.storage.put(`reminderSeenThrough:${date}`, minute);
+            await this.pruneDailyKeys(date);
+          }
+          console.log(
+            JSON.stringify({ event: "community.scrum.idle", date, minute, channel: channelId }),
+          );
+          await this.ctx.storage.put("lastRun", {
+            scheduledTime,
+            status: "idle",
+            common: 0,
+            personal: 0,
+          });
+          return { common: 0, personal: 0 };
+        }
+        const store = new CommunityStore(new NeonStore(this.env.DATABASE_URL));
         const result = await runCommunitySchedule(
           {
             ...this.env,
             COMMUNITY_CHANNEL_ID: channelId,
-            COMMUNITY_ADMIN_ID: this.env.COMMUNITY_ADMIN_ID,
+            COMMUNITY_ADMIN_ID: adminId,
           },
-          new CommunityStore(new NeonStore(this.env.DATABASE_URL)),
+          store,
           new Date(scheduledTime),
+          cachedSchedule ?? null,
         );
+        const dispatchRecords = await Promise.all(
+          dueKinds.map((kind) =>
+            store.getRecord({
+              teamId: this.env.SLACK_TEAM_ID,
+              channelId,
+              userId: adminId,
+              key: `common:${date}:${kind}`,
+            }),
+          ),
+        );
+        for (let index = 0; index < dueKinds.length; index += 1) {
+          if (dispatchRecords[index]?.status === "sent") {
+            await this.ctx.storage.put(`done:${date}:${dueKinds[index]}`, true);
+            await this.pruneDailyKeys(date);
+          }
+        }
+        if (this.env.COMMUNITY_PUBLIC_CHANNEL_ID === channelId && !optionalDay) {
+          await this.ctx.storage.put(`reminderSeenThrough:${date}`, minute);
+          await this.pruneDailyKeys(date);
+        }
         await this.ctx.storage.put("lastRun", { scheduledTime, status: "finished", ...result });
         return result;
       } catch (error) {
@@ -83,6 +215,41 @@ export class CommunityClock extends DurableObject<CommunityEnv> {
         });
         throw error;
       }
+    });
+  }
+
+  private async pruneDailyKeys(today: string): Promise<void> {
+    const yesterday = new Date(Date.parse(`${today}T00:00:00+09:00`) - 86_400_000)
+      .toISOString()
+      .slice(0, 10);
+    for (const prefix of ["done:", "reminderSeenThrough:"]) {
+      const keys = await this.ctx.storage.list({ prefix });
+      await Promise.all(
+        [...keys.keys()]
+          .filter((key) => {
+            const date = key.slice(prefix.length).split(":")[0] ?? "";
+            return /^\d{4}-\d{2}-\d{2}$/.test(date) && date < yesterday;
+          })
+          .map((key) => this.ctx.storage.delete(key)),
+      );
+    }
+  }
+
+  invalidateScrumSchedule(channelId: string): Promise<void> {
+    return this.serialize(async () => {
+      if (
+        ![this.env.COMMUNITY_PUBLIC_CHANNEL_ID, this.env.COMMUNITY_CHANNEL_ID].includes(channelId)
+      )
+        throw new InputError("Invalid scrum scope");
+      await this.ctx.storage.delete("scrumSchedule");
+      const doneKeys = await this.ctx.storage.list({ prefix: "done:" });
+      await Promise.all([...doneKeys.keys()].map((key) => this.ctx.storage.delete(key)));
+    });
+  }
+
+  invalidateTownhallEventDue(): Promise<void> {
+    return this.serialize(async () => {
+      await this.ctx.storage.put("townhallDueInvalidated", true);
     });
   }
 
@@ -98,9 +265,39 @@ export class CommunityClock extends DurableObject<CommunityEnv> {
     return this.serialize(async () => {
       validateMaintenanceTask(this.env, task, scheduledTime, channelId);
       await this.bindScheduledRole(`maintenance_task:${task}`, channelId);
+      const cadence = MAINTENANCE_CADENCE_MINUTES[task];
+      if (!cadence) throw new InputError("Invalid maintenance task scope");
+      const cacheKey = `maintenanceNextDue:${task}`;
+      const nextDue = await this.ctx.storage.get<number>(cacheKey);
+      if (nextDue !== undefined && scheduledTime < nextDue) return;
+      if (task === "events") {
+        const cachedAt = await this.ctx.storage.get<number>("townhallDueCachedAt");
+        const cachedNextDue = await this.ctx.storage.get<number | null>("townhallDueNextAt");
+        const invalidated = await this.ctx.storage.get<boolean>("townhallDueInvalidated");
+        const stale =
+          cachedAt === undefined ||
+          scheduledTime < cachedAt ||
+          scheduledTime - cachedAt > 6 * 60 * 60_000;
+        if (
+          !invalidated &&
+          !stale &&
+          cachedNextDue !== undefined &&
+          (cachedNextDue === null || scheduledTime < cachedNextDue)
+        )
+          return;
+      }
       await this.ctx.storage.put("lastRun", { scheduledTime, status: "running" });
       try {
-        await runMaintenanceTask(this.env, task, scheduledTime, channelId);
+        const nextEventDue = await runMaintenanceTask(this.env, task, scheduledTime, channelId);
+        if (task === "events") {
+          await this.ctx.storage.put(
+            "townhallDueNextAt",
+            typeof nextEventDue === "string" ? Date.parse(nextEventDue) : null,
+          );
+          await this.ctx.storage.put("townhallDueCachedAt", scheduledTime);
+          await this.ctx.storage.delete("townhallDueInvalidated");
+        }
+        await this.ctx.storage.put(cacheKey, scheduledTime + cadence * 60_000);
         await this.ctx.storage.put("lastRun", { scheduledTime, status: "finished" });
       } catch (error) {
         await this.ctx.storage.put("lastRun", {
@@ -356,6 +553,13 @@ export class CommunityClock extends DurableObject<CommunityEnv> {
         // Include membership-only retries, then atomically replace the temporary
         // safety alarm with the actual deadline. Do not delete it before I/O.
         const next = await this.refreshSchedule(channelId, { replaceAlarm: true, due });
+        if (queueFailed) {
+          const failures = (await this.ctx.storage.get<number>("dbFailureCount")) ?? 0;
+          const minutes = dbAlarmRetryDelayMinutes(failures);
+          const retryAt = now.getTime() + minutes * 60_000;
+          await this.ctx.storage.put("dbFailureCount", failures + 1);
+          await this.ctx.storage.setAlarm(retryAt);
+        } else await this.ctx.storage.delete("dbFailureCount");
         await finishAlarmObservation(
           this.ctx.storage,
           cycle,
@@ -384,7 +588,10 @@ export class CommunityClock extends DurableObject<CommunityEnv> {
           status: "failed",
           code: runtimeFailureCode(error),
         });
-        await this.ctx.storage.setAlarm(Date.now() + 60_000);
+        const failures = (await this.ctx.storage.get<number>("dbFailureCount")) ?? 0;
+        const minutes = dbAlarmRetryDelayMinutes(failures);
+        await this.ctx.storage.put("dbFailureCount", failures + 1);
+        await this.ctx.storage.setAlarm(Date.now() + minutes * 60_000);
         console.error(
           JSON.stringify({
             event: "community.clock.alarm.failed",

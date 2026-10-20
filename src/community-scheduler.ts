@@ -58,7 +58,7 @@ const goalWritingGuide = `
 • 오늘 안에 끝낼 만큼 작고, 완료 여부가 분명한가요?
 예: \`발표 자료 준비하기\` → \`발표 자료 1~5쪽 초안을 완성해 동료에게 공유하기\``;
 
-function parseSchedule(value: unknown): Schedule {
+export function parseCommunitySchedule(value: unknown): Schedule {
   const body = object(value);
   if (typeof body.enabled !== "boolean") throw new InputError("Invalid schedule enabled flag");
   const goalTime = string(body.goalTime);
@@ -106,6 +106,11 @@ export async function runCommunitySchedule(
   env: CommunityScheduleEnv,
   store: ScheduleStore,
   nowDate: Date,
+  cachedSettings?: {
+    readonly enabled: boolean;
+    readonly goalTime: string;
+    readonly reviewTime: string;
+  } | null,
 ): Promise<{ readonly common: number; readonly personal: number }> {
   const scope = {
     teamId: env.SLACK_TEAM_ID,
@@ -117,14 +122,26 @@ export async function runCommunitySchedule(
   const date = local.slice(0, 10);
   const minute = local.slice(11, 16);
   const optionalDay = isOptionalDay(date);
-  const settings = await store.getRecord({ ...scope, key: "group-schedule" });
   const minutes = (value: string) => Number(value.slice(0, 2)) * 60 + Number(value.slice(3));
-  const schedule = settings ? parseSchedule(settings.body) : null;
+  const loadedSchedule =
+    cachedSettings === undefined
+      ? await store.getRecord({ ...scope, key: "group-schedule" })
+      : null;
+  const configuredSchedule =
+    cachedSettings === undefined
+      ? loadedSchedule
+        ? parseCommunitySchedule(loadedSchedule.body)
+        : null
+      : cachedSettings;
   const scheduledKinds = (["goal", "review"] as const).filter((kind) => {
-    if (!schedule?.enabled) return false;
+    if (!configuredSchedule?.enabled) return false;
     if (optionalDay && kind === "review") return false;
-    const due = optionalDay ? "10:00" : kind === "goal" ? schedule.goalTime : schedule.reviewTime;
-    const end = optionalDay || kind === "review" ? "22:00" : schedule.reviewTime;
+    const due = optionalDay
+      ? "10:00"
+      : kind === "goal"
+        ? configuredSchedule.goalTime
+        : configuredSchedule.reviewTime;
+    const end = optionalDay || kind === "review" ? "22:00" : configuredSchedule.reviewTime;
     return minutes(minute) >= minutes(due) && minutes(minute) < minutes(end);
   });
   const publicChannel = env.COMMUNITY_PUBLIC_CHANNEL_ID === scope.channelId;

@@ -65,8 +65,12 @@ try {
     await runMaintenanceTask({...env, COMMUNITY_CHANNEL_ID:"CPUBLIC", COMMUNITY_CLOCK:{getByName(name){
       return { async armBugDelivery(){order.push("bug");return{};},async refresh(channel){order.push(`${name}:${channel}`);return{next:now+300_000};} };
     }}},"clock_recovery",now);
-    assert.equal(order[1],"TQA:CPUBLIC:CPUBLIC","repair queue alarm before optional DB/Slack work, with deduplicated channels");
-    assert.equal(order.filter(x=>x==="TQA:CPUBLIC:CPUBLIC").length,1);
+    assert.deepEqual(order,["bug"],"clock recovery re-arms the bug clock without refreshing queue state from Neon");
+    order.length=0;
+    await runMaintenanceTask({...env, COMMUNITY_CHANNEL_ID:"CPUBLIC", COMMUNITY_CLOCK:{getByName(name){
+      return { async refresh(channel){order.push(`${name}:${channel}`);return{next:now+300_000};} };
+    }}},"community_clock_recovery",Date.parse("2026-10-12T04:31:00Z"));
+    assert.deepEqual(order,["TQA:CPUBLIC:CPUBLIC"],"30-minute community recovery refreshes channel clocks on the maintenance window");
   } finally {globalThis.fetch=originalFetch;console.log=originalLog;console.error=originalError;}
   assert.equal(runtimeFailureCode(new Error("Too many subrequests. token=private")),"subrequest_limit");
   assert.equal(runtimeFailureCode(new Error("postgresql://private.example")),"unclassified");

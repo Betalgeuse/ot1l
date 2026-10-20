@@ -5,7 +5,13 @@ import { fileURLToPath } from "node:url";
 
 const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
 
-export const PRODUCTION_CRONS = ["0 1 * * *", "0 9 * * *", "*/5 * * * *", "1-59/5 * * * *"];
+export const PRODUCTION_CRONS = [
+  "0 1 * * *",
+  "0 9 * * *",
+  "*/5 * * * *",
+  "1,31 * * * *",
+  "1-59/5 * * * *",
+];
 
 export function validateProductionConfig(value) {
   if (typeof value !== "object" || value === null || Array.isArray(value))

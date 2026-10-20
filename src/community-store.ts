@@ -610,6 +610,20 @@ export class CommunityStore extends CommunityScheduleStore {
       ),
     );
   }
+  async nextTownhallEventDue(
+    teamId: string,
+    channelId: string,
+    after: string,
+  ): Promise<string | null> {
+    const value = await this.db.queryJson(
+      "SELECT otl.townhall_event_next_due($1,$2,$3::timestamptz)",
+      [teamId, channelId, after],
+    );
+    if (value === null) return null;
+    if (typeof value !== "string" || !Number.isFinite(Date.parse(value)))
+      throw new InputError("Invalid event due time");
+    return value;
+  }
   private introductionCall(operation: string, payload: Json): Promise<Json> {
     return this.db.queryJson("SELECT otl.introduction_execute($1,$2::jsonb)", [
       operation,
