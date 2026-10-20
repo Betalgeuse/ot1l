@@ -22,6 +22,12 @@ Cloudflare Cron이 5분마다 유일한 정시 스케줄러로 실행됩니다. 
 
 모든 시각은 한국 시간입니다.
 
+## Neon compute wake cadence
+
+Worker cron의 Neon 접근, GenQuant runner claim poll, GenQuant deployer claim은 매시 UTC `:01`과 `:31`부터 4분인 공유 wake window에 맞춥니다. Runner는 idle이면 창 안에서 15초 간격으로 poll하고 창 밖에서는 다음 시작 시각까지 대기합니다. 장애 대응용 `BUG_RUNNER_POLL_MODE=continuous`는 이전 15초 poll을 복구하며, 기본값은 `wake-window`입니다. Deployer timer는 매시 UTC `:01:30`, `:03:30`, `:31:30`, `:33:30`에 실행되어 승인된 배포 확인까지 최대 약 30분 지연될 수 있습니다.
+
+현재 세 DB client의 정기 cadence를 합친 모델은 고유 5분 suspend bucket 48개/일입니다. 변경 전 runner/deployer cadence는 약 288개/일로 하루 내내 compute를 깨웠습니다. 0.25 CU 최소 compute와 공유 창당 최대 약 10분의 깨어 있는 시간을 가정한 사용량은 약 60 CU-hour/월입니다. 이는 100 CU-hour Free 한도와 비교하기 위한 **추정치**이며 실제 사용량을 측정한 값이 아닙니다. 부팅 때 최초 확인과 진행 중 작업의 heartbeat는 이 steady-state 추정에서 제외합니다. 새 DB client나 주기 쿼리는 같은 창을 사용해야 합니다. 자세한 모델·제약은 [DAILY_SCRUM_RELIABILITY.md](DAILY_SCRUM_RELIABILITY.md)의 Neon wake budget을 따릅니다.
+
 ONE THING의 날짜 경계는 오전 2시입니다. 00:00~01:59의 회원 입력과 버튼·모달 제출은 전날 서비스 날짜로 귀속하고, 02:00부터 새 날짜로 처리합니다. 정기 10시·18시 안내 시각은 그대로입니다.
 
 | 안내 | 평일 | 선택 참여일 |

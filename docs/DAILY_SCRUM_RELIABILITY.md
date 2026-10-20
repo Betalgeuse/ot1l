@@ -58,22 +58,23 @@ Cron은 DB·Slack 업무를 직접 실행하지 않고 내부 RPC를 전달한�
 
 2026-10-19 15:20 KST, 데일리 스크럼 root가 생성되지 않았고 Neon 연결은 `Your account or project has exceeded the quota`로 실패했다. GenQuant runner와 deployer도 같은 DB 오류로 재시작을 반복했다. 계정 요금제나 한도 값은 이 저장소에서 확인하거나 추정하지 않는다.
 
-### 원인과 wake budget
+### 원인과 공유 wake budget
 
-5분 maintenance와 scrum 호출, 60초 queue 재시도가 idle 시간에도 Neon을 열어 compute가 suspend할 idle 구간을 없앴다. 이제 일반 backup reconcilers는 KST 매시 :01과 :31에 정렬하고, scrum은 DO 저장 schedule/done cache로 due가 없는 tick을 Neon 없이 종료한다. schedule cache는 최대 1시간마다 새로 읽고 편집 직후 RPC로 무효화한다. 빈 cache는 Neon에서 읽어 fail-safe로 동작한다. 공통 `done`은 DB dispatch가 `sent`로 확인된 뒤에만 기록하고, personal reminder는 성공한 tick의 KST 분 watermark를 갱신한다. Event task는 `1-59/5` tick에서 cache가 due거나 invalidated 되었거나 6시간보다 오래됐을 때만 DB를 연다. `clock_recovery`는 Neon을 열지 않는다.
+5분 maintenance와 scrum 호출, runner의 15초 claim 조회, deployer의 60초 claim 조회가 idle 시간에도 Neon을 열어 compute가 suspend할 idle 구간을 없앴다. Free tier는 프로젝트당 월 100 CU-hour이며 compute는 5분 idle 뒤 suspend한다. Worker, GenQuant runner, deployer는 이제 같은 UTC wake window를 사용한다. 창은 매시 `:01`과 `:31`부터 4분이며 `MAINTENANCE_CRON`과 QA에서 일치 여부를 확인한다. Worker crons는 이 창에서 작업하고, idle runner는 창 안에서 15초 간격으로 확인한 뒤 다음 창까지 쉰다. Deployer는 `:01:30`, `:03:30`, `:31:30`, `:33:30`에 확인한다. 일정이 달라지는 새 DB client는 반드시 이 공유 창에 참여해야 한다.
 
-| 경로 | KST cadence | idle일 때 Neon window |
+Runner 환경 변수 `BUG_RUNNER_POLL_MODE` 기본값은 `wake-window`다. 장애 대응 중 `continuous`를 지정하면 기존 15초 idle poll로 돌아간다. 다른 값은 설정 오류로 거부한다. Deployer 확인 지연은 최대 약 30분이다. 서비스 부팅 때의 최초 확인과 진행 중 작업의 heartbeat는 event-driven wake로 별도 발생할 수 있다. 작업 실행 중 heartbeat와 장시간 작업은 유지하며, 진행 중 작업은 정당하게 compute를 깨운 상태로 둔다.
+
+| DB client / 경로 | cadence | idle일 때 Neon window |
 | --- | --- | --- |
-| maintenance backup reconciler | :01, :31 | 최대 48개/일 |
-| schedule cache miss/refresh | maintenance tick과 정렬 | 위 window에 포함 |
-| daily goal/review root | 10:00, 18:00 | 2개/일 |
-| Townhall event due/cache refresh | 5분 RPC, DB는 due/miss/invalidation/6시간 expiry 때만 | idle cache refresh는 :01 maintenance window에 포함 |
-| garden·membership clock recovery | :01, :31 | 위 window에 포함 |
-| bug clock safety scan | 6시간 간격 | 최대 4개/일 |
-| bug clock recovery | 5분 RPC | 0개/일 |
-| **계약** | KST 날짜 기준 | **distinct 5분 window 최대 60개** |
+| Worker maintenance, schedule cache, garden·membership recovery | 매시 UTC :01, :31 | 최대 48개/일 |
+| daily goal/review root | 10:00, 18:00 KST | 공유 window에 포함 |
+| Townhall event due/cache refresh | 5분 RPC, DB는 due/miss/invalidation/6시간 expiry 때만 | idle cache refresh는 공유 window에 포함 |
+| bug clock safety scan / recovery | 6시간 DB scan / 5분 Neon 없는 RPC | 최대 4개/일, scan은 공유 window에 포함 |
+| GenQuant runner idle claim | 공유 창에서 15초 poll | 최대 48개/일 |
+| GenQuant deployer claim | `:01:30`, `:03:30`, `:31:30`, `:33:30` UTC | runner/Worker 공유 window에 포함 |
+| **계약** | UTC 날짜 기준, 고유 5분 suspend bucket | **최대 60개/일** |
 
-위 표는 정해진 cadence의 예상치다. 실제 운영의 Neon 사용량이나 무료 범위를 뜻하지 않으며, 활동·backlog·due alarm은 별도 wake를 만들 수 있다.
+QA는 Worker, runner, deployer의 정기 idle/calendar cadence를 하루 동안 모의해 고유 5분 suspend bucket을 센다. 부팅 시 한 번 발생하는 확인이나 진행 중 작업의 heartbeat는 이 steady-state 비교에서 제외한다. 이 변경 전 runner와 deployer의 연속 cadence는 288개/일, 즉 하루 종일 compute를 깨우는 상태로 모델링된다. 새 cadence는 48개/일이다. 창당 compute가 최장 약 10분 깨어 있다고 보고, 최소 크기 0.25 CU를 가정하면 월 사용량은 약 `48 × 10분 × 0.25 CU × 30일 = 60 CU-hour`로 추산된다. 이는 Free 한도 100 CU-hour보다 낮은 **추정치**이며 실제 Neon 사용량이나 여유를 보장하지 않는다. 작업 활동, backlog, 지연된 쿼리와 다른 DB client는 시간을 늘릴 수 있다. 그 어떤 새 DB client도 공유 창 밖에서 주기 조회를 추가해서는 안 된다.
 
 ### 복구
 
