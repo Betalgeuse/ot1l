@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 
 const calls = [];
 const taskCalls = [];
+const failedTasks = new Set();
 let privateFails = false;
 mock.module("../src/community-scheduler", () => ({
   async runCommunitySchedule(env, _store, date) {
@@ -13,10 +14,11 @@ mock.module("../src/community-scheduler", () => ({
   },
   async runCommunityPrompts() { throw new Error("maintenance prompts reached scrum"); },
 }));
-const { communityCron, SCRUM_CRONS, MAINTENANCE_CRON, CLOCK_RECOVERY_CRON } = await import("../src/community-cron.ts");
+const { communityCron, CRON_TRIGGERS, SCRUM_CRON, CLOCK_RECOVERY_CRON } = await import("../src/community-cron.ts");
 const { createWorkerHandler } = await import("../src/worker-entry.ts");
 const configured = JSON.parse(readFileSync(new URL("../wrangler.jsonc", import.meta.url), "utf8"));
-assert.deepEqual(configured.triggers.crons, [...SCRUM_CRONS, MAINTENANCE_CRON, CLOCK_RECOVERY_CRON]);
+assert.deepEqual(configured.triggers.crons, [...CRON_TRIGGERS]);
+assert.ok(CRON_TRIGGERS.length <= 2, "OT1L must stay within its two-trigger budget");
 const env = {
   DATABASE_URL: "postgresql://qa:qa@example.neon.tech/test",
   COMMUNITY_ENABLED: "true", COMMUNITY_ADMIN_ID: "UADMIN", SLACK_TEAM_ID: "TQA",
@@ -32,6 +34,11 @@ const env = {
     }, async runMaintenanceTask(task, scheduledTime) {
       assert.match(name, /^maintenance-task:TQA:(?:clock_recovery|events):team$/);
       taskCalls.push([task, scheduledTime]);
+      if (failedTasks.has(task)) throw new Error(`${task} failed`);
+    }, async runMaintenance(scheduledTime) {
+      assert.equal(name, "maintenance:TQA");
+      taskCalls.push(["maintenance", scheduledTime]);
+      if (failedTasks.has("maintenance")) throw new Error("maintenance failed");
     } };
   } },
 };
@@ -40,14 +47,27 @@ let externalCalls = 0;
 globalThis.fetch = async () => { externalCalls++; throw new Error("maintenance reached network"); };
 try {
   const worker = createWorkerHandler(async () => new Response("unused"));
-  for (const cron of SCRUM_CRONS) {
+  for (const cron of [SCRUM_CRON]) {
     calls.length = 0;
     await worker.scheduled({ cron, scheduledTime: Date.parse("2026-10-12T01:00:00Z") }, env);
     assert.deepEqual(calls.map(c => c.slice(0, 2)), [["scrum", "CPUBLIC"], ["scrum", "CPRIVATE"]]);
   }
   assert.equal(externalCalls, 0, "scrum must not start any PO/backfill/clock/chapter/event work");
-  await worker.scheduled({ cron: CLOCK_RECOVERY_CRON, scheduledTime: Date.parse("2026-10-12T01:16:00Z") }, env);
+  taskCalls.length = 0;
+  await worker.scheduled({ cron: CLOCK_RECOVERY_CRON, scheduledTime: Date.parse("2026-10-12T00:31:00Z") }, env);
+  assert.deepEqual(taskCalls.map(([task]) => task), ["clock_recovery", "events", "maintenance"], "minute 31 routes recovery, events, then maintenance");
+  taskCalls.length = 0;
+  await worker.scheduled({ cron: CLOCK_RECOVERY_CRON, scheduledTime: Date.parse("2026-10-12T00:36:00Z") }, env);
   assert.deepEqual(taskCalls.map(([task]) => task), ["clock_recovery", "events"], "five-minute recovery shares the event tick with the DB-free bug clock re-arm");
+  taskCalls.length = 0;
+  failedTasks.add("clock_recovery");
+  failedTasks.add("maintenance");
+  await assert.rejects(
+    worker.scheduled({ cron: CLOCK_RECOVERY_CRON, scheduledTime: Date.parse("2026-10-12T00:31:00Z") }, env),
+    /Clock recovery or maintenance task failed/,
+  );
+  assert.deepEqual(taskCalls.map(([task]) => task), ["clock_recovery", "events", "maintenance"], "a failed task does not suppress the remaining tasks");
+  failedTasks.clear();
   calls.length = 0;
   privateFails = true;
   await assert.rejects(communityCron(env, Date.parse("2026-10-12T01:05:00Z")), /Daily scrum dispatch failed/);
@@ -57,5 +77,5 @@ try {
   await communityCron({ ...env, COMMUNITY_ENABLED: "false" }, Date.now());
   assert.equal(calls.length, 0);
   await assert.rejects(communityCron(env, Date.now(), "unknown"), /Unknown community cron/);
-  console.log("PASS Worker scheduled entry routes exact and recovery crons to scrum only; no maintenance access");
+  console.log("PASS Worker scheduled entry routes two crons by UTC minute with isolated maintenance tasks");
 } finally { globalThis.fetch = originalFetch; mock.restore(); }

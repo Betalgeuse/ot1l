@@ -6,10 +6,7 @@ import { fileURLToPath } from "node:url";
 const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
 
 export const PRODUCTION_CRONS = [
-  "0 1 * * *",
-  "0 9 * * *",
   "*/5 * * * *",
-  "1,31 * * * *",
   "1-59/5 * * * *",
 ];
 
@@ -35,9 +32,9 @@ export function validateProductionConfig(value) {
   const crons = value.triggers?.crons;
   if (
     !Array.isArray(crons) ||
-    !["0 1 * * *", "0 9 * * *", "*/5 * * * *"].every((cron) => crons.includes(cron))
+    JSON.stringify(crons) !== JSON.stringify(PRODUCTION_CRONS)
   )
-    throw new TypeError("Production schedule redundancy is missing");
+    throw new TypeError("Production cron triggers must match the two-trigger manifest exactly");
   return value;
 }
 

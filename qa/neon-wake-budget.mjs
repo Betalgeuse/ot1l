@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { MAINTENANCE_CRON, NEON_WAKE_WINDOW_BUDGET } from "../src/community-cron.ts";
+import { CRON_TRIGGERS, MAINTENANCE_WINDOW, NEON_WAKE_WINDOW_BUDGET } from "../src/community-cron.ts";
+import { PRODUCTION_CRONS } from "../scripts/deploy-production-worker.mjs";
 import { dbAlarmRetryDelayMinutes } from "../src/community-alarm-backoff.ts";
 import { maintenanceCadenceDue } from "../src/community-maintenance-tasks.ts";
 import { runtimeFailureCode } from "../src/runtime-failure.ts";
@@ -20,7 +21,11 @@ const runnerWindows = new Set();
 const deployerWindows = new Set();
 const oldWindows = new Set();
 
-assert.equal(WAKE_WINDOW_CRON, MAINTENANCE_CRON);
+assert.equal(WAKE_WINDOW_CRON, MAINTENANCE_WINDOW);
+assert.deepEqual(PRODUCTION_CRONS, [...CRON_TRIGGERS]);
+const wrangler = JSON.parse(readFileSync(new URL("../wrangler.jsonc", import.meta.url), "utf8"));
+assert.deepEqual(wrangler.triggers.crons, [...CRON_TRIGGERS]);
+assert.ok(CRON_TRIGGERS.length <= 2, "OT1L must declare no more than two cron triggers");
 assert.deepEqual(WAKE_WINDOW_START_MINUTES, [1, 31]);
 assert.equal(WAKE_WINDOW_MINUTES, 4);
 
