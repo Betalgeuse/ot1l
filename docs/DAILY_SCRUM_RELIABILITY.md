@@ -14,12 +14,13 @@
 
 | 신호 | 실행 대상 | 책임 |
 | --- | --- | --- |
-| `0 1 * * *`, `0 9 * * *`, `*/5 * * * *` | `scrum:<team>:<channel>` 전용 CommunityClock RPC | 목표·후기 root와 개인 reminder, public 채널 우선 |
-| `1,31 * * * *` | `maintenance:<team>` 별도 CommunityClock RPC | 반시간 backup reconciler와 maintenance. `community_clock_recovery`가 garden·membership 채널 alarm을 다시 확인 |
-| `1-59/5 * * * *` | `clock_recovery`와 `events` task RPC | bug clock alarm 재무장은 Neon 없이 수행. 이벤트는 캐시 due·무효화·6시간 만료 때만 Neon을 열고 다음 due를 저장 |
+| `*/5 * * * *` | `scrum:<team>:<channel>` 전용 CommunityClock RPC | 목표·후기 root와 개인 reminder, public 채널 우선. 매일 01:00·09:00 UTC도 같은 경로로 실행 |
+| `1-59/5 * * * *` at UTC :01/:31 | `clock_recovery`, `events`, then `maintenance:<team>` | bug clock alarm 재무장은 Neon 없이 수행. 이벤트는 캐시 due·무효화·6시간 만료 때만 Neon을 열고 다음 due를 저장. :01/:31에 maintenance를 마지막으로 실행 |
 | 기존 bug / community alarm | 기존 역할의 객체 | 기존 outbox 및 회원·garden 재시도. 공통 daily root는 생성하지 않음 |
 
 Cron은 DB·Slack 업무를 직접 실행하지 않고 내부 RPC를 전달한다. 채널별 객체는 동시 실행을 직렬화하고 역할/채널을 영속 저장한다. scrum 객체에는 alarm을 만들지 않는다. **Cron이 유일한 스케줄 소유자이며, DO는 실행·직렬화 경계다.** 다른 큐가 CPU를 소모해도 scrum 실행의 CPU 예산을 사용하지 않는다. binding이 없으면 inline fallback하지 않고 실패한다.
+
+Worker에는 `*/5 * * * *`와 `1-59/5 * * * *` 두 Cron trigger만 등록한다. `*/5`가 01:00·09:00 UTC daily root도 실행한다. 두 번째 trigger는 UTC 분이 01 또는 31이면 clock recovery와 events 다음에 maintenance를 실행한다. Workers Free의 5 trigger 한도는 Worker별이 아니라 계정 전체에 적용되며, 같은 계정의 다른 Worker와 공유한다.
 
 [Cloudflare DO 제한 문서](https://developers.cloudflare.com/durable-objects/platform/limits/)는 RPC/Alarm CPU 기본 한도를 30초로 명시한다. 로컬 runtime 검사는 RPC 경계와 동작을 검증하지만 운영 CPU 여유를 측정하지는 않는다. 계정 요금제를 바꾸거나 과금 한도를 올리는 변경은 포함하지 않는다.
 
@@ -39,7 +40,7 @@ Cron은 DB·Slack 업무를 직접 실행하지 않고 내부 RPC를 전달한�
 - `bun run check`: Worker entry의 Cron 전달, RPC 분리, 공개 채널 우선, 역할 충돌·disabled/maintenance, UI actions, 기존 기능 회귀 검사.
 - `node qa/community-scrum-runtime.mjs`: 실제 workerd와 SQLite DO를 사용. Neon/Slack만 로컬 가짜 서비스로 격리하며 예상 밖 네트워크는 거부. 정각/보완 동시 실행, root 한 건, DB 장애 후 다음 Cron 복구, 외부 유지보수 쿼리 0건 검증.
 - `node qa/atomic-common-delivery-pg.mjs`: 임시 socket-only PostgreSQL에서 불확실한 전송 재게시 금지와 dispatch·prompt·thread 한 트랜잭션 확인.
-- 운영 완료 게이트: exact SHA의 Broker 배포 영수증, 실제 4개 Cron readback, `community.scrum.start/end`와 DO 실행 outcome/CPU, 다음 due 날짜의 dispatch `sent` 및 Slack root/버튼, 중복 0건.
+- 운영 완료 게이트: exact SHA의 Broker 배포 영수증, 실제 두 Cron readback, `community.scrum.start/end`와 DO 실행 outcome/CPU, 다음 due 날짜의 dispatch `sent` 및 Slack root/버튼, 중복 0건.
 
 2026-10-12 복구 글에서 Founder 브라우저의 ONE THING 버튼으로 입력 모달을 열고 닫았다. 입력을 제출하거나 회원의 목표를 변경하지 않았다. **일반 회원/operator 세션 QA와 새 구조의 운영 scheduled invocation은 아직 미검증이다.**
 
@@ -60,7 +61,7 @@ Cron은 DB·Slack 업무를 직접 실행하지 않고 내부 RPC를 전달한�
 
 ### 원인과 공유 wake budget
 
-5분 maintenance와 scrum 호출, runner의 15초 claim 조회, deployer의 60초 claim 조회가 idle 시간에도 Neon을 열어 compute가 suspend할 idle 구간을 없앴다. Free tier는 프로젝트당 월 100 CU-hour이며 compute는 5분 idle 뒤 suspend한다. Worker, GenQuant runner, deployer는 이제 같은 UTC wake window를 사용한다. 창은 매시 `:01`과 `:31`부터 4분이며 `MAINTENANCE_CRON`과 QA에서 일치 여부를 확인한다. Worker crons는 이 창에서 작업하고, idle runner는 창 안에서 15초 간격으로 확인한 뒤 다음 창까지 쉰다. Deployer는 `:01:30`, `:03:30`, `:31:30`, `:33:30`에 확인한다. 일정이 달라지는 새 DB client는 반드시 이 공유 창에 참여해야 한다.
+5분 maintenance와 scrum 호출, runner의 15초 claim 조회, deployer의 60초 claim 조회가 idle 시간에도 Neon을 열어 compute가 suspend할 idle 구간을 없앴다. Free tier는 프로젝트당 월 100 CU-hour이며 compute는 5분 idle 뒤 suspend한다. Worker, GenQuant runner, deployer는 이제 같은 UTC wake window를 사용한다. 창은 매시 `:01`과 `:31`부터 4분이며 `MAINTENANCE_WINDOW`와 QA에서 일치 여부를 확인한다. Worker는 `*/5` scrum trigger와 `1-59/5` recovery trigger 두 개만 등록한다. 두 번째 trigger가 :01/:31에 clock recovery와 events를 먼저 호출하고 maintenance를 이어서 실행한다. 01:00·09:00 UTC roots는 이미 5분 scrum trigger에 포함된다. Workers Free의 5 Cron trigger 한도는 계정 전체에 걸쳐 모든 Worker가 공유한다. idle runner는 창 안에서 15초 간격으로 확인한 뒤 다음 창까지 쉰다. Deployer는 `:01:30`, `:03:30`, `:31:30`, `:33:30`에 확인한다. 일정이 달라지는 새 DB client는 반드시 이 공유 창에 참여해야 한다.
 
 Runner 환경 변수 `BUG_RUNNER_POLL_MODE` 기본값은 `wake-window`다. 장애 대응 중 `continuous`를 지정하면 기존 15초 idle poll로 돌아간다. 다른 값은 설정 오류로 거부한다. Deployer 확인 지연은 최대 약 30분이다. 서비스 부팅 때의 최초 확인과 진행 중 작업의 heartbeat는 event-driven wake로 별도 발생할 수 있다. 작업 실행 중 heartbeat와 장시간 작업은 유지하며, 진행 중 작업은 정당하게 compute를 깨운 상태로 둔다.
 

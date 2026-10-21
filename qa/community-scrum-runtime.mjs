@@ -66,7 +66,7 @@ const mf = new Miniflare({
 });
 try {
   const responses = await Promise.all([
-    mf.dispatchFetch("https://test/?cron=0%201%20*%20*%20*"), mf.dispatchFetch("https://test/"),
+    mf.dispatchFetch("https://test/?cron=*/5%20*%20*%20*%20*"), mf.dispatchFetch("https://test/"),
   ]);
   for (const response of responses) {
     assert.equal(response.status, 200);

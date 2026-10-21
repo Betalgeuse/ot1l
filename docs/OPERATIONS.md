@@ -18,13 +18,13 @@
 
 ## 안내와 재촉
 
-Cloudflare Cron이 5분마다 유일한 정시 스케줄러로 실행됩니다. Durable Object 알람은 잔디·가입·보존 큐만 처리하며 10시·18시 안내를 만들지 않습니다. 정시 안내는 Slack 회원 API보다 먼저 DB의 현재 회원 snapshot으로 durable dispatch를 만들고, 게시 성공 뒤 회원 목록을 별도로 갱신합니다. 목표 안내는 후기 시각 전까지, 후기 안내는 22시 전까지 같은 날짜·종류 키로 자동 복구되므로 10:00·10:05 실행이 모두 실패해도 이후 Cron이 이어서 처리합니다.
+Cloudflare Cron의 `*/5` trigger가 유일한 정시 스케줄러로 실행됩니다. 01:00·09:00 UTC의 목표·후기 안내도 이 trigger가 처리합니다. Durable Object 알람은 잔디·가입·보존 큐만 처리하며 10시·18시 안내를 만들지 않습니다. 정시 안내는 Slack 회원 API보다 먼저 DB의 현재 회원 snapshot으로 durable dispatch를 만들고, 게시 성공 뒤 회원 목록을 별도로 갱신합니다. 목표 안내는 후기 시각 전까지, 후기 안내는 22시 전까지 같은 날짜·종류 키로 자동 복구되므로 10:00·10:05 실행이 모두 실패해도 이후 Cron이 이어서 처리합니다.
 
 모든 시각은 한국 시간입니다.
 
 ## Neon compute wake cadence
 
-Worker cron의 Neon 접근, GenQuant runner claim poll, GenQuant deployer claim은 매시 UTC `:01`과 `:31`부터 4분인 공유 wake window에 맞춥니다. Runner는 idle이면 창 안에서 15초 간격으로 poll하고 창 밖에서는 다음 시작 시각까지 대기합니다. 장애 대응용 `BUG_RUNNER_POLL_MODE=continuous`는 이전 15초 poll을 복구하며, 기본값은 `wake-window`입니다. Deployer timer는 매시 UTC `:01:30`, `:03:30`, `:31:30`, `:33:30`에 실행되어 승인된 배포 확인까지 최대 약 30분 지연될 수 있습니다.
+OT1L은 `*/5 * * * *`와 `1-59/5 * * * *` 두 cron trigger를 사용합니다. 두 번째 trigger에서 UTC 분이 01 또는 31이면 clock recovery와 events 다음에 maintenance를 실행합니다. Worker cron의 Neon 접근, GenQuant runner claim poll, GenQuant deployer claim은 매시 UTC `:01`과 `:31`부터 4분인 공유 wake window에 맞춥니다. Workers Free의 5 trigger 한도는 계정 전체에 적용되며 계정의 다른 Worker와 공유합니다. Runner는 idle이면 창 안에서 15초 간격으로 poll하고 창 밖에서는 다음 시작 시각까지 대기합니다. 장애 대응용 `BUG_RUNNER_POLL_MODE=continuous`는 이전 15초 poll을 복구하며, 기본값은 `wake-window`입니다. Deployer timer는 매시 UTC `:01:30`, `:03:30`, `:31:30`, `:33:30`에 실행되어 승인된 배포 확인까지 최대 약 30분 지연될 수 있습니다.
 
 현재 세 DB client의 정기 cadence를 합친 모델은 고유 5분 suspend bucket 48개/일입니다. 변경 전 runner/deployer cadence는 약 288개/일로 하루 내내 compute를 깨웠습니다. 0.25 CU 최소 compute와 공유 창당 최대 약 10분의 깨어 있는 시간을 가정한 사용량은 약 60 CU-hour/월입니다. 이는 100 CU-hour Free 한도와 비교하기 위한 **추정치**이며 실제 사용량을 측정한 값이 아닙니다. 부팅 때 최초 확인과 진행 중 작업의 heartbeat는 이 steady-state 추정에서 제외합니다. 새 DB client나 주기 쿼리는 같은 창을 사용해야 합니다. 자세한 모델·제약은 [DAILY_SCRUM_RELIABILITY.md](DAILY_SCRUM_RELIABILITY.md)의 Neon wake budget을 따릅니다.
 
@@ -137,7 +137,7 @@ npm run reconcile:garden -- --team T_REPLACE --channel C_REPLACE --through 2026-
 
 `reporter_thread`와 `admin_channel`처럼 다시 읽을 수 있는 영구 메시지는 Slack이 수락한 뒤 응답이나 DB 완료 기록을 잃어도 제한된 history에서 동일 payload를 대조해 중복 게시를 막습니다. `reporter_ephemeral`은 Slack history로 다시 읽을 수 없으므로 **at-least-once**입니다. Slack 수락 뒤 응답 또는 DB finish를 잃으면 비공개 receipt가 재시도 때 중복될 수 있습니다. 이 제한은 당사자에게만 보이는 receipt를 누락시키지 않기 위한 명시적으로 수용한 tradeoff이며, exactly-once로 표현하지 않습니다.
 
-버그 delivery는 팀마다 하나인 전역 `CommunityClock` 인스턴스가 활동과 정확한 재시도·24시간 만료 시각에 실행됩니다. private reconciliation, 만료, delivery claim 중 하나라도 한 번에 10건의 전체 batch를 채우면 `possiblyMore`로 기록하고 5분 뒤 다시 실행합니다. 실패한 DB 작업은 1·2·4·8·15·30분 exponential backoff를 사용하며 성공하면 초기화합니다. idle 안전 검사는 6시간 간격입니다. `1-59/5` Cron은 DB를 열지 않는 bug clock 재무장 RPC이고, `1,31` Cron은 KST 매시 :01/:31에 backup maintenance를 정렬합니다. `*/5`는 스크럼 tick이며 schedule/done cache가 idle 호출을 Neon 없이 끝냅니다. cadence의 추정 window 계약은 [DAILY_SCRUM_RELIABILITY.md](DAILY_SCRUM_RELIABILITY.md)를 따릅니다.
+버그 delivery는 팀마다 하나인 전역 `CommunityClock` 인스턴스가 활동과 정확한 재시도·24시간 만료 시각에 실행됩니다. private reconciliation, 만료, delivery claim 중 하나라도 한 번에 10건의 전체 batch를 채우면 `possiblyMore`로 기록하고 5분 뒤 다시 실행합니다. 실패한 DB 작업은 1·2·4·8·15·30분 exponential backoff를 사용하며 성공하면 초기화합니다. idle 안전 검사는 6시간 간격입니다. `1-59/5` Cron은 DB를 열지 않는 bug clock 재무장 RPC이며 UTC :01/:31에는 clock recovery와 events 뒤에 backup maintenance를 실행합니다. `*/5`는 스크럼 tick이며 schedule/done cache가 idle 호출을 Neon 없이 끝냅니다. cadence의 추정 window 계약은 [DAILY_SCRUM_RELIABILITY.md](DAILY_SCRUM_RELIABILITY.md)를 따릅니다.
 
 비공개 reconciliation, 24시간 만료, delivery claim 중 어느 단계든 한 번에 10건을 처리하면 남은 작업이 있을 수 있다고 보고 5분 안에 다시 실행합니다. 다음 실행에서 세 단계가 모두 10건 미만이어야 한 시간 안전 검사로 돌아갑니다.
 

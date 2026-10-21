@@ -10,7 +10,7 @@ const valid = {
     { binding: "BUG_PRIVATE_OBJECTS", bucket_name: "otl1-bug-private" },
     { binding: "INVITE_PRIVATE_OBJECTS", bucket_name: "otl1-invite-private" },
   ],
-  triggers: { crons: ["0 1 * * *", "0 9 * * *", "*/5 * * * *"] },
+  triggers: { crons: ["*/5 * * * *", "1-59/5 * * * *"] },
 };
 assert.equal(validateProductionConfig(valid), valid);
 assert.throws(
@@ -23,7 +23,7 @@ assert.throws(
 );
 assert.throws(
   () => validateProductionConfig({ ...valid, triggers: { crons: ["*/5 * * * *"] } }),
-  /redundancy/,
+  /two-trigger manifest/,
 );
 assert.throws(
   () => validateProductionConfig({ ...valid, r2_buckets: [] }),
