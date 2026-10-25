@@ -14,6 +14,12 @@ export type StatusCard = {
   readonly boardDate?: string;
   readonly statusValue?: string;
   readonly settingsValue?: string;
+  readonly recentGoals?: readonly {
+    readonly date: string;
+    readonly goal: string;
+    readonly outcome: "complete" | "partial" | "not_done" | "unknown";
+    readonly rest: boolean;
+  }[];
 };
 
 export type CommunityChoice = {
@@ -83,6 +89,27 @@ export function communityStatusMessage(input: StatusCard): Json {
       },
     },
   ];
+  if (input.recentGoals?.length)
+    blocks.push({
+      type: "section",
+      text: {
+        type: "plain_text",
+        text: `내 최근 ONE THING\n${input.recentGoals
+          .map((item) => {
+            const marker = item.rest
+              ? "☕"
+              : item.outcome === "complete"
+                ? "✅"
+                : item.outcome === "partial"
+                  ? "🌱"
+                  : item.outcome === "not_done"
+                    ? "○"
+                    : "·";
+            return `${marker} ${item.date.slice(5).replace("-", "/")}  ${item.goal.replace(/\s+/g, " ")}`;
+          })
+          .join("\n")}`.slice(0, 2900),
+      },
+    });
   if (input.boardUrl) {
     const url = new URL(input.boardUrl);
     if (url.protocol !== "https:") throw new InputError("잔디 주소는 HTTPS여야 합니다.");
