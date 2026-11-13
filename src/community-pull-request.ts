@@ -1,6 +1,4 @@
-import { bugCandidate } from "./community-bug-facts";
-import { startBugReport } from "./community-bug-start";
-import { fallbackFeedbackAnalysis } from "./community-feedback";
+import { createDirectPrWork } from "./community-direct-pr-work";
 import { MaintainerOpsStore } from "./community-maintainer-store";
 import {
   refreshMaintainerWorkSurfaces,
@@ -101,27 +99,7 @@ export async function submitPullRequestBinding(
   const existing = await store.execute("work_by_pr", { prNumber: pull.number });
   if (!workKey && existing && typeof existing === "object" && !Array.isArray(existing))
     workKey = string(object(existing).work_key);
-  if (!workKey) {
-    const actual = `PR #${pull.number} 검토 요청: ${pullUrl}`;
-    const expected = pull.title;
-    const messages = [
-      { id: "form:actual", text: actual, at: new Date().toISOString() },
-      { id: "form:expected", text: expected, at: new Date().toISOString() },
-    ];
-    const created = await startBugReport(
-      { ...context, key: `direct-pr:${pull.number}` },
-      {
-        messages,
-        candidates: [
-          bugCandidate("actual", "form:actual", actual),
-          bugCandidate("expected", "form:expected", expected),
-        ],
-      },
-      fallbackFeedbackAnalysis({ actual, expected }),
-      "manual",
-    );
-    workKey = created.draft.bugId;
-  }
+  if (!workKey) workKey = await createDirectPrWork(context, pull.number, pull.title, pullUrl);
   if (!/^BUG-[A-Z0-9]{8,32}$/.test(workKey)) throw new InputError("연결할 작업을 확인해 주세요.");
   if (!(await store.getWork(workKey))) throw new InputError("연결할 작업을 찾을 수 없어요.");
   await store.execute(
