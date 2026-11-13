@@ -1,17 +1,8 @@
 export { CommunityClock } from "./community-clock";
 
 import { readBoardLink } from "./board-link";
-import { armBugDeliveryClock, BUG_CLOCK_CAPABILITIES } from "./community-bug-clock-client";
-import { armCommunityClock } from "./community-clock-client";
-import { handleEventWebRequest } from "./community-event-web";
 import { handleCommunityEvent } from "./community-events";
 import { communityInteraction } from "./community-interactions";
-import { handleInterestIntakeRequest } from "./community-interest-intake";
-import { CommunityInterestStore } from "./community-interest-store";
-import { handleLinearWebhook } from "./community-linear-webhook";
-import { handleMaintainerPublicRequest } from "./community-maintainer-public";
-import { handleReferralIntakeRequest } from "./community-referral-intake";
-import { CommunityReferralStore } from "./community-referral-store";
 import type { CommunityEnv } from "./community-runtime";
 import { confirmMention, eventPayload, handleMention, verificationResponse } from "./events";
 import { BodySizeError, InputError, koreaDate, object, readBody } from "./input";
@@ -22,7 +13,7 @@ import { renderBoard } from "./render/board";
 import { command, interaction } from "./requests";
 import { verifySlack } from "./signing";
 import { openView, reply } from "./slack-api";
-import { NeonStore, type Store } from "./store";
+import type { Store } from "./store";
 import { createWorkerHandler } from "./worker-entry";
 
 export type Env = PilotEnv &
@@ -50,63 +41,8 @@ export async function handleRequest(
   const env = runtime.env;
   try {
     if (request.method === "GET" && url.pathname === "/health") {
-      return Response.json({ status: "ok", capabilities: BUG_CLOCK_CAPABILITIES });
+      return Response.json({ status: "ok" });
     }
-    if (url.pathname === "/linear/webhook")
-      return handleLinearWebhook(request, env, (promise) => ctx.waitUntil(promise));
-    if (request.method === "GET" && url.pathname === "/linear/oauth/callback")
-      return new Response("OT1L Linear 연결을 확인했습니다. 이 창을 닫아도 됩니다.", {
-        headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" },
-      });
-    if (url.pathname === "/internal/maintainers/status")
-      return handleMaintainerPublicRequest(request, env);
-    if (url.pathname.startsWith("/internal/interest/")) {
-      if (env.DATABASE_MAINTENANCE === "true")
-        return new Response("Maintenance", { status: 503, headers: { "Retry-After": "30" } });
-      if (
-        env.PUBLIC_INTEREST_ENABLED !== "true" ||
-        !env.INTEREST_RUNTIME_DATABASE_URL ||
-        !env.INTEREST_ADMIN_CHANNEL_ID ||
-        env.INTEREST_ADMIN_CHANNEL_ID === env.COMMUNITY_PUBLIC_CHANNEL_ID
-      )
-        return new Response("Unavailable", { status: 503 });
-      const interest = new CommunityInterestStore(new NeonStore(env.INTEREST_RUNTIME_DATABASE_URL));
-      const response = await handleInterestIntakeRequest(request, env, {
-        submit: (input) => interest.submit(input),
-        withdraw: (input) => interest.withdraw(input),
-        claimServiceNonce: (digest, expiresAt) =>
-          interest.claimServiceNonce(digest, expiresAt, env.SLACK_TEAM_ID),
-      });
-      if (response.status === 202 && env.COMMUNITY_PUBLIC_CHANNEL_ID)
-        ctx.waitUntil(armCommunityClock(env, env.COMMUNITY_PUBLIC_CHANNEL_ID));
-      return response;
-    }
-    if (url.pathname.startsWith("/internal/referrals/")) {
-      if (env.DATABASE_MAINTENANCE === "true")
-        return new Response("Maintenance", { status: 503, headers: { "Retry-After": "30" } });
-      const applicationOptional = [
-        "/internal/referrals/resolve",
-        "/internal/referrals/withdraw",
-      ].includes(url.pathname);
-      if (
-        env.REFERRALS_ENABLED !== "true" ||
-        (!applicationOptional && env.PUBLIC_APPLICATIONS_ENABLED !== "true")
-      )
-        return new Response("Unavailable", { status: 503 });
-      const response = await handleReferralIntakeRequest(
-        request,
-        env,
-        new CommunityReferralStore(new NeonStore(env.DATABASE_URL), {
-          teamId: env.SLACK_TEAM_ID,
-          channelId: env.COMMUNITY_PUBLIC_CHANNEL_ID ?? "",
-          userId: env.COMMUNITY_ADMIN_ID ?? "",
-        }),
-      );
-      if (response.status === 202 && env.COMMUNITY_PUBLIC_CHANNEL_ID)
-        ctx.waitUntil(armCommunityClock(env, env.COMMUNITY_PUBLIC_CHANNEL_ID));
-      return response;
-    }
-    if (url.pathname.startsWith("/internal/events/")) return handleEventWebRequest(request, env);
     if (env.DATABASE_MAINTENANCE === "true" && url.pathname.startsWith("/slack/"))
       return new Response("잠시 데이터 정리 중입니다. 곧 다시 시도해 주세요.", {
         status: 503,
@@ -126,9 +62,6 @@ export async function handleRequest(
       const body = await readBody(request);
       const timestamp = await verifySlack(request, body, env.SLACK_SIGNING_SECRET);
       if (timestamp === null) return new Response("Unauthorized", { status: 401 });
-      ctx.waitUntil(
-        armBugDeliveryClock(env, { reason: "activity", observedAt: timestamp * 1_000 }),
-      );
       const data = env.COMMUNITY_ENABLED === "true" ? object(JSON.parse(body)) : eventPayload(body);
       const verification = verificationResponse(data);
       if (verification) return verification;
@@ -151,10 +84,6 @@ export async function handleRequest(
     const body = await readBody(request);
     const timestamp = await verifySlack(request, body, env.SLACK_SIGNING_SECRET);
     if (timestamp === null) return new Response("Unauthorized", { status: 401 });
-    if (url.pathname === "/slack/interactions")
-      ctx.waitUntil(
-        armBugDeliveryClock(env, { reason: "activity", observedAt: timestamp * 1_000 }),
-      );
     if (url.pathname === "/slack/interactions") {
       const raw = new URLSearchParams(body).get("payload");
       if (raw) {

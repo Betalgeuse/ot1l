@@ -1,4 +1,4 @@
-import type { ClockBinding } from "./community-bug-clock-client";
+import type { ClockBinding } from "./community-clock-binding";
 import type { InviteReconcileBucket } from "./community-referral-reconcile";
 import { callSlack } from "./community-social";
 import type { CommunityStore } from "./community-store";

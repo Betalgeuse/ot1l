@@ -1,4 +1,3 @@
-import { invalidateTownhallEventDue } from "./community-clock-client";
 import { eventDemandButton, refreshEventDemand } from "./community-event-demands";
 import { eventScheduleToken } from "./community-event-link";
 import { escapeSlackText } from "./community-messages";
@@ -536,7 +535,6 @@ export async function applyTownhallRsvp(
     state: cancelling ? "declined" : "going",
     now: new Date().toISOString(),
   });
-  await invalidateTownhallEventDue(context.env);
   await updateEventMessage(context, updated);
   await postEventThreadStatus(
     context.env,
@@ -692,7 +690,6 @@ export async function submitTownhallEvent(
       ...input,
       options: input.startsAt ? [input.startsAt] : current.options.map((option) => option.startsAt),
     });
-    await invalidateTownhallEventDue(context.env);
     event = await context.store.townhallEventLifecycle("configure", {
       teamId: context.scope.teamId,
       channelId,
@@ -708,7 +705,6 @@ export async function submitTownhallEvent(
       autoCancel: current.autoCancel,
       now: new Date().toISOString(),
     });
-    await invalidateTownhallEventDue(context.env);
     if (input.startsAt) {
       await context.store.townhallEventSeries("configure", {
         teamId: context.scope.teamId,
@@ -719,7 +715,6 @@ export async function submitTownhallEvent(
         occurrenceCount: current.series?.occurrenceCount ?? 4,
         durationMinutes: input.durationMinutes,
       });
-      await invalidateTownhallEventDue(context.env);
       await context.store.townhallEventLifecycle("finalize", {
         teamId: context.scope.teamId,
         channelId,
@@ -728,7 +723,6 @@ export async function submitTownhallEvent(
         startsAt: input.startsAt,
         now: new Date().toISOString(),
       });
-      await invalidateTownhallEventDue(context.env);
       event =
         (await context.store.townhallEventSeries("finalize", {
           teamId: context.scope.teamId,
@@ -736,7 +730,6 @@ export async function submitTownhallEvent(
           actorId: context.scope.userId,
           eventId,
         })) ?? event;
-      await invalidateTownhallEventDue(context.env);
     }
     await updateEventMessage(context, event);
     if (input.startsAt) {
@@ -744,7 +737,6 @@ export async function submitTownhallEvent(
       await scheduleEventReviewPrompt(context.env, context.store, event, context.scope.userId);
     }
     await notice(context, "활동과 장소를 수정했어요. 시간표와 참여 응답은 그대로 유지했어요.");
-    await invalidateTownhallEventDue(context.env);
     return;
   }
 
@@ -756,7 +748,6 @@ export async function submitTownhallEvent(
     ...input,
     options: input.startsAt ? [input.startsAt] : [],
   });
-  if (prepared.created) await invalidateTownhallEventDue(context.env);
   if (!prepared.created) {
     if (prepared.event.status === "active") await updateEventMessage(context, prepared.event);
     return;
@@ -803,7 +794,6 @@ export async function submitTownhallEvent(
       autoCancel: input.startsAt !== null,
       now: new Date().toISOString(),
     });
-    await invalidateTownhallEventDue(context.env);
     let event = await context.store.townhallEventSeries("configure", {
       teamId: context.scope.teamId,
       channelId,
@@ -813,7 +803,6 @@ export async function submitTownhallEvent(
       occurrenceCount: 4,
       durationMinutes: input.durationMinutes,
     });
-    await invalidateTownhallEventDue(context.env);
     if (input.startsAt) {
       await context.store.townhallEventLifecycle("finalize", {
         teamId: context.scope.teamId,
@@ -823,14 +812,12 @@ export async function submitTownhallEvent(
         startsAt: input.startsAt,
         now: new Date().toISOString(),
       });
-      await invalidateTownhallEventDue(context.env);
       event = await context.store.townhallEventSeries("finalize", {
         teamId: context.scope.teamId,
         channelId,
         actorId: context.scope.userId,
         eventId: viewId,
       });
-      await invalidateTownhallEventDue(context.env);
     }
     if (!event) throw new InputError("이벤트 상태를 확인할 수 없어요.");
     await updateEventMessage(context, event);
@@ -844,7 +831,6 @@ export async function submitTownhallEvent(
       await scheduleEventReviewPrompt(context.env, context.store, event, context.scope.userId);
     createdMessageTs = null;
     await notice(context, "Townhall에 이벤트를 올렸어요.");
-    await invalidateTownhallEventDue(context.env);
     if (demandId) await refreshEventDemand(context, demandId);
   } catch (error) {
     if (createdMessageTs)
@@ -869,7 +855,6 @@ export async function submitTownhallEvent(
         actorId: context.scope.userId,
         eventId: viewId,
       });
-    await invalidateTownhallEventDue(context.env);
     await notice(context, "이벤트 게시를 확인하지 못했어요. 다시 시도해 주세요.");
     console.error(
       JSON.stringify({
@@ -892,7 +877,6 @@ export async function submitTownhallAvailability(
     eventId,
     selected,
   });
-  await invalidateTownhallEventDue(context.env);
   await updateEventMessage(context, event);
   await notice(context, selected.length ? "가능한 시간을 저장했어요." : "시간 선택을 비웠어요.");
 }

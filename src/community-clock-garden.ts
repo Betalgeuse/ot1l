@@ -1,5 +1,4 @@
-import type { GardenRequest } from "./community-bug-clock-client";
-import { COMMUNITY_SCHEDULE_CLOCK_ROLE } from "./community-bug-clock-client";
+import { COMMUNITY_SCHEDULE_CLOCK_ROLE, type GardenRequest } from "./community-clock-binding";
 import { publishGardenNow } from "./community-garden";
 import { deliverGardenByKey } from "./community-garden-delivery";
 import type { CommunityEnv } from "./community-runtime";

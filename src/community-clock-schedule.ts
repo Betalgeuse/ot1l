@@ -1,4 +1,4 @@
-import { COMMUNITY_SCHEDULE_CLOCK_ROLE } from "./community-bug-clock-client";
+import { COMMUNITY_SCHEDULE_CLOCK_ROLE } from "./community-clock-binding";
 import { nextCommunityAlarm } from "./community-clock-client";
 import { nextGardenDue, nextMembershipDue } from "./community-membership-due";
 import type { CommunityEnv } from "./community-runtime";

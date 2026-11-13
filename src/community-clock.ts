@@ -4,18 +4,10 @@ import { dbAlarmRetryDelayMinutes } from "./community-alarm-backoff";
 import { beginAlarmObservation, finishAlarmObservation } from "./community-alarm-observation";
 import { alarmWorkIsClear } from "./community-alarm-proof";
 import {
-  BUG_DELIVERY_CLOCK_ROLE,
-  type BugDeliveryArm,
-  type BugDeliveryArmResult,
   type ClockInspection,
   COMMUNITY_SCHEDULE_CLOCK_ROLE,
   type GardenRequest,
-} from "./community-bug-clock-client";
-import {
-  nextBugClockAlarm,
-  readBugClockState,
-  runBugDeliveryClockAlarm,
-} from "./community-clock-bug";
+} from "./community-clock-binding";
 import { publishGardenRequest } from "./community-clock-garden";
 import { refreshCommunityQueueClock } from "./community-clock-schedule";
 import { communityMaintenanceCron } from "./community-cron";
@@ -33,9 +25,10 @@ import { InputError } from "./input";
 import { runtimeFailureCode } from "./runtime-failure";
 import { NeonStore } from "./store";
 
-export { armBugDeliveryClock, bugDeliveryClockName } from "./community-bug-clock-client";
-
 export { armCommunityClock, nextAlarmTime } from "./community-clock-client";
+
+// Role name of the retired bug delivery clock, kept only to drain its last alarm.
+const LEGACY_BUG_DELIVERY_ROLE = "bug_delivery";
 
 export class CommunityClock extends DurableObject<CommunityEnv> {
   private queue: Promise<void> = Promise.resolve();
@@ -247,12 +240,6 @@ export class CommunityClock extends DurableObject<CommunityEnv> {
     });
   }
 
-  invalidateTownhallEventDue(): Promise<void> {
-    return this.serialize(async () => {
-      await this.ctx.storage.put("townhallDueInvalidated", true);
-    });
-  }
-
   runMaintenance(scheduledTime: number): Promise<void> {
     return this.serialize(async () => {
       if (!Number.isFinite(scheduledTime)) throw new InputError("Invalid maintenance time");
@@ -270,33 +257,9 @@ export class CommunityClock extends DurableObject<CommunityEnv> {
       const cacheKey = `maintenanceNextDue:${task}`;
       const nextDue = await this.ctx.storage.get<number>(cacheKey);
       if (nextDue !== undefined && scheduledTime < nextDue) return;
-      if (task === "events") {
-        const cachedAt = await this.ctx.storage.get<number>("townhallDueCachedAt");
-        const cachedNextDue = await this.ctx.storage.get<number | null>("townhallDueNextAt");
-        const invalidated = await this.ctx.storage.get<boolean>("townhallDueInvalidated");
-        const stale =
-          cachedAt === undefined ||
-          scheduledTime < cachedAt ||
-          scheduledTime - cachedAt > 6 * 60 * 60_000;
-        if (
-          !invalidated &&
-          !stale &&
-          cachedNextDue !== undefined &&
-          (cachedNextDue === null || scheduledTime < cachedNextDue)
-        )
-          return;
-      }
       await this.ctx.storage.put("lastRun", { scheduledTime, status: "running" });
       try {
-        const nextEventDue = await runMaintenanceTask(this.env, task, scheduledTime, channelId);
-        if (task === "events") {
-          await this.ctx.storage.put(
-            "townhallDueNextAt",
-            typeof nextEventDue === "string" ? Date.parse(nextEventDue) : null,
-          );
-          await this.ctx.storage.put("townhallDueCachedAt", scheduledTime);
-          await this.ctx.storage.delete("townhallDueInvalidated");
-        }
+        await runMaintenanceTask(this.env, task, scheduledTime, channelId);
         await this.ctx.storage.put(cacheKey, scheduledTime + cadence * 60_000);
         await this.ctx.storage.put("lastRun", { scheduledTime, status: "finished" });
       } catch (error) {
@@ -327,9 +290,9 @@ export class CommunityClock extends DurableObject<CommunityEnv> {
     return this.serialize(() => this.refreshSchedule(channelId));
   }
 
-  armMembershipScan(channelId: string, cursor: string | null): Promise<void> {
+  armMembershipScan(channelId: string): Promise<void> {
     return this.serialize(async () => {
-      if (channelId !== this.env.COMMUNITY_PUBLIC_CHANNEL_ID || cursor === "")
+      if (channelId !== this.env.COMMUNITY_PUBLIC_CHANNEL_ID)
         throw new InputError("Invalid membership scan scope");
       const role = await this.ctx.storage.get<string>("role");
       const bound = await this.ctx.storage.get<string>("channel");
@@ -338,57 +301,10 @@ export class CommunityClock extends DurableObject<CommunityEnv> {
       if (bound && bound !== channelId) throw new InputError("Clock channel cannot change");
       await this.ctx.storage.put("role", COMMUNITY_SCHEDULE_CLOCK_ROLE);
       await this.ctx.storage.put("channel", channelId);
-      if (cursor === null) await this.ctx.storage.delete("referralReconcileCursor");
-      else if (!(await this.ctx.storage.get<string>("referralReconcileCursor")))
-        await this.ctx.storage.put("referralReconcileCursor", cursor);
       const due = Date.now() + 1_000;
       const previous = await this.ctx.storage.getAlarm();
       if (previous === null || previous < Date.now() || due < previous)
         await this.ctx.storage.setAlarm(due);
-    });
-  }
-
-  armBugDelivery(input: BugDeliveryArm): Promise<BugDeliveryArmResult> {
-    return this.serialize(async () => {
-      if (
-        !Number.isFinite(input.observedAt) ||
-        (input.reason === "due" && !Number.isFinite(input.nextDue))
-      )
-        throw new InputError("Invalid clock time");
-      const [role, channelId] = await Promise.all([
-        this.ctx.storage.get<string>("role"),
-        this.ctx.storage.get<string>("channel"),
-      ]);
-      if (role && role !== BUG_DELIVERY_CLOCK_ROLE)
-        throw new InputError("Clock role cannot change");
-      if (channelId) throw new InputError("Clock channel scope cannot become global");
-      await this.ctx.storage.put("role", BUG_DELIVERY_CLOCK_ROLE);
-      const state = await readBugClockState(this.ctx.storage, input.observedAt);
-      await this.ctx.storage.put("bugSafetyDue", state.safetyDue);
-      if (input.reason === "activity") {
-        const activityDue = input.observedAt + 5 * 60 * 1_000;
-        await this.ctx.storage.put(
-          "bugActivityDue",
-          Math.min(state.activityDue ?? activityDue, activityDue),
-        );
-      }
-      if (input.reason === "due")
-        await this.ctx.storage.put(
-          "bugNextDue",
-          Math.min(state.nextDue ?? input.nextDue, input.nextDue),
-        );
-      const desired = nextBugClockAlarm(
-        await readBugClockState(this.ctx.storage, input.observedAt),
-      );
-      const alarmAt = Math.max(input.observedAt + 1_000, desired);
-      const previous = await this.ctx.storage.getAlarm();
-      if (previous === null || previous <= input.observedAt || alarmAt < previous)
-        await this.ctx.storage.setAlarm(alarmAt);
-      return {
-        role: BUG_DELIVERY_CLOCK_ROLE,
-        armed: true,
-        next: await this.ctx.storage.getAlarm(),
-      };
     });
   }
 
@@ -420,31 +336,8 @@ export class CommunityClock extends DurableObject<CommunityEnv> {
     return this.serialize(async () => {
       const role = await this.ctx.storage.get<string>("role");
       const channelId = await this.ctx.storage.get<string>("channel");
-      if (role === BUG_DELIVERY_CLOCK_ROLE) {
-        if (channelId) throw new InputError("Global clock has a channel collision");
-        const cycle = await beginAlarmObservation(this.ctx.storage, role, Date.now());
-        console.log(
-          JSON.stringify({ event: "community.clock.alarm.start", role: BUG_DELIVERY_CLOCK_ROLE }),
-        );
-        await runBugDeliveryClockAlarm(this.env, this.ctx.storage, Date.now());
-        const last = await this.ctx.storage.get<Record<string, unknown>>("lastRun");
-        await finishAlarmObservation(
-          this.ctx.storage,
-          cycle,
-          role,
-          Boolean(
-            last &&
-              !last.failure &&
-              !last.skipped &&
-              last.failed === 0 &&
-              last.possiblyMore === false,
-          ) && (await alarmWorkIsClear(this.env, role)),
-        );
-        console.log(
-          JSON.stringify({ event: "community.clock.alarm.end", role: BUG_DELIVERY_CLOCK_ROLE }),
-        );
-        return;
-      }
+      // The bug delivery clock is retired; a pending legacy alarm fires once and is not re-armed.
+      if (role === LEGACY_BUG_DELIVERY_ROLE) return;
       if (role && role !== COMMUNITY_SCHEDULE_CLOCK_ROLE)
         throw new InputError("Unsupported clock role");
       if (this.env.DATABASE_MAINTENANCE === "true") {
@@ -500,20 +393,13 @@ export class CommunityClock extends DurableObject<CommunityEnv> {
           );
           garden = { processed: 0, nextDue: now.getTime() + 60_000 };
         }
-        let membership = {
-          possiblyMore: false,
-          nextDue: null as number | null,
-          nextCursor: null as string | null,
-          interestNextCursor: null as string | null,
-        };
+        let membership = { possiblyMore: false, nextDue: null as number | null };
         try {
           membership = await runMembershipDue(
             this.env,
             new NeonStore(this.env.DATABASE_URL),
             channelId,
             now.getTime(),
-            await this.ctx.storage.get<string>("referralReconcileCursor"),
-            await this.ctx.storage.get<string>("interestReconcileCursor"),
             () => {
               queueFailed = true;
             },
@@ -531,17 +417,8 @@ export class CommunityClock extends DurableObject<CommunityEnv> {
           );
           membership = { ...membership, nextDue: now.getTime() + 60_000 };
         }
-        if (membership.nextCursor === null)
-          await this.ctx.storage.delete("referralReconcileCursor");
-        else await this.ctx.storage.put("referralReconcileCursor", membership.nextCursor);
-        if (membership.interestNextCursor === null)
-          await this.ctx.storage.delete("interestReconcileCursor");
-        else await this.ctx.storage.put("interestReconcileCursor", membership.interestNextCursor);
-        const immediate =
-          garden.processed >= 10 ||
-          membership.possiblyMore ||
-          membership.nextCursor !== null ||
-          membership.interestNextCursor !== null;
+        await this.ctx.storage.delete(["referralReconcileCursor", "interestReconcileCursor"]);
+        const immediate = garden.processed >= 10 || membership.possiblyMore;
         const candidates = [garden.nextDue, membership.nextDue].filter(
           (candidate): candidate is number => candidate !== null,
         );
