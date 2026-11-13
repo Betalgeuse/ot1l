@@ -138,7 +138,10 @@ const RETIRED = new Set([
   "dormant-shoutout",
 ]);
 const missing = suites.filter((suite) => !RETIRED.has(suite) && !existsSync(`qa/${suite}.mjs`));
-if (missing.length) throw new Error(`Missing unit suites (delete from the list and add to RETIRED only if retired): ${missing.join(", ")}`);
+if (missing.length)
+  throw new Error(
+    `Missing unit suites (delete from the list and add to RETIRED only if retired): ${missing.join(", ")}`,
+  );
 const present = suites.filter((suite) => !RETIRED.has(suite));
 for (const suite of present) execFileSync("bun", [`qa/${suite}.mjs`], { stdio: "inherit" });
 for (const runtime of [
