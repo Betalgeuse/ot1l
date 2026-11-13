@@ -59,6 +59,9 @@ export async function handleCommunityEvent(
   if (await deliverWelcomeGuide(event, env)) return true;
   if (await handleIntroductionChannelMessage(event, env)) return true;
   await enrollReminderMember(event, env);
+  // The feedback channel is retired: ignore its messages and mentions without a reply.
+  if (env.COMMUNITY_FEEDBACK_CHANNEL_ID && event.channel === env.COMMUNITY_FEEDBACK_CHANNEL_ID)
+    return true;
   if (
     ![
       env.COMMUNITY_CHANNEL_ID,
