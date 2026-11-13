@@ -5,7 +5,6 @@ import { deliverEncouragement } from "./community-encouragement-delivery";
 import { earlierDayNotice, earlierReviewChoices } from "./community-followup";
 import { generateEncouragement } from "./community-language";
 import { communityConfirmationMessage, communityStatusMessage } from "./community-messages";
-import { emitMilestones } from "./community-milestones";
 import { publishStatus } from "./community-record-publication";
 import { type CommunityContext, ephemeral, scopedValue, textReply } from "./community-runtime";
 import { addReactions, socialReactions } from "./community-social";
@@ -167,16 +166,6 @@ export async function applyChange(context: CommunityContext, change: DayChange):
   if (change.preserveOutcome) {
     await publishStatus(context, result.day, null, result.gardenDeliveryKey);
     return;
-  }
-  try {
-    await emitMilestones(context, result);
-  } catch (error) {
-    console.error(
-      JSON.stringify({
-        event: "community.milestone.failed",
-        type: error instanceof Error ? error.name : "Unknown",
-      }),
-    );
   }
   const kind =
     change.action === "goal"

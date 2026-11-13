@@ -1,4 +1,3 @@
-import { correctMilestone } from "./community-milestones";
 import type { CommunityContext } from "./community-runtime";
 import { textReply } from "./community-runtime";
 import { removeReactions } from "./community-social";
@@ -40,7 +39,6 @@ export async function undoChange(context: CommunityContext, key: string): Promis
     names,
   });
   await publishStatus(context, result.day, null, result.gardenDeliveryKey);
-  await correctMilestone(context, undoKey);
   await textReply(context, "방금 변경을 되돌렸어요. ↩️");
 }
 

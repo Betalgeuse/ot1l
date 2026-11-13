@@ -1,4 +1,3 @@
-import { publishRelease, releasePreview } from "./community-admin";
 import { runPublicCollectionTest } from "./community-admin-collection";
 import { stopSettings } from "./community-controls";
 import { enablePublicSchedule } from "./community-cutover";
@@ -35,14 +34,6 @@ export async function processRecordAction(
   if (id === "community_status") {
     const day = await context.store.day({ ...context.scope, date: date(key) });
     await publishStatus(context, day, null);
-    return;
-  }
-  if (id === "community_release_preview") {
-    await releasePreview(context, key);
-    return;
-  }
-  if (id === "community_publish") {
-    await publishRelease(context, key, context.key);
     return;
   }
   if (id === "community_test_schedule" || id === "community_test_group") {
