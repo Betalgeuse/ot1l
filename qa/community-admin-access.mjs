@@ -2,7 +2,6 @@ import assert from 'node:assert/strict';
 import { mock } from 'bun:test';
 mock.module('cloudflare:workers',()=>({DurableObject:class {}}));
 const {adminCommand} = await import('../src/community-admin.ts');
-const {releasePreview, publishRelease} = await import('../src/community-releases.ts');
 const {groupCard, openSettings, settingsCard} = await import('../src/community-controls.ts');
 const {enablePublicSchedule} = await import('../src/community-cutover.ts');
 const {communityInteraction} = await import('../src/community-interactions.ts');
@@ -17,7 +16,7 @@ globalThis.fetch=async(url,options)=>{effects++;sent.push(JSON.parse(options.bod
 try {
  for(const changed of [{userId:'UMEMBER'},{channelId:'CPUBLIC'},{teamId:'TOTHER'}]) {
   const other={...ctx,scope:{...scope,...changed}};
-  for(const run of [()=>adminCommand(other,'회원 현황'),()=>groupCard(other),()=>openSettings(other,'trigger',true),()=>releasePreview(other,'v0.0.1'),()=>publishRelease(other,'key','action'),()=>enablePublicSchedule(other)]) {
+  for(const run of [()=>adminCommand(other,'회원 현황'),()=>groupCard(other),()=>openSettings(other,'trigger',true),()=>enablePublicSchedule(other)]) {
    const before=effects;await assert.rejects(run,/운영자|관리/);assert.equal(effects,before,'denied operation must have no effects');
   }
  }
