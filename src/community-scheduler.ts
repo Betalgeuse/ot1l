@@ -1,7 +1,6 @@
 import { isOptionalDay, isWeekend } from "./calendar";
 import { enqueueCommonDelivery, sendCommonDeliveries } from "./community-common-delivery";
 import { customBotEmoji } from "./community-emoji";
-import { sendDailyFeedbackPrompt, sendDailyMaintainerPrompt } from "./community-feedback";
 import { sendDailyIntroductionReminders } from "./community-introduction-channel";
 import { sendReminderBatches } from "./community-reminder-batch";
 import type { CommunityStore } from "./community-store";
@@ -221,8 +220,6 @@ export async function runCommunityPrompts(
   const local = new Date(nowDate.getTime() + 9 * 60 * 60 * 1000).toISOString();
   const date = local.slice(0, 10);
   const minute = local.slice(11, 16);
-  await sendDailyFeedbackPrompt(env, store, date, minute);
-  await sendDailyMaintainerPrompt(env, store, date, minute);
   if (
     env.COMMUNITY_INTRO_CHANNEL_ID &&
     env.COMMUNITY_PUBLIC_CHANNEL_ID === env.COMMUNITY_CHANNEL_ID

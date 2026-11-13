@@ -12,30 +12,9 @@ export async function communityCron(
   scheduledTime: number,
   cron = "*/5 * * * *",
 ): Promise<void> {
-  if (cron === CLOCK_RECOVERY_CRON) {
-    if (!env.COMMUNITY_CLOCK) throw new Error("Scheduled work binding missing");
-    const tasks = ["clock_recovery", "events"] as const;
-    let failed = false;
-    for (const task of tasks) {
-      try {
-        await env.COMMUNITY_CLOCK.getByName(
-          `maintenance-task:${env.SLACK_TEAM_ID}:${task}:team`,
-        ).runMaintenanceTask(task, scheduledTime);
-      } catch (error) {
-        failed = true;
-        console.error(
-          JSON.stringify({
-            event: "community.cron.queue.failed",
-            queue: task,
-            errorType: error instanceof Error ? error.name : "Unknown",
-            code: runtimeFailureCode(error),
-          }),
-        );
-      }
-    }
-    if (failed) throw new Error("Clock recovery task failed");
-    return;
-  }
+  // Retired with the bug clock and townhall events. wrangler still lists the cron until the
+  // protected cron PR removes it, so it must not raise "Unknown community cron".
+  if (cron === CLOCK_RECOVERY_CRON) return;
   if (cron === MAINTENANCE_CRON) {
     if (!env.COMMUNITY_CLOCK) throw new Error("Scheduled work binding missing");
     await env.COMMUNITY_CLOCK.getByName(`maintenance:${env.SLACK_TEAM_ID}`).runMaintenance(
@@ -90,7 +69,7 @@ export async function communityMaintenanceCron(
   scheduledTime: number,
 ): Promise<void> {
   if (!env.COMMUNITY_CLOCK) throw new Error("Scheduled work binding missing");
-  const tasks: { task: string; channel?: string }[] = [{ task: "clock_recovery" }];
+  const tasks: { task: string; channel?: string }[] = [];
   if (
     env.COMMUNITY_ENABLED === "true" &&
     env.DATABASE_MAINTENANCE !== "true" &&
@@ -98,11 +77,9 @@ export async function communityMaintenanceCron(
   ) {
     tasks.push(
       { task: "community_clock_recovery" },
-      ...TEAM_MAINTENANCE_TASKS.filter(
-        (task) => !["clock_recovery", "community_clock_recovery", "events"].includes(task),
-      ).map((task) => ({
-        task,
-      })),
+      ...TEAM_MAINTENANCE_TASKS.filter((task) => task !== "community_clock_recovery").map(
+        (task) => ({ task }),
+      ),
     );
     for (const channel of new Set([env.COMMUNITY_PUBLIC_CHANNEL_ID, env.COMMUNITY_CHANNEL_ID]))
       if (channel) for (const task of CHANNEL_MAINTENANCE_TASKS) tasks.push({ task, channel });

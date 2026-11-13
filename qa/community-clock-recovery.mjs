@@ -20,7 +20,7 @@ mock.module("../src/community-garden-delivery", () => ({
   },
 }));
 mock.module("../src/community-membership-schedule", () => ({
-  async runMembershipDue(...args) { if(failMembership)args[6]?.(); return { possiblyMore: false, nextDue: failMembership ? now + 60_000 : null, nextCursor: null, interestNextCursor: null }; },
+  async runMembershipDue(...args) { if(failMembership)args[4]?.(); return { possiblyMore: false, nextDue: failMembership ? now + 60_000 : null }; },
 }));
 mock.module("../src/community-membership-due", () => ({
   async nextGardenDue() { return null; },
@@ -62,11 +62,6 @@ try {
   console.log=()=>{}; console.error=()=>{};
   globalThis.fetch=async()=>{order.push("network");throw new Error("offline test");};
   try {
-    await runMaintenanceTask({...env, COMMUNITY_CHANNEL_ID:"CPUBLIC", COMMUNITY_CLOCK:{getByName(name){
-      return { async armBugDelivery(){order.push("bug");return{};},async refresh(channel){order.push(`${name}:${channel}`);return{next:now+300_000};} };
-    }}},"clock_recovery",now);
-    assert.deepEqual(order,["bug"],"clock recovery re-arms the bug clock without refreshing queue state from Neon");
-    order.length=0;
     await runMaintenanceTask({...env, COMMUNITY_CHANNEL_ID:"CPUBLIC", COMMUNITY_CLOCK:{getByName(name){
       return { async refresh(channel){order.push(`${name}:${channel}`);return{next:now+300_000};} };
     }}},"community_clock_recovery",Date.parse("2026-10-12T04:31:00Z"));

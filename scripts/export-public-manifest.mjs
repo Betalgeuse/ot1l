@@ -105,44 +105,6 @@ export const PUBLIC_RUNTIME_MIGRATION_PATHS = [
   "migrations/080_event_demands.sql",
 ];
 
-// `src` and `site` are copied as directories, but these paths keep the membership
-// boundary fail-closed when a future cleanup removes a required entrypoint or asset.
-export const PUBLIC_MEMBERSHIP_SOURCE_PATHS = [
-  "src/community-referral-capacity-admin.ts",
-  "src/community-interest-admin.ts",
-  "src/community-interest-channel.ts",
-  "src/community-interest-due.ts",
-  "src/community-interest-intake.ts",
-  "src/community-interest-interactions.ts",
-  "src/community-interest-private.ts",
-  "src/community-interest-reconcile.ts",
-  "src/community-interest-store.ts",
-  "src/community-interest-types.ts",
-  "site/dist/interest.html",
-  "site/dist/receipt.html",
-  "site/dist/app.js",
-  "site/dist/styles.css",
-  "site/dist/assets/fictional-four-day-board-before-review.png",
-  "site/dist/assets/fictional-four-day-board-complete.png",
-  "site/dist/assets/otl1-avatar.jpg",
-  "site/dist/assets/one-thing-korean-black.jpg",
-  "site/dist/assets/slack-mark.png",
-  "site/dist/assets/affiliations/snu-cals.png",
-  "site/dist/assets/affiliations/snu-engineering.png",
-  "site/dist/assets/affiliations/snu-mba.png",
-  "site/dist/assets/affiliations/baemin.png",
-  "site/dist/assets/affiliations/postech.png",
-  "site/dist/assets/affiliations/kaist.gif",
-  "site/dist/assets/affiliations/visang.png",
-  "site/dist/assets/affiliations/samsung.png",
-  "site/dist/assets/affiliations/jnu-medical.png",
-  "site/dist/assets/otl1-emoji/ack-yes.png",
-  "site/dist/assets/otl1-emoji/finish_flag.png",
-  "site/qa/generate-example-board.mts",
-  "site/qa/interest-check.mjs",
-  "site/qa/interest-siteverify.mjs",
-];
-
 export function assertRequiredPublicExportSources(paths, exists) {
   for (const path of paths)
     if (!exists(path)) throw Error(`Missing required public export source: ${path}`);
@@ -299,12 +261,93 @@ export const PUBLIC_QA_NAMES = [
   "fixtures/bug-packets/confirmed-valid.v1.json",
 ];
 
+// Paths deleted on purpose. Only these may be absent from the export; any other missing source
+// (migrations included) fails the export. Add a path here in the same commit that deletes it.
+export const PUBLIC_RETIRED_PATHS = [
+  "scripts/bootstrap-lifecycle-admin-db-role.mjs",
+  "scripts/bootstrap-referral-admin-db-role.mjs",
+  "scripts/publish-townhall-event-launcher.mjs",
+  "qa/community-chapters.mjs",
+  "qa/community-chapters-pg.mjs",
+  "qa/community-event-demands.mjs",
+  "qa/community-event-demands-pg.mjs",
+  "qa/welcome-invite-button.mjs",
+  "qa/townhall-milestones.mjs",
+  "qa/interest-retention-runtime-grants-pg.mjs",
+  "qa/community-share-info.mjs",
+  "qa/community-share-info-reconcile.mjs",
+  "qa/community-townhall.mjs",
+  "qa/community-townhall-events.mjs",
+  "qa/event-schedule-link.mjs",
+  "qa/community-welcome.mjs",
+  "qa/member-lifecycle.mjs",
+  "qa/referral-flow.mjs",
+  "qa/referral-security.mjs",
+  "qa/referral-capacity-pg.mjs",
+  "qa/referral-capacity-slack.mjs",
+  "qa/referral-empty-queue-null.mjs",
+  "qa/referral-direct-join.mjs",
+  "qa/instant-shared-invite-pg.mjs",
+  "qa/community-interest-intake.mjs",
+  "qa/community-interest-admin.mjs",
+  "qa/community-interest-local-e2e.mjs",
+  "qa/interest-dead-alert.mjs",
+  "qa/interest-private.mjs",
+  "qa/interest-storage-pg.mjs",
+  "qa/invite-private.mjs",
+  "qa/membership-invite-security.mjs",
+  "qa/site-intake.mjs",
+  "qa/site-direct-join.mjs",
+  "qa/site-referral-composition.mjs",
+  "qa/dormant-shoutout.mjs",
+  "qa/townhall-event-poll-pg.mjs",
+];
+
+export const PUBLIC_SITE_SOURCE_PATHS = [
+  "site/dist/app.js",
+  "site/dist/styles.css",
+  "site/dist/assets/fictional-four-day-board-before-review.png",
+  "site/dist/assets/fictional-four-day-board-complete.png",
+  "site/dist/assets/otl1-avatar.jpg",
+  "site/dist/assets/one-thing-korean-black.jpg",
+  "site/dist/assets/slack-mark.png",
+  "site/dist/assets/affiliations/snu-cals.png",
+  "site/dist/assets/affiliations/snu-engineering.png",
+  "site/dist/assets/affiliations/snu-mba.png",
+  "site/dist/assets/affiliations/baemin.png",
+  "site/dist/assets/affiliations/postech.png",
+  "site/dist/assets/affiliations/kaist.gif",
+  "site/dist/assets/affiliations/visang.png",
+  "site/dist/assets/affiliations/samsung.png",
+  "site/dist/assets/affiliations/jnu-medical.png",
+  "site/dist/assets/otl1-emoji/ack-yes.png",
+  "site/dist/assets/otl1-emoji/finish_flag.png",
+  "site/qa/generate-example-board.mts",
+];
+
+export const PUBLIC_CORE_REQUIRED_SOURCES = [
+  "src/index.ts",
+  "src/worker-entry.ts",
+  "src/community-clock.ts",
+  "src/community-clock-binding.ts",
+  "src/community-deploy-approval.ts",
+  "src/community-po-membership.ts",
+  "src/slack-presentation/product-owner-approval.ts",
+  "site/dist/index.html",
+  "scripts/export-public-manifest.mjs",
+  "scripts/test-unit.mjs",
+  "package.json",
+];
+
+export const exportablePath = (path) => !PUBLIC_RETIRED_PATHS.includes(path);
+
 export const PUBLIC_REQUIRED_EXPORT_SOURCES = [
   ...PUBLIC_COPY_PATHS,
   ...PUBLIC_RUNTIME_MIGRATION_PATHS,
-  ...PUBLIC_MEMBERSHIP_SOURCE_PATHS,
+  ...PUBLIC_SITE_SOURCE_PATHS,
   ...PUBLIC_QA_NAMES.map((name) => `qa/${name}`),
-];
+  ...PUBLIC_CORE_REQUIRED_SOURCES,
+].filter(exportablePath);
 
 export const PUBLIC_DOC_NAMES = [
   "README.md",

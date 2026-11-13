@@ -47,7 +47,7 @@ try {
   }
   assert.equal(externalCalls, 0, "scrum must not start any PO/backfill/clock/chapter/event work");
   await worker.scheduled({ cron: CLOCK_RECOVERY_CRON, scheduledTime: Date.parse("2026-10-12T01:16:00Z") }, env);
-  assert.deepEqual(taskCalls.map(([task]) => task), ["clock_recovery", "events"], "five-minute recovery shares the event tick with the DB-free bug clock re-arm");
+  assert.deepEqual(taskCalls, [], "the five-minute recovery cron is retired with the bug clock and event tick; it stays listed in wrangler until the cron PR");
   calls.length = 0;
   privateFails = true;
   await assert.rejects(communityCron(env, Date.parse("2026-10-12T01:05:00Z")), /Daily scrum dispatch failed/);

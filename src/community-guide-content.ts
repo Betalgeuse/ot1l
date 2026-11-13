@@ -1,6 +1,3 @@
-import { feedbackButton } from "./community-feedback-button";
-import { maintainerButton } from "./community-maintainers";
-import { inviteButton } from "./community-member-actions";
 import type { CommunityEnv } from "./community-runtime";
 import { InputError } from "./input";
 
@@ -13,100 +10,22 @@ export type WelcomeGuideContent = {
   readonly hash: string;
 };
 
-type GuideChannelEnv = Pick<
-  CommunityEnv,
-  | "COMMUNITY_PUBLIC_CHANNEL_ID"
-  | "COMMUNITY_FEEDBACK_CHANNEL_ID"
-  | "COMMUNITY_RELEASE_CHANNEL_ID"
-  | "COMMUNITY_MAINTAINERS_CHANNEL_ID"
-  | "COMMUNITY_MAINTAINER_WORKSTREAM_CHANNEL_IDS"
-  | "COMMUNITY_SYS_ALERT_CHANNEL_ID"
-  | "COMMUNITY_GUIDE_CHAPTER_CHANNEL_IDS"
->;
+type GuideChannelEnv = Pick<CommunityEnv, "COMMUNITY_PUBLIC_CHANNEL_ID">;
 
-export type GuideChapter = {
-  readonly channelId: string;
-  readonly title: string;
-  readonly description: string;
-};
-
-const GUIDE_CHANNEL_LABELS = [
-  "daily-scrum",
-  "all-freetalk-qna-feedback",
-  "townhall",
-  "maintainers",
-  "maintainers-dev",
-  "maintainers-design",
-  "maintainers-retention",
-  "maintainers-sys-alert",
-  "chapter-developers",
-  "chapter-english",
-  "chapter-scientist",
-] as const;
-
-export function renderGuideChannels(
-  body: string,
-  env: GuideChannelEnv,
-  dynamicChapters: readonly GuideChapter[] = [],
-): string {
-  const channelIds = [
-    env.COMMUNITY_PUBLIC_CHANNEL_ID,
-    env.COMMUNITY_FEEDBACK_CHANNEL_ID,
-    env.COMMUNITY_RELEASE_CHANNEL_ID,
-    env.COMMUNITY_MAINTAINERS_CHANNEL_ID,
-    ...(env.COMMUNITY_MAINTAINER_WORKSTREAM_CHANNEL_IDS?.split(",").map((id) => id.trim()) ?? []),
-    env.COMMUNITY_SYS_ALERT_CHANNEL_ID,
-    ...(env.COMMUNITY_GUIDE_CHAPTER_CHANNEL_IDS?.split(",").map((id) => id.trim()) ?? []),
-  ];
-  if (
-    channelIds.length !== GUIDE_CHANNEL_LABELS.length ||
-    !channelIds.every((id) => typeof id === "string" && /^[CG][A-Z0-9]{8,}$/.test(id)) ||
-    new Set(channelIds).size !== GUIDE_CHANNEL_LABELS.length
-  )
+export function renderGuideChannels(body: string, env: GuideChannelEnv): string {
+  const channelId = env.COMMUNITY_PUBLIC_CHANNEL_ID;
+  if (typeof channelId !== "string" || !/^[CG][A-Z0-9]{8,}$/.test(channelId))
     throw new InputError("환영 안내 채널 설정을 확인해 주세요.");
-  const channels = new Map<string, string>(
-    GUIDE_CHANNEL_LABELS.map((label, index) => {
-      const id = channelIds[index];
-      if (!id) throw new InputError("환영 안내 채널 설정을 확인해 주세요.");
-      return [label, id] as const;
-    }),
-  );
-  const seen = new Set<string>();
+  let seen = 0;
   const rendered = body.replace(
-    /^([ \t]*(?:▪︎|◦)[ \t]*(?:Slack 사용이 어려우면 )?)#(daily-scrum|all-freetalk-qna-feedback|townhall|maintainers|maintainers-dev|maintainers-design|maintainers-retention|maintainers-sys-alert|chapter-developers|chapter-english|chapter-scientist)(?=[:에])/gm,
-    (_match, prefix: string, label: string) => {
-      const id = channels.get(label);
-      if (!id) throw new InputError("환영 안내 채널 설정을 확인해 주세요.");
-      seen.add(label);
-      return `${prefix}<#${id}>`;
+    /^([ \t]*(?:▪︎|◦)[ \t]*)#daily-scrum(?=[:에])/gm,
+    (_match, prefix: string) => {
+      seen += 1;
+      return `${prefix}<#${channelId}>`;
     },
   );
-  if (seen.size !== GUIDE_CHANNEL_LABELS.length)
-    throw new InputError("환영 안내 채널 표기를 확인해 주세요.");
-  const marker = "{{COMMUNITY_DYNAMIC_CHAPTERS}}";
-  if ((rendered.match(/\{\{COMMUNITY_DYNAMIC_CHAPTERS\}\}/g)?.length ?? 0) !== 1)
-    throw new InputError("환영 안내 Chapter 목록 위치를 확인해 주세요.");
-  const dynamic = dynamicChapters
-    .filter(
-      (chapter, index, values) =>
-        /^C[A-Z0-9]+$/.test(chapter.channelId) &&
-        chapter.title.trim() !== "" &&
-        chapter.description.trim() !== "" &&
-        values.findIndex((value) => value.channelId === chapter.channelId) === index,
-    )
-    .sort((left, right) => left.title.localeCompare(right.title, "ko"))
-    .map((chapter) => {
-      const description = chapter.description
-        .replace(/[\r\n]+/g, " ")
-        .replaceAll("&", "&amp;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;")
-        .replace(/[*_`~]/g, "")
-        .trim();
-      return `    ▪︎ <#${chapter.channelId}>: ${description}`;
-    })
-    .join("\n");
-  return rendered.replace(marker, dynamic);
+  if (seen !== 1) throw new InputError("환영 안내 채널 표기를 확인해 주세요.");
+  return rendered;
 }
 
 export function parseGuideFileIds(value: string | undefined): readonly [string, string] {
@@ -166,10 +85,6 @@ export function guideBlocks(userId: string, guide: WelcomeGuideContent, rendered
   }));
   return [
     ...sections,
-    {
-      type: "actions",
-      elements: [inviteButton(), maintainerButton(), feedbackButton()],
-    },
     {
       type: "image",
       slack_file: { id: guide.orderedFileIds[0] },

@@ -3,7 +3,7 @@ import {mock} from "bun:test";
 mock.module("cloudflare:workers",()=>({DurableObject:class{}}));
 import {poMembershipChannels,reconcilePoMembership} from "../src/community-po-membership.ts";
 const {handleCommunityEvent}=await import("../src/community-events.ts");
-import {handleBugAction} from "../src/community-bug-interactions.ts";
+import {handleDeployApprovalAction} from "../src/community-deploy-approval.ts";
 const env={SLACK_TEAM_ID:"TQA",SLACK_BOT_TOKEN:"fake",DATABASE_URL:"postgresql://t:t@test.neon.tech/db",
   COMMUNITY_ENABLED:"true",COMMUNITY_ADMIN_ID:"UFOUNDER",COMMUNITY_MAINTAINERS_CHANNEL_ID:"CPO",
   COMMUNITY_MAINTAINER_WORKSTREAM_CHANNEL_IDS:"CDEV,CPO,CALERT",COMMUNITY_SYS_ALERT_CHANNEL_ID:"CALERT",
@@ -49,10 +49,10 @@ try{
   const context={env,scope:{teamId:"TQA",channelId:"CPO",userId:"UONE"},source:"1.000001",thread:"1.000001"};
   const input={packetRevision:2,prNumber:136,feedbackId:"BUG-TEST1234",changeClass:"open",headSha:"a".repeat(40),classificationDigest:"b".repeat(64)};
   const pending=[];
-  await handleBugAction("community_feedback_merge_approve",null,context,"BUG-TEST1234",input,null,p=>pending.push(p));
+  await handleDeployApprovalAction("community_feedback_merge_approve",context,"BUG-TEST1234",input,null,p=>pending.push(p));
   await Promise.all(pending);assert.equal(approvals,1,"fresh member can approve without Slack admin role");
   roster=false;pending.length=0;
-  await handleBugAction("community_feedback_merge_approve",null,context,"BUG-TEST1234",input,null,p=>pending.push(p));
+  await handleDeployApprovalAction("community_feedback_merge_approve",context,"BUG-TEST1234",input,null,p=>pending.push(p));
   await Promise.all(pending);assert.equal(approvals,1,"departed member cannot reuse old role");
   assert.match(calls.at(-1).body.text,/활성 Product Owner/);
   console.log("PASS PO roster pagination, identity filtering, partial-read fail-closed, events and fresh approval authorization");

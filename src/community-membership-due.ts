@@ -1,20 +1,13 @@
-import { CommunityLifecycleRuntimeStore } from "./community-lifecycle-runtime-store";
-import { nextInvitePrivateReconciliationDue } from "./community-referral-reconcile";
 import { nextRetentionDue } from "./community-retention-schedule";
 import type { CommunityEnv } from "./community-runtime";
-import { InputError, object, string } from "./input";
-import { NeonStore } from "./store";
+import { InputError, string } from "./input";
+import type { NeonStore } from "./store";
 
 function millis(value: string | null): number | null {
   if (value === null) return null;
   const due = Date.parse(value);
   if (!Number.isFinite(due)) throw new InputError("Invalid membership due time");
   return due;
-}
-
-function earliest(...values: readonly (number | null)[]): number | null {
-  const due = values.filter((value): value is number => value !== null);
-  return due.length ? Math.min(...due) : null;
 }
 
 export async function nextMembershipDue(
@@ -25,60 +18,8 @@ export async function nextMembershipDue(
 ): Promise<number | null> {
   if (channelId !== env.COMMUNITY_PUBLIC_CHANNEL_ID || env.DATABASE_MAINTENANCE === "true")
     return null;
-  const lifecycle =
-    env.LIFECYCLE_MODE === "enforce"
-      ? millis(await new CommunityLifecycleRuntimeStore(db).nextDue(env.SLACK_TEAM_ID))
-      : null;
-  const deadlineRaw =
-    env.LIFECYCLE_MODE === "enforce"
-      ? await db.queryJson(
-          `SELECT to_jsonb(min(grace_deadline::timestamp AT TIME ZONE 'Asia/Seoul'))
-       FROM otl.member_lifecycles WHERE team_id=$1 AND state='grace'`,
-          [env.SLACK_TEAM_ID],
-        )
-      : null;
-  const deadline = millis(deadlineRaw === null ? null : string(deadlineRaw));
-  const localDay = Math.floor((now + 9 * 60 * 60_000) / 86_400_000);
-  const nextServiceDay = (localDay + 1) * 86_400_000 - 9 * 60 * 60_000 + 60_000;
-  const referralRaw =
-    env.REFERRALS_ENABLED === "true"
-      ? await db.queryJson(
-          `SELECT coalesce(to_jsonb(min(due_at)), 'null'::jsonb) FROM (
-        SELECT available_at AS due_at
-        FROM otl.referral_outbox WHERE team_id=$1
-          AND status IN ('pending','failed','claimed')
-        UNION ALL
-        SELECT coalesce(p.purge_retry_at,r.payload_purge_after) FROM otl.referral_private_payloads p
-          JOIN otl.referral_requests r USING(team_id,request_id)
-          WHERE p.team_id=$1 AND p.purge_status IN ('pending','failed','claimed')
-      ) due`,
-          [env.SLACK_TEAM_ID],
-        )
-      : null;
-  const referral = millis(referralRaw === null ? null : string(referralRaw));
-  const marker =
-    env.INVITE_PRIVATE_OBJECTS && env.SITE_CORE_HMAC_SECRET
-      ? millis(await nextInvitePrivateReconciliationDue(env))
-      : null;
   const retention = await nextRetentionDue(db, env.SLACK_TEAM_ID, now);
-  if (!env.INTEREST_RUNTIME_DATABASE_URL)
-    throw new InputError("Interest retention database unavailable");
-  const interestRaw = await new NeonStore(env.INTEREST_RUNTIME_DATABASE_URL).queryJson(
-    "SELECT otl.interest_retention_next_due($1::jsonb)",
-    [JSON.stringify({ teamId: env.SLACK_TEAM_ID })],
-  );
-  const interestRow = object(interestRaw);
-  const interest = millis(interestRow.nextDue === null ? null : string(interestRow.nextDue));
-  return earliest(
-    lifecycle,
-    deadline,
-    referral,
-    marker,
-    retention,
-    interest,
-    now + 5 * 60_000,
-    env.LIFECYCLE_MODE === "disabled" || env.LIFECYCLE_MODE === undefined ? null : nextServiceDay,
-  );
+  return retention === null ? now + 5 * 60_000 : Math.min(retention, now + 5 * 60_000);
 }
 
 export async function nextGardenDue(

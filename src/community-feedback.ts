@@ -14,13 +14,13 @@ import { feedbackButton } from "./community-feedback-button";
 import { MaintainerOpsStore } from "./community-maintainer-store";
 import { setMaintainerWorkReleaseStage, syncFeedbackWork } from "./community-maintainer-work";
 import { maintainerButton } from "./community-maintainers";
-import { sha256Hex } from "./community-referral-service-auth";
 import type { CommunityContext, CommunityEnv } from "./community-runtime";
 import { addReactions, callSlack } from "./community-social";
 import { CommunityStore } from "./community-store";
 import { rememberWorkThread, resolveWorkThread } from "./community-work-thread";
 import { InputError, koreaDate, list, object, string } from "./input";
 import { INTENT_MODEL, type IntentAI } from "./intent";
+import { sha256Hex } from "./sha256";
 import { NeonStore } from "./store";
 
 export const FEEDBACK_DOC_CONTRACT = {
@@ -494,82 +494,6 @@ export async function startCodexFeedbackAutomatically(
   const adminId = context.env.COMMUNITY_ADMIN_ID;
   if (!adminId) throw new InputError("피드백 병합 관리자를 확인해 주세요.");
   await queueCodexFeedback(context, input, adminId);
-}
-
-export async function approveCodexMerge(
-  context: CommunityContext,
-  input: {
-    readonly feedbackId: string;
-    readonly packetRevision: number;
-    readonly prNumber: number;
-    readonly changeClass: string;
-    readonly headSha: string;
-    readonly classificationDigest: string;
-  },
-): Promise<void> {
-  const database = new NeonStore(context.env.DATABASE_URL);
-  const approvalContext = object(
-    await database.queryJson("SELECT otl.bug_merge_approval_context($1::jsonb)", [
-      JSON.stringify({
-        teamId: context.scope.teamId,
-        bugId: input.feedbackId,
-        actorId: context.scope.userId,
-        packetRevision: input.packetRevision,
-        prNumber: input.prNumber,
-      }),
-    ]),
-  );
-  if (
-    approvalContext.classified !== true ||
-    approvalContext.changeClass !== input.changeClass ||
-    approvalContext.headSha !== input.headSha ||
-    approvalContext.classificationDigest !== input.classificationDigest
-  )
-    throw new InputError("변경 분류나 승인 SHA가 바뀌었어요. 최신 검증 결과를 다시 확인해 주세요.");
-  if (
-    approvalContext.changeClass === "core" &&
-    context.scope.userId !== context.env.COMMUNITY_ADMIN_ID
-  )
-    throw new InputError("Core 변경은 Founder만 승인할 수 있어요.");
-  if (
-    approvalContext.changeClass === "open" &&
-    approvalContext.maintainer !== true &&
-    context.scope.userId !== context.env.COMMUNITY_ADMIN_ID
-  )
-    throw new InputError("활성 Product Owner 또는 Founder만 Open 변경을 승인할 수 있어요.");
-  const approved = object(
-    await database.queryJson("SELECT otl.bug_actor_approve_merge($1::jsonb)", [
-      JSON.stringify({
-        teamId: context.scope.teamId,
-        bugId: input.feedbackId,
-        actorId: context.scope.userId,
-        founderId: context.env.COMMUNITY_ADMIN_ID,
-        packetRevision: input.packetRevision,
-        prNumber: input.prNumber,
-        headSha: input.headSha,
-        classificationDigest: input.classificationDigest,
-        idempotencyKey: `merge-approval:${input.feedbackId}:${input.prNumber}:${context.scope.userId}`,
-      }),
-    ]),
-  );
-  if (approved.accepted !== true) throw new InputError("이 수정안은 지금 병합할 수 없어요.");
-  const repository = context.env.COMMUNITY_CODEX_REPOSITORY;
-  if (!repository || !/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repository))
-    throw new InputError("GenQuant 작업 저장소 연결을 확인해 주세요.");
-  await callSlack(context.env.SLACK_BOT_TOKEN, "chat.update", {
-    channel: context.scope.channelId,
-    ts: context.source,
-    text: `병합 승인됨 · PR #${input.prNumber} 반영 중`,
-    blocks: [
-      {
-        type: "section",
-        text: {
-          type: "mrkdwn",
-          text: `*병합 승인됨*\n<https://github.com/${repository}/pull/${input.prNumber}|변경 내용 보기> · 반영 중`,
-        },
-      },
-    ],
-  });
 }
 
 export async function postFeedbackAdminReview(

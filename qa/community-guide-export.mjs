@@ -28,9 +28,9 @@ const unsafeGuideFixtures = [
   "FFAKEGUIDE123",
   ["https://", "example", ".slack.com/archives/CFAKEGUIDE123/p1234567890000000"].join(""),
 ];
-const lifecycleAdminSources = [
-  "migrations/035_lifecycle_admin_login.sql",
-  "scripts/bootstrap-lifecycle-admin-db-role.mjs",
+const requiredCoreSources = [
+  "src/community-deploy-approval.ts",
+  "src/community-clock-binding.ts",
 ];
 
 function textFiles(directory) {
@@ -102,7 +102,7 @@ async function assertUnsafeGuideSourceRefusesBeforeOutput(markerText) {
 try {
   for (const unsafe of unsafeGuideFixtures)
     await assertUnsafeGuideSourceRefusesBeforeOutput(unsafe);
-  for (const source of lifecycleAdminSources) await assertMissingSourceRefusesBeforeOutput(source);
+  for (const source of requiredCoreSources) await assertMissingSourceRefusesBeforeOutput(source);
   await run("bun", ["scripts/export-public.mjs", destination], { cwd: root, encoding: "utf8" });
   const config = JSON.parse(readFileSync(join(destination, "wrangler.jsonc"), "utf8"));
   assert.equal(config.account_id, undefined);
@@ -133,7 +133,7 @@ try {
   );
   assert.equal(existsSync(join(destination, "src", "community-guide-release.ts")), true);
   assert.equal(existsSync(join(destination, "scripts", "bootstrap-guide-db-roles.mjs")), true);
-  for (const source of lifecycleAdminSources)
+  for (const source of requiredCoreSources)
     assert.equal(
       readFileSync(join(destination, source), "utf8"),
       readFileSync(join(root, source), "utf8"),

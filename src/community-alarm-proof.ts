@@ -28,29 +28,23 @@ export async function alarmWorkIsClear(
 ): Promise<boolean> {
   try {
     if (
-      role !== "bug_delivery" &&
-      (role !== "community_schedule" ||
-        !channelId ||
-        ![env.COMMUNITY_CHANNEL_ID, env.COMMUNITY_PUBLIC_CHANNEL_ID].includes(channelId))
+      role !== "community_schedule" ||
+      !channelId ||
+      ![env.COMMUNITY_CHANNEL_ID, env.COMMUNITY_PUBLIC_CHANNEL_ID].includes(channelId)
     )
       return false;
-    const db = new NeonStore(env.DATABASE_URL);
-    if (role === "bug_delivery")
-      return (
-        (await db.queryJson(BUG_ALARM_CLEAR, [env.SLACK_TEAM_ID, new Date().toISOString()])) ===
-        true
-      );
-    const publicChannel = channelId === env.COMMUNITY_PUBLIC_CHANNEL_ID;
+    // Referral, lifecycle and interest delivery queues are retired and must not hold the alarm open.
+    // Applicant payload purge still runs (community-applicant-retention), so a pending purge does.
     return (
-      (await db.queryJson(COMMUNITY_ALARM_CLEAR, [
+      (await new NeonStore(env.DATABASE_URL).queryJson(COMMUNITY_ALARM_CLEAR, [
         env.SLACK_TEAM_ID,
-        channelId ?? "",
+        channelId,
         new Date().toISOString(),
-        String(publicChannel && env.REFERRALS_ENABLED === "true"),
-        String(publicChannel && env.LIFECYCLE_MODE === "enforce"),
-        String(publicChannel && env.PUBLIC_INTEREST_ENABLED === "true"),
+        "false",
+        "false",
+        "false",
         String(env.GARDEN_RECONCILIATION === "true"),
-        String(publicChannel),
+        String(channelId === env.COMMUNITY_PUBLIC_CHANNEL_ID),
       ])) === true
     );
   } catch {

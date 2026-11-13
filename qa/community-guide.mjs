@@ -15,7 +15,6 @@ let historyReads = 0;
 mock.module("../src/store.ts", () => ({
   NeonStore: class {
     async queryJson(_sql, params) {
-      if (_sql.includes("community_chapter_list")) return [];
       const op = params[0];
       const payload = JSON.parse(params[1]);
       if (op === "publish") {
@@ -111,24 +110,12 @@ globalThis.fetch = async (url, options) => {
 };
 
 const inspected = await inspectWelcomeGuideSource(env);
-assert.equal(inspected.version, "v0.0.79");
-assert.match(inspected.body, /수요 먼저 확인하기/);
-assert.match(inspected.body, /내가 주최할래요/);
-assert.match(inspected.body, /최소 성사 인원.*최대 인원.*무제한/);
+assert.equal(inspected.version, "v0.0.80");
 assert.equal(inspected.origin, "repo");
 assert.deepEqual(inspected.orderedFileIds, ["FLOGO1", "FDAILY2"]);
-assert.match(inspected.body, /친구 초대하기 버튼/);
-assert.match(inspected.body, /일정 정해서 열기/);
-assert.match(inspected.body, /시간 같이 정하기/);
-assert.match(inspected.body, /참가할게요/);
-assert.match(inspected.body, /자동 참가/);
-assert.match(inspected.body, /자동 취소·보관/);
-assert.match(inspected.body, /Maintainer 되기/);
-assert.match(inspected.body, /Deployment Broker/);
-assert.match(inspected.body, /공개 GitHub 저장소.*fork/);
-assert.match(inspected.body, /나도 관심주제 채널 만들기/);
-assert.match(inspected.body, /#chapter-scientist/);
-assert.doesNotMatch(inspected.body, /chapter-investment|chapter-trader/);
+assert.match(inspected.body, /오전.*오후 6시.*잔디|아침.*오후 6시.*잔디/s);
+assert.match(inspected.body, /#daily-scrum/);
+assert.doesNotMatch(inspected.body, /townhall|chapter|Maintainer|PO |친구 초대|피드백|Deployment Broker|fork|자기소개/);
 assert.equal(
   (await executeWelcomeGuideCommand({ kind: "publish", apply: false }, env)).applied,
   false,
@@ -172,8 +159,9 @@ assert.equal(posts[0].text.includes(latest.body), false);
 assert.equal(posts[0].text.includes(env.COMMUNITY_GUIDE_CANVAS_URL), true);
 assert.equal(posts[0].blocks[0].accessory.url, env.COMMUNITY_GUIDE_CANVAS_URL);
 assert.equal(
-  posts[0].blocks.find((block) => block.type === "actions")?.elements[0]?.action_id,
-  "community_referral_link",
+  posts[0].blocks.some((block) => block.type === "actions"),
+  false,
+  "the plain welcome guide carries no invite, feedback or Product Owner buttons",
 );
 assert.deepEqual(posts[0].blocks.map((block) => block.slack_file?.id).filter(Boolean), []);
 const repaired = await replaceWelcomeGuideForUser("UREPAIR", env);

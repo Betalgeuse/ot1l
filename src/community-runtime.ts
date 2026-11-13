@@ -1,5 +1,4 @@
-import type { ClockBinding } from "./community-bug-clock-client";
-import type { InviteReconcileBucket } from "./community-referral-reconcile";
+import type { ClockBinding } from "./community-clock-binding";
 import { callSlack } from "./community-social";
 import type { CommunityStore } from "./community-store";
 import type { CommunityScope } from "./community-types";
@@ -37,7 +36,7 @@ export type CommunityEnv = {
   readonly PUBLIC_APPLICATION_ORIGIN?: string;
   readonly EVENT_PUBLIC_BASE_URL?: string;
   readonly EVENT_SIGNING_SECRET?: string;
-  readonly INVITE_PRIVATE_OBJECTS?: InviteReconcileBucket;
+  readonly INVITE_PRIVATE_OBJECTS?: R2Bucket;
   readonly COMMUNITY_BOT_USER_ID?: string;
   readonly DATABASE_MAINTENANCE?: string;
   readonly COMMUNITY_CLOCK?: ClockBinding;
@@ -93,7 +92,6 @@ export type CommunityContext = {
   readonly thread: string;
   readonly source: string;
   readonly key: string;
-  readonly bugTextEntryState?: "missing" | "active" | "expired" | "consumed";
   readonly sourceIsWorkRoot?: boolean;
 };
 export function scopedValue(scope: CommunityScope, key: string): string {
@@ -105,27 +103,11 @@ export function actionIdentity(data: Record<string, unknown>, env: CommunityEnv,
   const channelId = data.container
     ? string(object(data.container).channel_id)
     : string(object(JSON.parse(string(object(data.view).private_metadata))).channelId);
-  const bugAction = [
-    "community_bug_open",
-    "community_bug_submit",
-    "community_bug_confirm",
-    "community_bug_answer",
-    "community_bug_answer_open",
-    "community_bug_answer_submit",
-    "community_feedback_admin_start",
+  const approvalAction = [
     "community_feedback_merge_approve",
     "community_feedback_dri_select",
-    "community_maintainer_linear_connect",
-    "community_maintainer_linear_members",
     "community_pull_request_open",
     "community_pull_request_submit",
-    "community_maintainer_help_open_question",
-    "community_maintainer_help_open_qna",
-    "community_maintainer_help_open_ot",
-    "community_maintainer_help_submit",
-    "community_maintainer_help_claim",
-    "community_po_specialties_submit",
-    "community_po_summon_submit",
     "community_linear_open",
   ].includes(actionId);
   const introductionAction = [
@@ -133,44 +115,11 @@ export function actionIdentity(data: Record<string, unknown>, env: CommunityEnv,
     "community_introduction_submit",
     "community_introduction_directory",
   ].includes(actionId);
-  const referralLinkAction = actionId === "community_referral_link";
   const guideAction = actionId === "community_guide_open";
-  const eventAction = [
-    "community_event_open",
-    "community_event_open_fixed",
-    "community_event_open_poll",
-    "community_event_submit",
-    "community_event_availability",
-    "community_event_availability_submit",
-    "community_event_edit",
-    "community_event_rsvp",
-    "community_event_demand_open",
-    "community_event_host_request_open",
-    "community_event_demand_submit",
-    "community_event_demand_host",
-    "community_event_demand_edit",
-    "community_event_demand_close",
-  ].includes(actionId);
-  const maintainerAction = [
-    "community_maintainer_activate",
-    "community_maintainer_deactivate",
-    "community_maintainer_linear_connect",
-    "community_maintainer_linear_members",
-    "community_maintainer_help_open_question",
-    "community_maintainer_help_open_qna",
-    "community_maintainer_help_open_ot",
-    "community_maintainer_help_submit",
-    "community_maintainer_help_claim",
-    "community_po_specialties",
-    "community_po_specialties_submit",
-    "community_po_summon",
-    "community_po_summon_submit",
-  ].includes(actionId);
   const founderApprovalInDm =
     actionId === "community_feedback_merge_approve" &&
     /^D[A-Z0-9]+$/.test(channelId) &&
     userId === env.COMMUNITY_ADMIN_ID;
-  const chapterAction = ["community_chapter_open", "community_chapter_submit"].includes(actionId);
   const communityActionChannels = [
     env.COMMUNITY_CHANNEL_ID,
     env.COMMUNITY_PUBLIC_CHANNEL_ID,
@@ -181,11 +130,9 @@ export function actionIdentity(data: Record<string, unknown>, env: CommunityEnv,
     env.COMMUNITY_INTRO_CHANNEL_ID,
     env.COMMUNITY_FEEDBACK_CHANNEL_ID,
     env.COMMUNITY_WELCOME_CHANNEL_ID,
-    env.COMMUNITY_SHAREINFO_CHANNEL_ID,
-    ...(env.COMMUNITY_CHAPTER_CHANNEL_IDS?.split(",") ?? []),
   ];
   const expandedChannelAllowed =
-    (bugAction && communityActionChannels.includes(channelId)) ||
+    (approvalAction && communityActionChannels.includes(channelId)) ||
     founderApprovalInDm ||
     (introductionAction &&
       [
@@ -193,33 +140,17 @@ export function actionIdentity(data: Record<string, unknown>, env: CommunityEnv,
         env.COMMUNITY_INTRO_CHANNEL_ID,
         env.COMMUNITY_PUBLIC_CHANNEL_ID,
       ].includes(channelId)) ||
-    (referralLinkAction &&
-      [
-        env.COMMUNITY_WELCOME_CHANNEL_ID,
-        env.COMMUNITY_PUBLIC_CHANNEL_ID,
-        env.COMMUNITY_RELEASE_CHANNEL_ID,
-      ].includes(channelId)) ||
     (guideAction &&
       [
         env.COMMUNITY_WELCOME_CHANNEL_ID,
         env.COMMUNITY_PUBLIC_CHANNEL_ID,
         env.COMMUNITY_RELEASE_CHANNEL_ID,
         env.COMMUNITY_INTRO_CHANNEL_ID,
-      ].includes(channelId)) ||
-    (eventAction && channelId === env.COMMUNITY_RELEASE_CHANNEL_ID) ||
-    (chapterAction && /^C[A-Z0-9]+$/.test(channelId)) ||
-    (maintainerAction && communityActionChannels.includes(channelId));
-  const feedbackActionDenied =
-    channelId === env.COMMUNITY_FEEDBACK_CHANNEL_ID && !bugAction && !maintainerAction;
+      ].includes(channelId));
+  const feedbackActionDenied = channelId === env.COMMUNITY_FEEDBACK_CHANNEL_ID && !approvalAction;
   if (
     teamId !== env.SLACK_TEAM_ID ||
     feedbackActionDenied ||
-    (referralLinkAction &&
-      ![
-        env.COMMUNITY_WELCOME_CHANNEL_ID,
-        env.COMMUNITY_PUBLIC_CHANNEL_ID,
-        env.COMMUNITY_RELEASE_CHANNEL_ID,
-      ].includes(channelId)) ||
     (guideAction &&
       ![
         env.COMMUNITY_WELCOME_CHANNEL_ID,
@@ -227,9 +158,6 @@ export function actionIdentity(data: Record<string, unknown>, env: CommunityEnv,
         env.COMMUNITY_RELEASE_CHANNEL_ID,
         env.COMMUNITY_INTRO_CHANNEL_ID,
       ].includes(channelId)) ||
-    (eventAction && channelId !== env.COMMUNITY_RELEASE_CHANNEL_ID) ||
-    (chapterAction && !/^C[A-Z0-9]+$/.test(channelId)) ||
-    (maintainerAction && !communityActionChannels.includes(channelId)) ||
     (![env.COMMUNITY_CHANNEL_ID, env.COMMUNITY_PUBLIC_CHANNEL_ID].includes(channelId) &&
       !expandedChannelAllowed) ||
     (channelId === env.COMMUNITY_CHANNEL_ID && userId !== env.COMMUNITY_ADMIN_ID) ||

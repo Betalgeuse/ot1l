@@ -1,4 +1,3 @@
-import { BUG_CLOCK_CAPABILITIES } from "./community-bug-clock-client";
 import { communityCron } from "./community-cron";
 import type { Context, Env, Runtime } from "./index";
 import { NeonStore } from "./store";
@@ -20,7 +19,7 @@ export function createWorkerHandler(handler: RequestHandler): ExportedHandler<Cl
         env.PUBLIC_BASE_URL,
       ].every(Boolean);
       if (new URL(request.url).pathname === "/health") {
-        return Response.json({ status: "ok", configured, capabilities: BUG_CLOCK_CAPABILITIES });
+        return Response.json({ status: "ok", configured });
       }
       if (!configured) return new Response("Setup required", { status: 503 });
       try {

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { mock } from 'bun:test';
 mock.module('cloudflare:workers',()=>({DurableObject:class {}}));
-const {adminCommand, releasePreview, publishRelease} = await import('../src/community-admin.ts');
+const {adminCommand} = await import('../src/community-admin.ts');
 const {groupCard, openSettings, settingsCard} = await import('../src/community-controls.ts');
 const {enablePublicSchedule} = await import('../src/community-cutover.ts');
 const {communityInteraction} = await import('../src/community-interactions.ts');
@@ -16,7 +16,7 @@ globalThis.fetch=async(url,options)=>{effects++;sent.push(JSON.parse(options.bod
 try {
  for(const changed of [{userId:'UMEMBER'},{channelId:'CPUBLIC'},{teamId:'TOTHER'}]) {
   const other={...ctx,scope:{...scope,...changed}};
-  for(const run of [()=>adminCommand(other,'회원 현황'),()=>adminCommand(other,'업데이트 관리'),()=>adminCommand(other,'피드백 보기'),()=>groupCard(other),()=>openSettings(other,'trigger',true),()=>releasePreview(other,'v0.0.1'),()=>publishRelease(other,'key','action'),()=>enablePublicSchedule(other)]) {
+  for(const run of [()=>adminCommand(other,'회원 현황'),()=>groupCard(other),()=>openSettings(other,'trigger',true),()=>enablePublicSchedule(other)]) {
    const before=effects;await assert.rejects(run,/운영자|관리/);assert.equal(effects,before,'denied operation must have no effects');
   }
  }
@@ -29,7 +29,7 @@ try {
   }
  }
  for(const badEnv of [{...env,COMMUNITY_ADMIN_ID:undefined},{...env,COMMUNITY_CHANNEL_ID:'CPUBLIC'}]) {
-  const before=effects;await assert.rejects(()=>adminCommand({...ctx,env:badEnv},'업데이트 관리'),/운영자/);assert.equal(effects,before);
+  const before=effects;await assert.rejects(()=>adminCommand({...ctx,env:badEnv},'회원 현황'),/운영자/);assert.equal(effects,before);
  }
  for(const owner of ['UOTHER',undefined]) {
   const before=effects;
@@ -46,8 +46,8 @@ try {
  const maintainerEnv={...env,COMMUNITY_FEEDBACK_CHANNEL_ID:'CFEEDBACK',COMMUNITY_WELCOME_CHANNEL_ID:'CWELCOME',COMMUNITY_RELEASE_CHANNEL_ID:'CTOWN',COMMUNITY_MAINTAINERS_CHANNEL_ID:'CMAIN',COMMUNITY_SYS_ALERT_CHANNEL_ID:'CALERT',COMMUNITY_MAINTAINER_WORKSTREAM_CHANNEL_IDS:'CEVENT,CWEB,CMAINWELCOME'};
  for(const channel of ['CFEEDBACK','CWELCOME','CPUBLIC','CTOWN','CMAIN','CALERT','CEVENT','CWEB','CMAINWELCOME']){
   const actor={team:{id:'TQA'},user:{id:'UMEMBER'},container:{channel_id:channel}};
-  assert.equal(actionIdentity(actor,maintainerEnv,'community_maintainer_activate').userId,'UMEMBER');
+  assert.equal(actionIdentity(actor,maintainerEnv,'community_pull_request_open').userId,'UMEMBER');
  }
- assert.throws(()=>actionIdentity({team:{id:'TQA'},user:{id:'UMEMBER'},container:{channel_id:'CUNKNOWN'}},maintainerEnv,'community_maintainer_activate'),/사용할 수 없습니다/);
+ assert.throws(()=>actionIdentity({team:{id:'TQA'},user:{id:'UMEMBER'},container:{channel_id:'CUNKNOWN'}},maintainerEnv,'community_pull_request_open'),/사용할 수 없습니다/);
  console.log('PASS admin access: actor/team/channel guards before effects; explicit action allowlist; private QA controls; modal owner binding');
 } finally {globalThis.fetch=original;}

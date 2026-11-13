@@ -2,28 +2,6 @@ import { mock } from "bun:test";
 import assert from "node:assert/strict";
 import { createHmac } from "node:crypto";
 
-const bugRuns = [];
-function maintenanceResult({
-  reconciled = 0,
-  expired = 0,
-  claimed = 0,
-  sent = claimed,
-  failed = 0,
-} = {}) {
-  const reconcilePrivate = { processed: reconciled, possiblyMore: reconciled === 10 };
-  const expiry = { processed: expired, possiblyMore: expired === 10 };
-  const deliveries = { claimed, sent, failed, possiblyMore: claimed === 10 };
-  return {
-    reconcilePrivate,
-    expiry,
-    deliveries,
-    possiblyMore: reconcilePrivate.possiblyMore || expiry.possiblyMore || deliveries.possiblyMore,
-  };
-}
-let bugRun = async (_env, scheduledTime) => {
-  bugRuns.push(scheduledTime);
-  return maintenanceResult();
-};
 const scheduleRuns = [];
 let groupSchedule = { enabled: true, goalTime: "10:00", reviewTime: "18:00" };
 let reminderTimes = { goal: ["11:00"], review: ["20:00"] };
@@ -43,9 +21,6 @@ mock.module("cloudflare:workers", () => ({
       this.env = env;
     }
   },
-}));
-mock.module("../src/community-bug-delivery-scheduler.ts", () => ({
-  runDueBugDeliveries: (...args) => bugRun(...args),
 }));
 mock.module("../src/community-scheduler.ts", () => ({
   parseCommunitySchedule: (value) => value,
@@ -87,9 +62,7 @@ mock.module("../src/store.ts", () => ({
 
 const {
   CommunityClock,
-  armBugDeliveryClock,
   armCommunityClock,
-  bugDeliveryClockName,
   nextAlarmTime,
 } = await import("../src/community-clock.ts");
 const { nextCommunityAlarm } = await import("../src/community-clock-client.ts");
@@ -168,10 +141,6 @@ const now = Date.parse("2026-09-11T00:00:00Z");
   assert.equal(scrumStorage.alarm, null, "scrum RPC must not create a competing alarm scheduler");
   await assert.rejects(scrum.runScrum("COTHER", now), /Invalid scrum scope/);
   await assert.rejects(scrum.runScrum("CADMIN", now), /role cannot change/);
-  await assert.rejects(
-    scrum.armBugDelivery({ reason: "cron", observedAt: now }),
-    /role cannot change/,
-  );
   await assert.rejects(scrum.runMaintenance(now), /role cannot change/);
   scheduleRuns.length = before;
 }
@@ -264,41 +233,11 @@ await armCommunityClock(
 );
 assert.equal(routed, "team:admin");
 
-assert.equal(bugDeliveryClockName("TQA"), "bug-delivery:TQA");
-let bugArm;
-const clientResult = await armBugDeliveryClock(
-  {
-    SLACK_TEAM_ID: "TQA",
-    COMMUNITY_CLOCK: {
-      getByName(name) {
-        assert.equal(name, "bug-delivery:TQA");
-        return {
-          async armBugDelivery(input) {
-            bugArm = input;
-            return { role: "bug_delivery", armed: true, next: input.observedAt + 300_000 };
-          },
-        };
-      },
-    },
-  },
-  { reason: "activity", observedAt: now },
-);
-assert.deepEqual(bugArm, { reason: "activity", observedAt: now });
-assert.deepEqual(clientResult, { role: "bug_delivery", armed: true, next: now + 300_000 });
-
 const firstStorage = new FakeStorage();
-const firstClock = clock(firstStorage);
-const [first, concurrent] = await Promise.all([
-  firstClock.armBugDelivery({ reason: "activity", observedAt: now }),
-  firstClock.armBugDelivery({ reason: "activity", observedAt: now }),
-]);
-assert.deepEqual(first, { role: "bug_delivery", armed: true, next: now + 300_000 });
-assert.deepEqual(concurrent, first);
-assert.equal(firstStorage.values.get("role"), "bug_delivery");
-assert.equal(firstStorage.alarmWrites.length, 1);
+firstStorage.values.set("role", "daily_scrum");
 await assert.rejects(
   () =>
-    firstClock.publishGarden({
+    clock(firstStorage).publishGarden({
       userId: "UADMIN",
       channelId: "CADMIN",
       date: "2026-09-11",
@@ -310,150 +249,21 @@ await assert.rejects(
   /role/i,
 );
 
-const restartedClock = clock(firstStorage);
-assert.deepEqual(
-  await restartedClock.armBugDelivery({ reason: "activity", observedAt: now + 1 }),
-  first,
-);
-assert.equal(firstStorage.alarmWrites.length, 1);
-
-for (const values of [[["role", "community_schedule"]], [["channel", "CPUBLIC"]]]) {
-  const storage = new FakeStorage();
-  storage.values = new Map(values);
-  await assert.rejects(
-    () => clock(storage).armBugDelivery({ reason: "activity", observedAt: now }),
-    /role|channel|scope/i,
-  );
-  assert.equal(storage.alarmWrites.length, 0);
-}
-
 const originalNow = Date.now;
 try {
   Date.now = () => now;
-  const idleStorage = new FakeStorage();
-  assert.deepEqual(await clock(idleStorage).armBugDelivery({ reason: "cron", observedAt: now }), {
-    role: "bug_delivery",
-    armed: true,
-    next: now + 6 * 3_600_000,
-  });
-  bugRuns.length = 0;
-  await clock(idleStorage).alarm();
-  assert.deepEqual(bugRuns, [], "an early empty alarm must not query Neon");
-  assert.equal(idleStorage.alarm, now + 6 * 3_600_000);
-
-  const failingStorage = new FakeStorage();
-  await clock(failingStorage).armBugDelivery({
-    reason: "due",
-    observedAt: now - 300_000,
-    nextDue: now,
-  });
-  const failureLogs = [];
-  const originalConsoleError = console.error;
-  console.error = (line) => failureLogs.push(JSON.parse(line));
-  bugRun = async () => {
-    assert.equal(failingStorage.alarm, now + 300_000, "next alarm must exist before DB work");
-    throw new Error("synthetic database failure");
-  };
-  try {
-    await clock(failingStorage).alarm();
-  } finally {
-    console.error = originalConsoleError;
-  }
-  assert.equal(failingStorage.alarm, now + 300_000);
-  assert.equal(failingStorage.values.get("lastRun").failure, "Error");
-  assert.equal(failingStorage.values.get("bugActivityDue"), now + 300_000);
-  assert.deepEqual(failureLogs, [
-    {
-      event: "community.bug.clock.failed",
-      scheduledTime: now,
-      code: "boundary_failure",
-      failure: "Error",
-    },
-  ]);
-  bugRuns.length = 0;
-  bugRun = async (_env, scheduledTime) => {
-    bugRuns.push(scheduledTime);
-    return maintenanceResult();
-  };
-  Date.now = () => now + 300_000;
-  await clock(failingStorage).alarm();
-  assert.deepEqual(bugRuns, [now + 300_000], "failed maintenance retries on the next active tick");
-  Date.now = () => now;
-
-  const maintenanceStorage = new FakeStorage();
-  await clock(maintenanceStorage).armBugDelivery({
-    reason: "due",
-    observedAt: now - 300_000,
-    nextDue: now,
-  });
-  let maintenanceRuns = 0;
-  bugRun = async () => {
-    maintenanceRuns += 1;
-  };
-  await clock(maintenanceStorage, { DATABASE_MAINTENANCE: "true" }).alarm();
-  assert.equal(maintenanceRuns, 0);
-  assert.equal(maintenanceStorage.alarm, now + 300_000);
-
-  const disabledStorage = new FakeStorage();
-  await clock(disabledStorage).armBugDelivery({
-    reason: "due",
-    observedAt: now - 300_000,
-    nextDue: now,
-  });
-  await clock(disabledStorage, { COMMUNITY_ENABLED: "false" }).alarm();
-  assert.equal(maintenanceRuns, 0);
-  assert.equal(disabledStorage.alarm, now + 300_000);
-
-  const dueStorage = new FakeStorage();
-  await clock(dueStorage).armBugDelivery({
-    reason: "due",
-    observedAt: now - 300_000,
-    nextDue: now,
-  });
-  bugRuns.length = 0;
-  const maintenancePhases = [];
-  bugRun = async (_env, scheduledTime, observeDue) => {
-    bugRuns.push(scheduledTime);
-    maintenancePhases.push("reconcile_private", "expire", "claim");
-    await observeDue(now + 60_000);
-    return maintenanceResult({ expired: 1, claimed: 2 });
-  };
-  await clock(dueStorage).alarm();
-  assert.deepEqual(bugRuns, [now], "one bounded maintenance call owns due retry and 24h expiry");
-  assert.deepEqual(maintenancePhases, ["reconcile_private", "expire", "claim"]);
-  assert.equal(dueStorage.alarm, now + 60_000, "scheduler retry stays in local DO storage");
-
-  for (const saturated of [{ reconciled: 10 }, { expired: 10 }, { claimed: 10 }]) {
-    const backlogStorage = new FakeStorage();
-    await clock(backlogStorage).armBugDelivery({
-      reason: "due",
-      observedAt: now - 300_000,
-      nextDue: now,
-    });
-    let run = 0;
-    bugRun = async () => {
-      run += 1;
-      return run === 1 ? maintenanceResult(saturated) : maintenanceResult();
-    };
-    await clock(backlogStorage).alarm();
-    assert.equal(backlogStorage.alarm, now + 300_000);
-    assert.equal(backlogStorage.values.get("lastRun").possiblyMore, true);
-    Date.now = () => now + 300_000;
-    await clock(backlogStorage).alarm();
-    assert.equal(run, 2);
-    assert.equal(backlogStorage.alarm, now + 300_000 + 6 * 3_600_000);
-    assert.equal(backlogStorage.values.get("lastRun").possiblyMore, false);
-    Date.now = () => now;
-  }
+  const legacyStorage = new FakeStorage();
+  legacyStorage.values.set("role", "bug_delivery");
+  await clock(legacyStorage).alarm();
+  assert.equal(legacyStorage.alarm, null, "a retired bug delivery alarm fires once and is not re-armed");
+  assert.equal(legacyStorage.alarmWrites.length, 0);
 
   const normalStorage = new FakeStorage();
   normalStorage.values.set("role", "community_schedule");
   normalStorage.values.set("channel", "CPUBLIC");
   normalStorage.alarm = now;
   scheduleRuns.length = 0;
-  bugRuns.length = 0;
   await clock(normalStorage).alarm();
-  assert.equal(bugRuns.length, 0, "normal channel alarm must not duplicate bug maintenance");
   assert.equal(scheduleRuns.length, 0, "Durable Object must not duplicate Cron schedule delivery");
   assert.equal(normalStorage.values.get("role"), "community_schedule");
   assert.notEqual(normalStorage.alarm, null);
@@ -475,17 +285,6 @@ const runtime = {
     SLACK_TEAM_ID: "TQA",
     SLACK_SIGNING_SECRET: secret,
     COMMUNITY_ENABLED: "true",
-    COMMUNITY_CLOCK: {
-      getByName(name) {
-        assert.equal(name, "bug-delivery:TQA");
-        return {
-          async armBugDelivery(input) {
-            signedArms.push(input);
-            return { role: "bug_delivery", armed: true, next: input.observedAt + 300_000 };
-          },
-        };
-      },
-    },
   },
   store: {},
 };
@@ -530,17 +329,7 @@ globalThis.fetch = async () => {
   throw new Error("health must not call Slack");
 };
 const health = await handleRequest(new Request("https://test/health"), healthRuntime, context);
-assert.deepEqual(await health.json(), {
-  status: "ok",
-  capabilities: {
-    bugDeliveryClock: {
-      role: "bug_delivery",
-      activityArming: true,
-      dueDeadlineArming: true,
-      cronBackup: true,
-    },
-  },
-});
+assert.deepEqual(await health.json(), { status: "ok" });
 assert.equal(healthBindingCalls, 0, "health must not call a Durable Object binding");
 assert.equal(signedEffects.length, 0, "health must not schedule background effects");
 signedArms.length = 0;
@@ -558,14 +347,7 @@ const deployedHealth = await worker.fetch(
 );
 const deployedHealthBody = await deployedHealth.json();
 assert.equal(deployedHealthBody.configured, true);
-assert.deepEqual(deployedHealthBody.capabilities, {
-  bugDeliveryClock: {
-    role: "bug_delivery",
-    activityArming: true,
-    dueDeadlineArming: true,
-    cronBackup: true,
-  },
-});
+assert.equal(deployedHealthBody.status, "ok");
 assert.equal(healthBindingCalls, 0, "deployed health must remain side-effect free");
 assert.equal(signedEffects.length, 0, "deployed health must not schedule background effects");
 assert.equal(healthStorageCalls, 0, "health must not access Neon storage");
@@ -600,10 +382,7 @@ assert.equal(
   200,
 );
 await Promise.all(signedEffects);
-assert.deepEqual(signedArms, [
-  { reason: "activity", observedAt: signedAt * 1_000 },
-  { reason: "activity", observedAt: signedAt * 1_000 },
-]);
+assert.deepEqual(signedArms, [], "slack activity no longer arms a bug delivery clock");
 
 console.log(
   "PASS clocks: Durable Objects own queue maintenance and never duplicate Cron schedule delivery.",

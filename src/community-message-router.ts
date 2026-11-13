@@ -1,5 +1,4 @@
-import { adminCommand, captureFeedback } from "./community-admin";
-import { continueBugReport, handleBugReportMessage } from "./community-bugs";
+import { adminCommand } from "./community-admin";
 import { groupCard, settingsCard } from "./community-controls";
 import { decideCommunityRecord } from "./community-decision";
 import { prepareRecordEdit } from "./community-edits";
@@ -26,9 +25,6 @@ export async function dispatchCommunityMessage(
   text: string,
   addressed: boolean,
 ): Promise<void> {
-  if (await captureFeedback(context, text)) return;
-  if (await handleBugReportMessage(context, text)) return;
-  if (await continueBugReport(context, text)) return;
   if (
     context.scope.channelId === context.env.COMMUNITY_RELEASE_CHANNEL_ID &&
     ![context.env.COMMUNITY_CHANNEL_ID, context.env.COMMUNITY_PUBLIC_CHANNEL_ID].includes(
@@ -49,36 +45,12 @@ export async function dispatchCommunityMessage(
     await groupCard(context);
     return;
   }
-  const eligibility =
-    typeof context.store.lifecycleEligibility === "function"
-      ? await context.store.lifecycleEligibility(context.scope)
-      : { state: "active" as const, revision: null };
   const today = koreaDate(Date.now() / 1000);
   const explicitGoal = resolveExplicitGoal(text, {
     contextDate: context.date,
     serviceDate: today,
     calendarDate: koreaCalendarDate(Number(context.source)),
   });
-  if (eligibility.state === "dormant") {
-    if (explicitGoal !== null && eligibility.revision !== null) {
-      const day = await context.store.day({ ...context.scope, date: explicitGoal.date });
-      await applyChange(context, {
-        ...context.scope,
-        date: explicitGoal.date,
-        key: `change:${context.key}`,
-        expectedRevision: day.revision,
-        expectedLifecycleRevision: eligibility.revision,
-        now: new Date().toISOString(),
-        action: "goal",
-        text: explicitGoal.goal,
-      });
-      return;
-    }
-    await ephemeral(context, {
-      text: "새로운 오늘의 ONE THING을 `원씽: 할 일` 형식으로 남기면 바로 새 시즌을 시작할 수 있어요.",
-    });
-    return;
-  }
   if (/^샤라웃( 보내기)?$/.test(text)) {
     await post(
       context,
@@ -239,12 +211,4 @@ export async function dispatchCommunityMessage(
 
 function exhaustive(value: never): never {
   throw new TypeError(String(value));
-}
-
-export async function dispatchFeedbackBugMessage(
-  context: CommunityContext,
-  text: string,
-): Promise<boolean> {
-  if (await handleBugReportMessage(context, text)) return true;
-  return continueBugReport(context, text);
 }

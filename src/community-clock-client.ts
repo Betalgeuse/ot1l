@@ -1,4 +1,4 @@
-import type { ClockBinding } from "./community-bug-clock-client";
+import type { ClockBinding } from "./community-clock-binding";
 import type { CommunityEnv } from "./community-runtime";
 import { InputError } from "./input";
 
@@ -34,13 +34,4 @@ export async function armCommunityClock(
 ): Promise<{ readonly next: number | null }> {
   if (!env.COMMUNITY_CLOCK) return { next: null };
   return env.COMMUNITY_CLOCK.getByName(`${env.SLACK_TEAM_ID}:${channelId}`).refresh(channelId);
-}
-
-export async function invalidateTownhallEventDue(
-  env: CommunityEnv & { readonly COMMUNITY_CLOCK?: ClockBinding },
-): Promise<void> {
-  if (!env.COMMUNITY_CLOCK) return;
-  await env.COMMUNITY_CLOCK.getByName(
-    `maintenance-task:${env.SLACK_TEAM_ID}:events:team`,
-  ).invalidateTownhallEventDue();
 }

@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import {
   analyzeFeedback,
-  approveCodexMerge,
   dailyFeedbackPromptText,
   dailyMaintainerPromptText,
   feedbackPromptDue,
@@ -11,22 +10,10 @@ import {
   sendDailyMaintainerPrompt,
   startCodexFeedback,
 } from "../src/community-feedback.ts";
+import { approveCodexMerge } from "../src/community-deploy-approval.ts";
 import { memberActionBlocks } from "../src/community-member-actions.ts";
 import { canonicalFeedbackContext } from "../src/community-feedback-route.ts";
-import { withFeedbackAction } from "../src/community-social.ts";
 
-const augmented = withFeedbackAction("chat.postMessage", {
-  channel: "CQA",
-  text: "기존 봇 응답",
-});
-assert.equal(augmented.text, "기존 봇 응답");
-assert.equal(augmented.blocks[0].text.text, "기존 봇 응답");
-assert.equal(augmented.blocks.at(-1).elements[0].action_id, "community_bug_open");
-assert.equal(augmented.blocks.at(-1).elements[0].text.text, "피드백 남기기");
-assert.deepEqual(withFeedbackAction("chat.postMessage", { channel: "DQA", text: "DM" }), {
-  channel: "DQA",
-  text: "DM",
-});
 const dailyActions = memberActionBlocks(
   {
     guideUrl: "https://example.slack.com/docs/TQA/FGUIDE01",
@@ -36,7 +23,7 @@ const dailyActions = memberActionBlocks(
 );
 assert.deepEqual(
   dailyActions.at(-1).elements.map((element) => element.action_id),
-  ["community_bug_open", "community_maintainer_activate"],
+  ["community_guide_open", "community_past_review_list"],
 );
 assert.equal(
   dailyActions

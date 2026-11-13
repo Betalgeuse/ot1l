@@ -1,0 +1,4 @@
+# One "path reason" per line. A listed file is never reported dead; its imports count as live.
+src/slack-presentation/product-owner-approval.ts policy data read by automation/runner/change-policy.mjs and required by the public export
+src/community-maintainer-canvases.ts imported only by scripts/publish-maintainer-canvases.mjs
+src/community-maintainer-retention.ts imported only by scripts/publish-maintainer-retention.mjs
