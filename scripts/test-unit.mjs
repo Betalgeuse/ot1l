@@ -98,6 +98,8 @@ const suites = [
   "community-batched-reminders",
   "community-reminder-audit",
   "community-membership-store-error-code",
+  "applicant-retention",
+  "alarm-purge-proof",
   "referral-empty-queue-null",
   "referral-direct-join",
   "site-direct-join",

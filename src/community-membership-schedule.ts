@@ -1,3 +1,4 @@
+import { runApplicantRetention } from "./community-applicant-retention";
 import { nextMembershipDue } from "./community-membership-due";
 import { runRetentionQueues } from "./community-retention-schedule";
 import type { CommunityEnv } from "./community-runtime";
@@ -31,10 +32,11 @@ export async function runMembershipDue(
       }),
     );
   }
-  failed ||= retention.failed;
+  const applicants = await runApplicantRetention(env, db, now);
+  failed ||= retention.failed || applicants.failed;
   if (failed) observeFailure?.();
   return {
-    possiblyMore: retention.possiblyMore,
+    possiblyMore: retention.possiblyMore || applicants.possiblyMore,
     nextDue: failed ? Math.min(nextDue ?? now + 60_000, now + 60_000) : nextDue,
   };
 }

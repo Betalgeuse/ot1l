@@ -33,8 +33,8 @@ export async function alarmWorkIsClear(
       ![env.COMMUNITY_CHANNEL_ID, env.COMMUNITY_PUBLIC_CHANNEL_ID].includes(channelId)
     )
       return false;
-    // Referral, lifecycle and interest queues are no longer processed by this clock, so their
-    // rows must not hold the alarm open. Only garden deliveries gate completion.
+    // Referral, lifecycle and interest delivery queues are retired and must not hold the alarm open.
+    // Applicant payload purge still runs (community-applicant-retention), so a pending purge does.
     return (
       (await new NeonStore(env.DATABASE_URL).queryJson(COMMUNITY_ALARM_CLEAR, [
         env.SLACK_TEAM_ID,
@@ -44,7 +44,7 @@ export async function alarmWorkIsClear(
         "false",
         "false",
         String(env.GARDEN_RECONCILIATION === "true"),
-        "false",
+        String(channelId === env.COMMUNITY_PUBLIC_CHANNEL_ID),
       ])) === true
     );
   } catch {

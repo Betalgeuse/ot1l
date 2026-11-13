@@ -12,6 +12,9 @@ const mockBoth = (name, implementation) => {
 mockBoth("community-retention-schedule", {
   runRetentionQueues: async () => ({ possiblyMore: false, failed: false }),
 });
+mockBoth("community-applicant-retention", {
+  runApplicantRetention: async () => ({ possiblyMore: false, failed: false }),
+});
 mockBoth("community-membership-due", {
   nextMembershipDue: storeFailure,
 });
