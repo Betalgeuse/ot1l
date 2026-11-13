@@ -115,6 +115,7 @@ const suites = [
   "community-early-review-prompt",
   "community-schedule-recovery",
   "dormant-shoutout",
+  "reach-controls",
 ];
 for (const suite of suites) execFileSync("bun", [`qa/${suite}.mjs`], { stdio: "inherit" });
 execFileSync("node", ["qa/community-scrum-runtime.mjs"], { stdio: "inherit" });

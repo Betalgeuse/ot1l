@@ -11,6 +11,7 @@
     "deploy:log-alerts": "node scripts/deploy-log-alert-worker.mjs",
     "test:unit": "node scripts/test-unit.mjs",
     "check": "node scripts/check.mjs",
+    "reach": "node scripts/reach.mjs",
     "reconcile:garden": "node scripts/reconcile-garden-projections.mjs"
   },
   "devDependencies": {
