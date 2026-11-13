@@ -86,8 +86,9 @@ assert.equal(pending.status, 200);
 assert.deepEqual(await pending.json(), {
   metric: "weekly_distinct_recorders",
   timezone: "Asia/Seoul",
-  weeks: [],
+  as_of: null,
   status: "pending",
+  weeks: [],
 });
 assert.equal((await serveWeeklyRecorders(req(), { SLACK_TEAM_ID: "TQA" })).status, 200);
 assert.equal(
