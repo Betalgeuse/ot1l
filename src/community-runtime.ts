@@ -93,7 +93,6 @@ export type CommunityContext = {
   readonly thread: string;
   readonly source: string;
   readonly key: string;
-  readonly bugTextEntryState?: "missing" | "active" | "expired" | "consumed";
   readonly sourceIsWorkRoot?: boolean;
 };
 export function scopedValue(scope: CommunityScope, key: string): string {
