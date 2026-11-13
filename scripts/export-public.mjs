@@ -24,8 +24,8 @@ import {
   PUBLIC_DOC_NAMES,
   PUBLIC_QA_NAMES,
   PUBLIC_COPY_PATHS,
-  PUBLIC_CORE_REQUIRED_SOURCES,
-  existingPublicPaths,
+  PUBLIC_REQUIRED_EXPORT_SOURCES,
+  exportablePath,
   PUBLIC_RUNTIME_MIGRATION_PATHS,
 } from "./export-public-manifest.mjs";
 
@@ -33,7 +33,7 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const destination = resolve(process.argv[2] ?? "/tmp/otl1-public");
 const marker = join(destination, ".public-export");
 const sourceExists = (path) => existsSync(join(root, path));
-assertRequiredPublicExportSources(PUBLIC_CORE_REQUIRED_SOURCES, sourceExists);
+assertRequiredPublicExportSources(PUBLIC_REQUIRED_EXPORT_SOURCES, sourceExists);
 assertPublicGuideReleaseSource(readFileSync(join(root, "src/community-guide-release.ts"), "utf8"));
 if (existsSync(join(destination, ".git")))
   throw Error(
@@ -57,9 +57,9 @@ const copy = (path) => {
   mkdirSync(dirname(join(destination, path)), { recursive: true });
   cpSync(join(root, path), join(destination, path), { recursive: true });
 };
-for (const path of existingPublicPaths(PUBLIC_COPY_PATHS, sourceExists)) copy(path);
-for (const path of existingPublicPaths(PUBLIC_RUNTIME_MIGRATION_PATHS, sourceExists)) copy(path);
-for (const name of PUBLIC_QA_NAMES) if (sourceExists(`qa/${name}`)) copy(`qa/${name}`);
+for (const path of PUBLIC_COPY_PATHS.filter(exportablePath)) copy(path);
+for (const path of PUBLIC_RUNTIME_MIGRATION_PATHS) copy(path);
+for (const name of PUBLIC_QA_NAMES.filter((name) => exportablePath(`qa/${name}`))) copy(`qa/${name}`);
 for (const name of PUBLIC_DOC_NAMES) copy("docs/" + name);
 copy("README.md");
 write(

@@ -116,14 +116,36 @@ const suites = [
   "reach-controls",
   "deploy-approval-path",
 ];
-// A suite whose file is gone is skipped, so deleting a feature never needs an edit here.
-// Suites for retired features stay out of the list until their files are deleted.
-const present = suites.filter((suite) => existsSync(`qa/${suite}.mjs`));
+// Suites deleted on purpose with their feature. Only these may be absent; any other missing suite fails.
+const RETIRED = new Set([
+  "community-chapters",
+  "community-challenges",
+  "community-event-demands",
+  "community-event-clock-cache",
+  "maintainer-status-site",
+  "welcome-invite-button",
+  "townhall-milestones",
+  "community-share-info",
+  "community-share-info-reconcile",
+  "community-townhall",
+  "community-townhall-events",
+  "event-schedule-link",
+  "community-welcome",
+  "referral-empty-queue-null",
+  "referral-direct-join",
+  "site-direct-join",
+  "site-referral-composition",
+  "dormant-shoutout",
+]);
+const missing = suites.filter((suite) => !RETIRED.has(suite) && !existsSync(`qa/${suite}.mjs`));
+if (missing.length) throw new Error(`Missing unit suites (delete from the list and add to RETIRED only if retired): ${missing.join(", ")}`);
+const present = suites.filter((suite) => !RETIRED.has(suite));
 for (const suite of present) execFileSync("bun", [`qa/${suite}.mjs`], { stdio: "inherit" });
 for (const runtime of [
   "community-scrum-runtime",
   "community-alarm-runtime",
+  "community-maintenance-runtime",
   "log-alert-runtime",
 ])
-  if (existsSync(`qa/${runtime}.mjs`)) execFileSync("node", [`qa/${runtime}.mjs`], { stdio: "inherit" });
+  execFileSync("node", [`qa/${runtime}.mjs`], { stdio: "inherit" });
 console.log(`Passed ${present.length} isolated synthetic suites.`);
