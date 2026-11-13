@@ -109,6 +109,7 @@ const suites = [
   "site-landing-design",
   "site-referral-composition",
   "site-canonical-domain",
+  "site-weekly-recorders",
   "community-common-delivery",
   "community-schedule-overlap",
   "community-early-review-prompt",

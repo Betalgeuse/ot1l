@@ -94,6 +94,13 @@ const siteWorker = {
       response = slackInvite
         ? sharedInviteRedirect(slackInvite)
         : message(GENERIC_ERROR, 503);
+    } else if (request.method === "GET" && url.pathname === "/metrics/weekly-recorders") {
+      // Aggregate-only snapshot served by the core Worker; the core reads it from its clock, never Neon.
+      const upstream = await env.CORE.fetch(new Request("https://core/metrics/weekly-recorders"));
+      response = new Response(upstream.body, {
+        status: upstream.status,
+        headers: { "content-type": "application/json", "cache-control": "public, max-age=300" },
+      });
     } else response = await env.ASSETS.fetch(request);
     return secured(response);
   },
