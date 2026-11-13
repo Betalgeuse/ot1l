@@ -1,4 +1,8 @@
-import { CHANNEL_MAINTENANCE_TASKS, TEAM_MAINTENANCE_TASKS } from "./community-maintenance-tasks";
+import {
+  CHANNEL_MAINTENANCE_TASKS,
+  maintenanceTaskObjectName,
+  TEAM_MAINTENANCE_TASKS,
+} from "./community-maintenance-tasks";
 import type { CommunityEnv } from "./community-runtime";
 import { runtimeFailureCode } from "./runtime-failure";
 
@@ -91,7 +95,7 @@ export async function communityMaintenanceCron(
     );
     try {
       await env.COMMUNITY_CLOCK.getByName(
-        `maintenance-task:${env.SLACK_TEAM_ID}:${task}:${channel ?? "team"}`,
+        maintenanceTaskObjectName(env.SLACK_TEAM_ID, task, channel),
       ).runMaintenanceTask(task, scheduledTime, channel);
     } catch (error) {
       failed = true;

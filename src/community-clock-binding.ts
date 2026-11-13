@@ -1,3 +1,4 @@
+import type { WeeklyRecordersSnapshot } from "./weekly-recorders";
 export const COMMUNITY_SCHEDULE_CLOCK_ROLE = "community_schedule" as const;
 
 export type GardenRequest = {
@@ -31,5 +32,6 @@ export interface ClockBinding {
     invalidateScrumSchedule(channelId: string): Promise<void>;
     runMaintenance(scheduledTime: number): Promise<void>;
     runMaintenanceTask(task: string, scheduledTime: number, channelId?: string): Promise<void>;
+    weeklyRecorders(): Promise<WeeklyRecordersSnapshot | undefined>;
   };
 }

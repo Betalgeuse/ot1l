@@ -99,6 +99,7 @@ const suites = [
   "community-reminder-audit",
   "community-membership-store-error-code",
   "applicant-retention",
+  "weekly-recorders",
   "alarm-purge-proof",
   "community-feedback-channel-ignored",
   "referral-empty-queue-null",
@@ -108,6 +109,7 @@ const suites = [
   "site-landing-design",
   "site-referral-composition",
   "site-canonical-domain",
+  "site-weekly-recorders",
   "community-common-delivery",
   "community-schedule-overlap",
   "community-early-review-prompt",
@@ -138,7 +140,10 @@ const RETIRED = new Set([
   "dormant-shoutout",
 ]);
 const missing = suites.filter((suite) => !RETIRED.has(suite) && !existsSync(`qa/${suite}.mjs`));
-if (missing.length) throw new Error(`Missing unit suites (delete from the list and add to RETIRED only if retired): ${missing.join(", ")}`);
+if (missing.length)
+  throw new Error(
+    `Missing unit suites (delete from the list and add to RETIRED only if retired): ${missing.join(", ")}`,
+  );
 const present = suites.filter((suite) => !RETIRED.has(suite));
 for (const suite of present) execFileSync("bun", [`qa/${suite}.mjs`], { stdio: "inherit" });
 for (const runtime of [

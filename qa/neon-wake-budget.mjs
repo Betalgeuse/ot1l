@@ -1,9 +1,5 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { MAINTENANCE_CRON, NEON_WAKE_WINDOW_BUDGET } from "../src/community-cron.ts";
-import { dbAlarmRetryDelayMinutes } from "../src/community-alarm-backoff.ts";
-import { maintenanceCadenceDue } from "../src/community-maintenance-tasks.ts";
-import { runtimeFailureCode } from "../src/runtime-failure.ts";
 import {
   inWakeWindow,
   msUntilNextWakeWindow,
@@ -11,6 +7,13 @@ import {
   WAKE_WINDOW_MINUTES,
   WAKE_WINDOW_START_MINUTES,
 } from "../automation/runner/wake-window.mjs";
+import { dbAlarmRetryDelayMinutes } from "../src/community-alarm-backoff.ts";
+import { MAINTENANCE_CRON, NEON_WAKE_WINDOW_BUDGET } from "../src/community-cron.ts";
+import {
+  maintenanceCadenceDue,
+  TEAM_MAINTENANCE_TASKS,
+} from "../src/community-maintenance-tasks.ts";
+import { runtimeFailureCode } from "../src/runtime-failure.ts";
 
 const dayStart = Date.parse("2026-10-19T00:00:00Z");
 const dayEnd = dayStart + 24 * 60 * 60_000;
@@ -86,6 +89,19 @@ assert.equal(inWakeWindow(at("00:34:59.999")), true);
 assert.equal(inWakeWindow(at("00:35:00.000")), false);
 assert.equal(msUntilNextWakeWindow(at("00:35:00.000")), 26 * 60_000);
 assert.equal(msUntilNextWakeWindow(at("00:59:59.000")), 61_000);
+
+// The weekly recorders refresh is a team maintenance task: it can only run at :01/:31,
+// so it joins existing worker windows and adds none.
+assert.ok(TEAM_MAINTENANCE_TASKS.includes("weekly_recorders"));
+for (let minute = 0; minute < 24 * 60; minute += 1) {
+  const when = dayStart + minute * 60_000;
+  if (maintenanceCadenceDue("weekly_recorders", when))
+    assert.ok(
+      workerWindows.has(windowFor(when)),
+      `weekly_recorders adds window at minute ${minute}`,
+    );
+}
+assert.equal(maintenanceCadenceDue("weekly_recorders", Date.parse("2026-10-19T17:06:00Z")), false);
 
 assert.equal(maintenanceCadenceDue("po_membership", Date.parse("2026-10-19T00:01:00Z")), true);
 assert.equal(maintenanceCadenceDue("po_membership", Date.parse("2026-10-19T00:06:00Z")), false);

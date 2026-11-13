@@ -15,6 +15,7 @@ import { command, interaction } from "./requests";
 import { verifySlack } from "./signing";
 import { openView, reply } from "./slack-api";
 import type { Store } from "./store";
+import { serveWeeklyRecorders } from "./weekly-recorders";
 import { createWorkerHandler } from "./worker-entry";
 
 export type Env = PilotEnv &
@@ -44,6 +45,8 @@ export async function handleRequest(
     if (request.method === "GET" && url.pathname === "/health") {
       return Response.json({ status: "ok" });
     }
+    if (url.pathname === "/metrics/weekly-recorders")
+      return await serveWeeklyRecorders(request, env);
     if (url.pathname === "/linear/webhook")
       return handleLinearWebhook(request, env, (promise) => ctx.waitUntil(promise));
     if (env.DATABASE_MAINTENANCE === "true" && url.pathname.startsWith("/slack/"))

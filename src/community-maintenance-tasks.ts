@@ -16,6 +16,7 @@ export const TEAM_MAINTENANCE_TASKS = [
   "po_membership",
   "pr_metadata",
   "agent_notifications",
+  "weekly_recorders",
 ] as const;
 export const CHANNEL_MAINTENANCE_TASKS = ["garden", "membership", "prompts"] as const;
 
@@ -24,10 +25,14 @@ export const MAINTENANCE_CADENCE_MINUTES: Readonly<Record<string, number>> = {
   po_membership: 30,
   pr_metadata: 30,
   agent_notifications: 30,
+  weekly_recorders: 30,
   garden: 30,
   membership: 30,
   prompts: 5,
 };
+
+export const maintenanceTaskObjectName = (teamId: string, task: string, channel?: string) =>
+  `maintenance-task:${teamId}:${task}:${channel ?? "team"}`;
 
 export function maintenanceCadenceDue(task: string, at: number): boolean {
   const cadence = MAINTENANCE_CADENCE_MINUTES[task];

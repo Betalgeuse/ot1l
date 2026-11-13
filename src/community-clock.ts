@@ -14,6 +14,7 @@ import { communityMaintenanceCron } from "./community-cron";
 import { runDueGardenDeliveries } from "./community-garden-delivery";
 import {
   MAINTENANCE_CADENCE_MINUTES,
+  maintenanceCadenceDue,
   runMaintenanceTask,
   validateMaintenanceTask,
 } from "./community-maintenance-tasks";
@@ -24,6 +25,7 @@ import { CommunityStore } from "./community-store";
 import { InputError } from "./input";
 import { runtimeFailureCode } from "./runtime-failure";
 import { NeonStore } from "./store";
+import { refreshWeeklyRecorders, type WeeklyRecordersSnapshot } from "./weekly-recorders";
 
 export { armCommunityClock, nextAlarmTime } from "./community-clock-client";
 
@@ -259,7 +261,15 @@ export class CommunityClock extends DurableObject<CommunityEnv> {
       if (nextDue !== undefined && scheduledTime < nextDue) return;
       await this.ctx.storage.put("lastRun", { scheduledTime, status: "running" });
       try {
-        await runMaintenanceTask(this.env, task, scheduledTime, channelId);
+        if (task === "weekly_recorders") {
+          if (maintenanceCadenceDue(task, scheduledTime))
+            await refreshWeeklyRecorders(
+              this.env,
+              this.ctx.storage,
+              new NeonStore(this.env.DATABASE_URL),
+              scheduledTime,
+            );
+        } else await runMaintenanceTask(this.env, task, scheduledTime, channelId);
         await this.ctx.storage.put(cacheKey, scheduledTime + cadence * 60_000);
         await this.ctx.storage.put("lastRun", { scheduledTime, status: "finished" });
       } catch (error) {
@@ -271,6 +281,10 @@ export class CommunityClock extends DurableObject<CommunityEnv> {
         throw error;
       }
     });
+  }
+
+  weeklyRecorders(): Promise<WeeklyRecordersSnapshot | undefined> {
+    return this.ctx.storage.get<WeeklyRecordersSnapshot>("weeklyRecorders");
   }
 
   private async bindScheduledRole(role: string, channel?: string): Promise<void> {
