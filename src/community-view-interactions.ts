@@ -1,25 +1,14 @@
-import { handleBugView } from "./community-bug-interactions";
-import { createCommunityChapter, parseCommunityChapter } from "./community-chapters";
 import { armCommunityClock } from "./community-clock";
 import { readSettings } from "./community-controls";
-import { parseEventDemand, submitEventDemand } from "./community-event-demands";
+import { handleDeployApprovalView } from "./community-deploy-approval";
 import { parseIntroduction, submitIntroduction } from "./community-introduction";
-import { submitMaintainerHelp } from "./community-maintainer-retention";
 import { escapeSlackText } from "./community-messages";
 import { submitCommunityPalette } from "./community-palette";
 import { parsePastReviewSubmission, pastReviewChange } from "./community-past-review";
-import { submitPoSpecialties, submitPoSummon } from "./community-po-groups";
-import { pullRequestFormErrors, submitPullRequestBinding } from "./community-pull-request";
 import { parseQuickEntrySubmission, submitQuickEntry } from "./community-quick-entry";
 import { applyChange } from "./community-records";
 import { type CommunityContext, type CommunityEnv, ephemeral, post } from "./community-runtime";
 import type { CommunityStore } from "./community-store";
-import {
-  parseTownhallAvailability,
-  parseTownhallEvent,
-  submitTownhallAvailability,
-  submitTownhallEvent,
-} from "./community-townhall-events";
 import type { CommunityScope } from "./community-types";
 import { InputError, object, string } from "./input";
 
@@ -36,33 +25,13 @@ type ViewInteraction = {
 };
 
 export async function handleCommunityView(input: ViewInteraction): Promise<Response> {
-  const bugResponse = await handleBugView(input.id, input.view, input.context, input.waitUntil);
-  if (bugResponse) return bugResponse;
-  if (input.id === "community_pull_request_submit") {
-    const errors = pullRequestFormErrors(input.view);
-    if (errors) return Response.json({ response_action: "errors", errors });
-    input.waitUntil(
-      submitPullRequestBinding(input.context, input.view).catch(async (error: unknown) => {
-        await ephemeral(input.context, {
-          text:
-            error instanceof InputError
-              ? error.message
-              : "PR 연결을 완료하지 못했어요. 잠시 후 다시 시도해 주세요.",
-        });
-      }),
-    );
-    return Response.json({ response_action: "clear" });
-  }
-  if (input.id === "community_po_specialties_submit") {
-    input.waitUntil(submitPoSpecialties(input.context, input.view));
-    return Response.json({ response_action: "clear" });
-  }
-  if (input.id === "community_po_summon_submit") {
-    const errors = await submitPoSummon(input.context, input.view);
-    return errors
-      ? Response.json({ response_action: "errors", errors })
-      : Response.json({ response_action: "clear" });
-  }
+  const approvalResponse = handleDeployApprovalView(
+    input.id,
+    input.view,
+    input.context,
+    input.waitUntil,
+  );
+  if (approvalResponse) return approvalResponse;
   if (input.id === "community_introduction_submit") {
     const parsed = parseIntroduction(object(input.view.state).values);
     if ("errors" in parsed)
@@ -71,55 +40,6 @@ export async function handleCommunityView(input: ViewInteraction): Promise<Respo
     if (!Number.isSafeInteger(revision) || revision < 0)
       throw new InputError("자기소개 버전을 확인할 수 없어요.");
     input.waitUntil(submitIntroduction(input.context, string(input.view.id), parsed, revision));
-    return Response.json({ response_action: "clear" });
-  }
-  if (input.id === "community_maintainer_help_submit") {
-    const mode = input.metadata.mode;
-    if (mode !== "question" && mode !== "qna" && mode !== "ot")
-      throw new InputError("도움 요청 종류를 확인할 수 없어요.");
-    input.waitUntil(submitMaintainerHelp(input.context, input.view, mode));
-    return Response.json({ response_action: "clear" });
-  }
-  if (input.id === "community_event_submit") {
-    const scheduleMode = string(input.metadata.scheduleMode) as
-      | "fixed"
-      | "poll"
-      | "edit"
-      | "edit-fixed";
-    if (!["fixed", "poll", "edit", "edit-fixed"].includes(scheduleMode))
-      throw new InputError("이벤트 일정 방식을 확인할 수 없어요.");
-    const parsed = parseTownhallEvent(input.view, scheduleMode);
-    if ("errors" in parsed)
-      return Response.json({ response_action: "errors", errors: parsed.errors });
-    input.waitUntil(
-      submitTownhallEvent(input.context, string(input.view.id), parsed, input.metadata),
-    );
-    return Response.json({ response_action: "clear" });
-  }
-  if (input.id === "community_event_demand_submit") {
-    const mode = string(input.metadata.mode) as "validate" | "host_request";
-    if (!["validate", "host_request"].includes(mode))
-      throw new InputError("수요 방식을 확인할 수 없어요.");
-    const parsed = parseEventDemand(input.view, mode);
-    if ("errors" in parsed)
-      return Response.json({ response_action: "errors", errors: parsed.errors });
-    input.waitUntil(
-      submitEventDemand(input.context, string(input.view.id), parsed, input.metadata),
-    );
-    return Response.json({ response_action: "clear" });
-  }
-  if (input.id === "community_chapter_submit") {
-    const parsed = parseCommunityChapter(input.view);
-    if ("errors" in parsed)
-      return Response.json({ response_action: "errors", errors: parsed.errors });
-    input.waitUntil(createCommunityChapter(input.context, parsed));
-    return Response.json({ response_action: "clear" });
-  }
-  if (input.id === "community_event_availability_submit") {
-    const selected = parseTownhallAvailability(input.view);
-    input.waitUntil(
-      submitTownhallAvailability(input.context, string(input.metadata.eventId), selected),
-    );
     return Response.json({ response_action: "clear" });
   }
   if (input.id === "community_past_review_submit") {

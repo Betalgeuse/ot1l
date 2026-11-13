@@ -7,8 +7,7 @@ import {
   parseBugReportModal,
   submitBugReportModal,
 } from "./community-bugs";
-import { approveCodexMerge, startCodexFeedback } from "./community-feedback";
-import { reconcilePoMembership } from "./community-po-membership";
+import { startCodexFeedback } from "./community-feedback";
 import { type CommunityContext, ephemeral } from "./community-runtime";
 import { InputError, object, string } from "./input";
 
@@ -79,39 +78,6 @@ export async function handleBugAction(
       reporterId: string(value.reporterId),
       packetRevision,
     });
-    return new Response(null, { status: 200 });
-  }
-  if (id === "community_feedback_merge_approve") {
-    const packetRevision = value.packetRevision;
-    const prNumber = value.prNumber;
-    if (
-      typeof packetRevision !== "number" ||
-      !Number.isSafeInteger(packetRevision) ||
-      typeof prNumber !== "number" ||
-      !Number.isSafeInteger(prNumber)
-    )
-      throw new InputError("병합 승인 대상을 확인할 수 없어요.");
-    waitUntil(
-      (async () => {
-        if (context.scope.userId !== context.env.COMMUNITY_ADMIN_ID)
-          await reconcilePoMembership(context.env);
-        await approveCodexMerge(context, {
-          feedbackId: string(value.feedbackId),
-          packetRevision,
-          prNumber,
-          changeClass: string(value.changeClass),
-          headSha: string(value.headSha),
-          classificationDigest: string(value.classificationDigest),
-        });
-      })().catch(async (error: unknown) => {
-        await ephemeral(context, {
-          text:
-            error instanceof InputError
-              ? error.message
-              : "PO 권한과 승인 상태를 확인하지 못했어요. 잠시 후 다시 눌러 주세요.",
-        });
-      }),
-    );
     return new Response(null, { status: 200 });
   }
   if (id === "community_bug_open") {
