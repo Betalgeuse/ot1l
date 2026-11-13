@@ -1,14 +1,6 @@
 (function(){
   var track=document.getElementById('track');
   var pages=[].slice.call(track.children);
-  var referral=document.getElementById('referral-invite');
-  if(referral){
-    referral.classList.add('page','referral-page');
-    document.querySelectorAll('[data-go]').forEach(function(b){b.dataset.go=String(Number(b.dataset.go)+1)});
-    var inviteStep=document.createElement('button');inviteStep.className='step';inviteStep.dataset.go='0';inviteStep.textContent='초대장';
-    document.getElementById('steps').prepend(inviteStep);
-    document.getElementById('steps').style.gridTemplateColumns='repeat(5,1fr)';
-  }
   var steps=[].slice.call(document.querySelectorAll('.step'));
   var ids=pages.map(function(p){return p.id});
   var cur=-1,lock=false;
