@@ -11,7 +11,6 @@ mock.module("../src/store.ts", () => ({
     }
     async queryJson(sql, params) {
       operations.push({ sql, op: params[0] });
-      if (sql.includes("community_chapter_list")) return [];
       if (params[0] === "publish") return JSON.parse(params[1]).hash;
       if (params[0] === "latest" || params[0] === "repair_latest")
         return {
@@ -89,7 +88,6 @@ await deliverWelcomeGuide(
 );
 
 assert.deepEqual(stores, [
-  "postgresql://admin",
   "postgresql://admin",
   "postgresql://admin",
   "postgresql://runtime",
