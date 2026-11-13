@@ -31,6 +31,9 @@ export const MAINTENANCE_CADENCE_MINUTES: Readonly<Record<string, number>> = {
   prompts: 5,
 };
 
+export const maintenanceTaskObjectName = (teamId: string, task: string, channel?: string) =>
+  `maintenance-task:${teamId}:${task}:${channel ?? "team"}`;
+
 export function maintenanceCadenceDue(task: string, at: number): boolean {
   const cadence = MAINTENANCE_CADENCE_MINUTES[task];
   if (!cadence) throw new InputError("Invalid maintenance task scope");
@@ -66,8 +69,6 @@ export async function runMaintenanceTask(
 ): Promise<void> {
   validateMaintenanceTask(env, task, at, channel);
   if (!maintenanceCadenceDue(task, at)) return;
-  // Computed and stored by the clock object (see CommunityClock.runMaintenanceTask).
-  if (task === "weekly_recorders") return;
   if (task === "community_clock_recovery") {
     if (
       env.COMMUNITY_ENABLED !== "true" ||

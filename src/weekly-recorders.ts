@@ -1,3 +1,4 @@
+import { maintenanceTaskObjectName } from "./community-maintenance-tasks";
 import type { CommunityEnv } from "./community-runtime";
 import { koreaDate } from "./input";
 import type { NeonStore } from "./store";
@@ -15,9 +16,6 @@ export type WeeklyRecorders = {
 };
 export type WeeklyRecordersSnapshot = { readonly date: string; readonly value: WeeklyRecorders };
 type ClockEnv = Pick<CommunityEnv, "SLACK_TEAM_ID" | "COMMUNITY_CLOCK">;
-
-export const weeklyRecordersObjectName = (teamId: string) =>
-  `maintenance-task:${teamId}:weekly_recorders:team`;
 
 const QUERY = `SELECT coalesce(jsonb_agg(jsonb_build_object('w', w, 'n', n)), '[]'::jsonb)::text
 FROM (
@@ -70,12 +68,49 @@ export async function serveWeeklyRecorders(request: Request, env: ClockEnv): Pro
   if (request.method !== "GET")
     return new Response("Method Not Allowed", { status: 405, headers: { Allow: "GET" } });
   const stored = await env.COMMUNITY_CLOCK?.getByName(
-    weeklyRecordersObjectName(env.SLACK_TEAM_ID),
+    maintenanceTaskObjectName(env.SLACK_TEAM_ID, "weekly_recorders"),
   ).weeklyRecorders();
   const body = stored
-    ? stored.value
-    : { metric: "weekly_distinct_recorders", timezone: "Asia/Seoul", weeks: [], status: "pending" };
+    ? { ...stored.value, as_of: stored.date, status: "ok" }
+    : {
+        metric: "weekly_distinct_recorders",
+        timezone: "Asia/Seoul",
+        as_of: null,
+        status: "pending",
+        weeks: [],
+      };
   return Response.json(body, {
     headers: { "Cache-Control": "public, max-age=300", "X-Content-Type-Options": "nosniff" },
   });
+}
+
+type RefreshEnv = Pick<
+  CommunityEnv,
+  "COMMUNITY_ENABLED" | "DATABASE_MAINTENANCE" | "COMMUNITY_ADMIN_ID" | "SLACK_TEAM_ID"
+>;
+type Storage = {
+  get<T>(key: string): Promise<T | undefined>;
+  put(key: string, value: unknown): Promise<void>;
+};
+
+// Once per service day, inside the shared :01/:31 wake window.
+export async function refreshWeeklyRecorders(
+  env: RefreshEnv,
+  storage: Storage,
+  db: QueryStore,
+  scheduledTime: number,
+): Promise<void> {
+  if (
+    env.COMMUNITY_ENABLED !== "true" ||
+    env.DATABASE_MAINTENANCE === "true" ||
+    !env.COMMUNITY_ADMIN_ID
+  )
+    return;
+  const nowSeconds = Math.floor(scheduledTime / 1000);
+  const stored = await storage.get<WeeklyRecordersSnapshot>("weeklyRecorders");
+  if (stored?.date === koreaDate(nowSeconds)) return;
+  await storage.put(
+    "weeklyRecorders",
+    await computeWeeklyRecorders(db, env.SLACK_TEAM_ID, nowSeconds),
+  );
 }

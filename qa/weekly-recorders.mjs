@@ -1,5 +1,10 @@
 import assert from "node:assert/strict";
-import { computeWeeklyRecorders, serveWeeklyRecorders } from "../src/weekly-recorders.ts";
+import { maintenanceTaskObjectName } from "../src/community-maintenance-tasks.ts";
+import {
+  computeWeeklyRecorders,
+  refreshWeeklyRecorders,
+  serveWeeklyRecorders,
+} from "../src/weekly-recorders.ts";
 
 const calls = [];
 const db = {
@@ -67,8 +72,12 @@ const ok = await serveWeeklyRecorders(req(), {
 });
 assert.equal(ok.status, 200);
 assert.match(ok.headers.get("Cache-Control"), /max-age=\d+/);
-assert.deepEqual(await ok.json(), body);
-assert.deepEqual(names, ["maintenance-task:TQA:weekly_recorders:team"]);
+assert.deepEqual(await ok.json(), { ...body, as_of: "2026-11-13", status: "ok" });
+assert.deepEqual(names, [maintenanceTaskObjectName("TQA", "weekly_recorders")]);
+assert.equal(
+  maintenanceTaskObjectName("TQA", "weekly_recorders"),
+  "maintenance-task:TQA:weekly_recorders:team",
+);
 const pending = await serveWeeklyRecorders(req(), {
   SLACK_TEAM_ID: "TQA",
   COMMUNITY_CLOCK: clock(undefined),
@@ -87,5 +96,35 @@ assert.equal(
   405,
 );
 assert.equal(calls.length, before);
+
+// refreshWeeklyRecorders: env gates, once per koreaDate, storage write.
+const store = new Map();
+const storage = {
+  async get(k) {
+    return store.get(k);
+  },
+  async put(k, v) {
+    store.set(k, v);
+  },
+};
+const on = { COMMUNITY_ENABLED: "true", COMMUNITY_ADMIN_ID: "A", SLACK_TEAM_ID: "TQA" };
+const ms = (iso) => Date.parse(iso);
+const n = calls.length;
+for (const env of [
+  { ...on, COMMUNITY_ENABLED: "false" },
+  { ...on, DATABASE_MAINTENANCE: "true" },
+  { ...on, COMMUNITY_ADMIN_ID: "" },
+])
+  await refreshWeeklyRecorders(env, storage, db, ms("2026-11-13T04:01:00Z"));
+assert.equal(calls.length, n);
+assert.equal(store.size, 0);
+await refreshWeeklyRecorders(on, storage, db, ms("2026-11-13T04:01:00Z"));
+assert.equal(calls.length, n + 1);
+assert.equal(store.get("weeklyRecorders").date, "2026-11-13");
+await refreshWeeklyRecorders(on, storage, db, ms("2026-11-13T04:31:00Z"));
+assert.equal(calls.length, n + 1); // same service day: no query
+await refreshWeeklyRecorders(on, storage, db, ms("2026-11-13T17:01:00Z")); // 02:01 KST next day
+assert.equal(calls.length, n + 2);
+assert.equal(store.get("weeklyRecorders").date, "2026-11-14");
 globalThis.fetch = realFetch;
 console.log("weekly-recorders ok");
