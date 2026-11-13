@@ -1,3 +1,4 @@
+import type { CommunityEnv } from "./community-runtime";
 import { koreaDate } from "./input";
 import type { NeonStore } from "./store";
 import { StoreError } from "./store-types";
@@ -6,6 +7,17 @@ const WEEKS = 12;
 const DAY_MS = 86_400_000;
 
 type QueryStore = Pick<NeonStore, "queryJson">;
+
+export type WeeklyRecorders = {
+  readonly metric: "weekly_distinct_recorders";
+  readonly timezone: "Asia/Seoul";
+  readonly weeks: readonly { readonly week_start: string; readonly recorders: number }[];
+};
+export type WeeklyRecordersSnapshot = { readonly date: string; readonly value: WeeklyRecorders };
+type ClockEnv = Pick<CommunityEnv, "SLACK_TEAM_ID" | "COMMUNITY_CLOCK">;
+
+export const weeklyRecordersObjectName = (teamId: string) =>
+  `maintenance-task:${teamId}:weekly_recorders:team`;
 
 const QUERY = `SELECT coalesce(jsonb_agg(jsonb_build_object('w', w, 'n', n)), '[]'::jsonb)::text
 FROM (
@@ -25,14 +37,12 @@ function mondayOf(date: string): string {
   return addDays(date, -((weekday + 6) % 7));
 }
 
-export async function handleWeeklyRecorders(
-  request: Request,
-  teamId: string,
+// Runs inside the :01/:31 maintenance window; the public route never queries.
+export async function computeWeeklyRecorders(
   db: QueryStore,
+  teamId: string,
   nowSeconds: number,
-): Promise<Response> {
-  if (request.method !== "GET")
-    return new Response("Method Not Allowed", { status: 405, headers: { Allow: "GET" } });
+): Promise<WeeklyRecordersSnapshot> {
   const today = koreaDate(nowSeconds);
   const thisWeek = mondayOf(today);
   const starts = Array.from({ length: WEEKS }, (_, i) => addDays(thisWeek, (i - WEEKS + 1) * 7));
@@ -46,12 +56,26 @@ export async function handleWeeklyRecorders(
     if (typeof w !== "string" || typeof n !== "number") throw new StoreError("response");
     counts.set(w, n);
   }
-  return Response.json(
-    {
+  return {
+    date: today,
+    value: {
       metric: "weekly_distinct_recorders",
       timezone: "Asia/Seoul",
       weeks: starts.map((week) => ({ week_start: week, recorders: counts.get(week) ?? 0 })),
     },
-    { headers: { "Cache-Control": "public, max-age=300", "X-Content-Type-Options": "nosniff" } },
-  );
+  };
+}
+
+export async function serveWeeklyRecorders(request: Request, env: ClockEnv): Promise<Response> {
+  if (request.method !== "GET")
+    return new Response("Method Not Allowed", { status: 405, headers: { Allow: "GET" } });
+  const stored = await env.COMMUNITY_CLOCK?.getByName(
+    weeklyRecordersObjectName(env.SLACK_TEAM_ID),
+  ).weeklyRecorders();
+  const body = stored
+    ? stored.value
+    : { metric: "weekly_distinct_recorders", timezone: "Asia/Seoul", weeks: [], status: "pending" };
+  return Response.json(body, {
+    headers: { "Cache-Control": "public, max-age=300", "X-Content-Type-Options": "nosniff" },
+  });
 }

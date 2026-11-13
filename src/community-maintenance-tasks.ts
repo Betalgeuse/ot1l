@@ -16,6 +16,7 @@ export const TEAM_MAINTENANCE_TASKS = [
   "po_membership",
   "pr_metadata",
   "agent_notifications",
+  "weekly_recorders",
 ] as const;
 export const CHANNEL_MAINTENANCE_TASKS = ["garden", "membership", "prompts"] as const;
 
@@ -24,6 +25,7 @@ export const MAINTENANCE_CADENCE_MINUTES: Readonly<Record<string, number>> = {
   po_membership: 30,
   pr_metadata: 30,
   agent_notifications: 30,
+  weekly_recorders: 30,
   garden: 30,
   membership: 30,
   prompts: 5,
@@ -64,6 +66,8 @@ export async function runMaintenanceTask(
 ): Promise<void> {
   validateMaintenanceTask(env, task, at, channel);
   if (!maintenanceCadenceDue(task, at)) return;
+  // Computed and stored by the clock object (see CommunityClock.runMaintenanceTask).
+  if (task === "weekly_recorders") return;
   if (task === "community_clock_recovery") {
     if (
       env.COMMUNITY_ENABLED !== "true" ||

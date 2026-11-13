@@ -99,6 +99,7 @@ const suites = [
   "community-reminder-audit",
   "community-membership-store-error-code",
   "applicant-retention",
+  "weekly-recorders",
   "alarm-purge-proof",
   "community-feedback-channel-ignored",
   "referral-empty-queue-null",

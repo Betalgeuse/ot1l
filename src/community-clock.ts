@@ -21,9 +21,10 @@ import { runMembershipDue } from "./community-membership-schedule";
 import type { CommunityEnv } from "./community-runtime";
 import { parseCommunitySchedule, runCommunitySchedule } from "./community-scheduler";
 import { CommunityStore } from "./community-store";
-import { InputError } from "./input";
+import { InputError, koreaDate } from "./input";
 import { runtimeFailureCode } from "./runtime-failure";
 import { NeonStore } from "./store";
+import { computeWeeklyRecorders, type WeeklyRecordersSnapshot } from "./weekly-recorders";
 
 export { armCommunityClock, nextAlarmTime } from "./community-clock-client";
 
@@ -259,7 +260,8 @@ export class CommunityClock extends DurableObject<CommunityEnv> {
       if (nextDue !== undefined && scheduledTime < nextDue) return;
       await this.ctx.storage.put("lastRun", { scheduledTime, status: "running" });
       try {
-        await runMaintenanceTask(this.env, task, scheduledTime, channelId);
+        if (task === "weekly_recorders") await this.refreshWeeklyRecorders(scheduledTime);
+        else await runMaintenanceTask(this.env, task, scheduledTime, channelId);
         await this.ctx.storage.put(cacheKey, scheduledTime + cadence * 60_000);
         await this.ctx.storage.put("lastRun", { scheduledTime, status: "finished" });
       } catch (error) {
@@ -271,6 +273,31 @@ export class CommunityClock extends DurableObject<CommunityEnv> {
         throw error;
       }
     });
+  }
+
+  weeklyRecorders(): Promise<WeeklyRecordersSnapshot | undefined> {
+    return this.ctx.storage.get<WeeklyRecordersSnapshot>("weeklyRecorders");
+  }
+
+  // Once per service day, inside the shared :01/:31 wake window.
+  private async refreshWeeklyRecorders(scheduledTime: number): Promise<void> {
+    if (
+      this.env.COMMUNITY_ENABLED !== "true" ||
+      this.env.DATABASE_MAINTENANCE === "true" ||
+      !this.env.COMMUNITY_ADMIN_ID
+    )
+      return;
+    const nowSeconds = Math.floor(scheduledTime / 1000);
+    const stored = await this.weeklyRecorders();
+    if (stored?.date === koreaDate(nowSeconds)) return;
+    await this.ctx.storage.put(
+      "weeklyRecorders",
+      await computeWeeklyRecorders(
+        new NeonStore(this.env.DATABASE_URL),
+        this.env.SLACK_TEAM_ID,
+        nowSeconds,
+      ),
+    );
   }
 
   private async bindScheduledRole(role: string, channel?: string): Promise<void> {

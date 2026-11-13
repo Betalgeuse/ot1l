@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { handleWeeklyRecorders } from "../src/weekly-recorders.ts";
+import { computeWeeklyRecorders, serveWeeklyRecorders } from "../src/weekly-recorders.ts";
 
 const calls = [];
 const db = {
@@ -11,26 +11,20 @@ const db = {
     ];
   },
 };
-// 2026-11-13 is Friday in KST (04:00Z = 11:00 KST)
-const now = Date.parse("2026-11-13T04:00:00Z") / 1000;
-const get = (method = "GET") =>
-  handleWeeklyRecorders(
-    new Request("https://x/metrics/weekly-recorders", { method }),
-    "TQA",
-    db,
-    now,
-  );
+const at = (iso) => Date.parse(iso) / 1000;
+const lastWeek = async (iso) =>
+  (await computeWeeklyRecorders(db, "TQA", at(iso))).value.weeks.at(-1).week_start;
 
-const res = await get();
-assert.equal(res.status, 200);
-assert.match(res.headers.get("Cache-Control"), /max-age=\d+/);
-const body = await res.json();
+// Friday 11:00 KST
+const snap = await computeWeeklyRecorders(db, "TQA", at("2026-11-13T04:00:00Z"));
+assert.equal(snap.date, "2026-11-13");
+const body = snap.value;
 assert.deepEqual(Object.keys(body), ["metric", "timezone", "weeks"]);
 assert.equal(body.metric, "weekly_distinct_recorders");
 assert.equal(body.timezone, "Asia/Seoul");
 assert.equal(body.weeks.length, 12);
-assert.equal(body.weeks.at(-1).week_start, "2026-11-09");
 assert.equal(body.weeks[0].week_start, "2026-08-24");
+assert.equal(body.weeks.at(-1).week_start, "2026-11-09");
 for (const w of body.weeks) {
   assert.deepEqual(Object.keys(w), ["week_start", "recorders"]);
   assert.equal(new Date(`${w.week_start}T00:00:00Z`).getUTCDay(), 1);
@@ -41,21 +35,57 @@ assert.deepEqual(
 );
 assert.equal(calls.length, 1);
 assert.deepEqual(calls[0].params, ["TQA", "2026-08-24", "2026-11-13"]);
-
-// Sunday 23:30 KST (14:30Z) still belongs to the week that started 11-09 ... Monday 00:30 KST is before the 02:00 day rollover
-const sunday = Date.parse("2026-11-15T14:30:00Z") / 1000;
-const sundayBody = await (
-  await handleWeeklyRecorders(new Request("https://x/"), "TQA", db, sunday)
-).json();
-assert.equal(sundayBody.weeks.at(-1).week_start, "2026-11-09");
-const monday = Date.parse("2026-11-16T03:00:00Z") / 1000; // 12:00 KST Monday
-const mondayBody = await (
-  await handleWeeklyRecorders(new Request("https://x/"), "TQA", db, monday)
-).json();
-assert.equal(mondayBody.weeks.at(-1).week_start, "2026-11-16");
-assert.equal(mondayBody.weeks.at(-1).recorders, 0);
-
-assert.equal((await get("POST")).status, 405);
-assert.equal(calls.length, 3);
 assert.doesNotMatch(JSON.stringify(body), /user|TQA|U[0-9A-Z]{8}/i);
+
+// 02:00 service-day rollover
+assert.equal(await lastWeek("2026-11-15T14:30:00Z"), "2026-11-09"); // Sun 23:30 KST
+assert.equal(await lastWeek("2026-11-15T16:30:00Z"), "2026-11-09"); // Mon 01:30 KST
+assert.equal(await lastWeek("2026-11-15T17:00:00Z"), "2026-11-16"); // Mon 02:00 KST
+assert.equal(await lastWeek("2026-11-16T05:00:00Z"), "2026-11-16"); // Mon 14:00 KST
+
+// The public route reads only the clock object: no DB call, no network.
+const realFetch = globalThis.fetch;
+globalThis.fetch = () => {
+  throw new Error("route touched the network");
+};
+const names = [];
+const clock = (stored) => ({
+  getByName(name) {
+    names.push(name);
+    return {
+      async weeklyRecorders() {
+        return stored;
+      },
+    };
+  },
+});
+const req = (method = "GET") => new Request("https://x/metrics/weekly-recorders", { method });
+const before = calls.length;
+const ok = await serveWeeklyRecorders(req(), {
+  SLACK_TEAM_ID: "TQA",
+  COMMUNITY_CLOCK: clock(snap),
+});
+assert.equal(ok.status, 200);
+assert.match(ok.headers.get("Cache-Control"), /max-age=\d+/);
+assert.deepEqual(await ok.json(), body);
+assert.deepEqual(names, ["maintenance-task:TQA:weekly_recorders:team"]);
+const pending = await serveWeeklyRecorders(req(), {
+  SLACK_TEAM_ID: "TQA",
+  COMMUNITY_CLOCK: clock(undefined),
+});
+assert.equal(pending.status, 200);
+assert.deepEqual(await pending.json(), {
+  metric: "weekly_distinct_recorders",
+  timezone: "Asia/Seoul",
+  weeks: [],
+  status: "pending",
+});
+assert.equal((await serveWeeklyRecorders(req(), { SLACK_TEAM_ID: "TQA" })).status, 200);
+assert.equal(
+  (await serveWeeklyRecorders(req("POST"), { SLACK_TEAM_ID: "TQA", COMMUNITY_CLOCK: clock(snap) }))
+    .status,
+  405,
+);
+assert.equal(calls.length, before);
+globalThis.fetch = realFetch;
 console.log("weekly-recorders ok");
