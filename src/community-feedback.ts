@@ -14,13 +14,13 @@ import { feedbackButton } from "./community-feedback-button";
 import { MaintainerOpsStore } from "./community-maintainer-store";
 import { setMaintainerWorkReleaseStage, syncFeedbackWork } from "./community-maintainer-work";
 import { maintainerButton } from "./community-maintainers";
-import { sha256Hex } from "./community-referral-service-auth";
 import type { CommunityContext, CommunityEnv } from "./community-runtime";
 import { addReactions, callSlack } from "./community-social";
 import { CommunityStore } from "./community-store";
 import { rememberWorkThread, resolveWorkThread } from "./community-work-thread";
 import { InputError, koreaDate, list, object, string } from "./input";
 import { INTENT_MODEL, type IntentAI } from "./intent";
+import { sha256Hex } from "./sha256";
 import { NeonStore } from "./store";
 
 export const FEEDBACK_DOC_CONTRACT = {

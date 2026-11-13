@@ -1,4 +1,5 @@
 import type { ReferralRuntimeStore } from "./community-referral-types";
+import { sha256Hex } from "./sha256";
 import { sign, verify } from "./signing";
 
 const AUTH_WINDOW_SECONDS = 300;
@@ -19,13 +20,7 @@ type AuthenticationInput = {
   readonly persistNonce: boolean;
 };
 
-function bytesToHex(value: ArrayBuffer): string {
-  return Array.from(new Uint8Array(value), (byte) => byte.toString(16).padStart(2, "0")).join("");
-}
-
-export async function sha256Hex(value: string): Promise<string> {
-  return bytesToHex(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value)));
-}
+export { sha256Hex };
 
 async function canonical(input: SignedInput): Promise<string> {
   return [

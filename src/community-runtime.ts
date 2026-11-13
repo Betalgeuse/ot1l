@@ -1,5 +1,4 @@
 import type { ClockBinding } from "./community-clock-binding";
-import type { InviteReconcileBucket } from "./community-referral-reconcile";
 import { callSlack } from "./community-social";
 import type { CommunityStore } from "./community-store";
 import type { CommunityScope } from "./community-types";
@@ -37,7 +36,7 @@ export type CommunityEnv = {
   readonly PUBLIC_APPLICATION_ORIGIN?: string;
   readonly EVENT_PUBLIC_BASE_URL?: string;
   readonly EVENT_SIGNING_SECRET?: string;
-  readonly INVITE_PRIVATE_OBJECTS?: InviteReconcileBucket;
+  readonly INVITE_PRIVATE_OBJECTS?: R2Bucket;
   readonly COMMUNITY_BOT_USER_ID?: string;
   readonly DATABASE_MAINTENANCE?: string;
   readonly COMMUNITY_CLOCK?: ClockBinding;
