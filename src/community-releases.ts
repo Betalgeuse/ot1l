@@ -134,3 +134,31 @@ export async function publishRelease(
   await context.store.finishRecord({ ...control, key: previewKey }, "sent");
   await textReply(context, `${version} 게시 완료! <#${target}>에서 확인할 수 있어요.`);
 }
+
+// Members answer a published release in its thread; the answer is stored as that release's feedback.
+export async function captureFeedback(context: CommunityContext, text: string): Promise<boolean> {
+  if (!text.trim() || context.thread === context.source) return false;
+  const adminId = context.env.COMMUNITY_ADMIN_ID;
+  if (!adminId) throw new InputError("운영자 설정이 필요합니다.");
+  const scope = { ...context.scope, userId: adminId };
+  const published = await context.store.getRecord({ ...scope, key: `release:${context.thread}` });
+  if (published?.kind !== "release") return false;
+  const version = string(object(published.body).version);
+  const record = { ...scope, key: `feedback:${context.source}` };
+  await context.store.putRecord({
+    ...record,
+    kind: "feedback",
+    body: {
+      authorId: context.scope.userId,
+      text,
+      version,
+      source: context.source,
+      thread: context.thread,
+    },
+  });
+  if (await context.store.claimRecord(record)) {
+    await textReply(context, "의견 남겨줘서 고마워요!! 이 버전의 피드백으로 기록했어요 🙌");
+    await context.store.finishRecord(record, "sent");
+  }
+  return true;
+}

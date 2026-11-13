@@ -82,7 +82,8 @@ try {
   assert.match(posts[0].text, /2026-10-12 오늘의/);
   const actions = posts[0].blocks.flatMap(b=>b.elements??[]);
   assert.ok(actions.some(a=>a.action_id === "community_quick_goal"));
-  assert.ok(actions.some(a=>a.action_id === "community_maintainer_activate"));
+  assert.ok(actions.some(a=>a.action_id === "community_past_review_list"));
+  assert.ok(!actions.some(a=>["community_maintainer_activate","community_bug_open","community_referral_link"].includes(a.action_id)), "daily root carries no invite, feedback or Product Owner buttons");
   assert.ok(!calls.some(c=>/maintainer|backfill|metadata/.test(c)), "no peripheral queries on the scrum lane");
   blocked = true;
   const failedResponse = await mf.dispatchFetch("https://test/?at=2026-10-13T01:00:00Z");

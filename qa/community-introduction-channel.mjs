@@ -93,7 +93,7 @@ try {
   assert.match(welcomes[0].body.text, /아직 소개가 없어요/);
   assert.deepEqual(
     welcomes[0].body.blocks[1].elements.map((element) => element.action_id),
-    ["community_introduction", "community_introduction_directory", "community_bug_open"],
+    ["community_introduction", "community_introduction_directory"],
   );
   assert.equal(
     JSON.parse(welcomes[0].body.blocks[1].elements[0].value).ownerId,
@@ -122,7 +122,7 @@ try {
   );
   assert.deepEqual(
     directory.body.blocks[1].elements.map((element) => element.text.text),
-    ["자기소개 쓰기", "자기소개 모두 보기", "피드백 남기기"],
+    ["자기소개 쓰기", "자기소개 모두 보기"],
   );
 
   await remindMissingIntroductions(context);

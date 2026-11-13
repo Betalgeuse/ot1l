@@ -87,9 +87,9 @@ assert.equal(inWakeWindow(at("00:35:00.000")), false);
 assert.equal(msUntilNextWakeWindow(at("00:35:00.000")), 26 * 60_000);
 assert.equal(msUntilNextWakeWindow(at("00:59:59.000")), 61_000);
 
-assert.equal(maintenanceCadenceDue("feedback", Date.parse("2026-10-19T00:01:00Z")), true);
-assert.equal(maintenanceCadenceDue("feedback", Date.parse("2026-10-19T00:06:00Z")), false);
-assert.equal(maintenanceCadenceDue("events", Date.parse("2026-10-19T00:06:00Z")), true);
+assert.equal(maintenanceCadenceDue("po_membership", Date.parse("2026-10-19T00:01:00Z")), true);
+assert.equal(maintenanceCadenceDue("po_membership", Date.parse("2026-10-19T00:06:00Z")), false);
+assert.equal(maintenanceCadenceDue("prompts", Date.parse("2026-10-19T00:06:00Z")), true);
 assert.equal(
   maintenanceCadenceDue("community_clock_recovery", Date.parse("2026-10-19T00:01:00Z")),
   true,

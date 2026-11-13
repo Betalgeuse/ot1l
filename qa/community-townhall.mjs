@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict';
-import {adminCommand,captureFeedback,publishRelease,releasePreview} from '../src/community-admin.ts';
-import {RELEASES} from '../src/community-releases.ts';
+import {RELEASES,captureFeedback,publishRelease,releasePreview} from '../src/community-releases.ts';
 const records=new Map();const sent=[];let sequence=0;
 const identity=x=>JSON.stringify([x.teamId,x.channelId,x.userId,x.key]);
 const store={
@@ -17,8 +16,6 @@ const originalFetch=globalThis.fetch;globalThis.fetch=async(url,options)=>{asser
 try{
  const welcomeRelease=RELEASES.find(item=>item.version==='v0.0.55');assert.equal(welcomeRelease.text.match(/<!channel>/g)?.length,1,'latest welcome release announcement has one channel notification');
  await store.putRecord({...scope,key:'verified-release:v0.0.1',kind:'qa_approval',body:{verified:true}});
- await adminCommand(ctx,'업데이트 관리');
- for(const block of sent.at(-1).blocks??[]){if(block.type==='actions'){const ids=block.elements.map(e=>e.action_id);assert.equal(new Set(ids).size,ids.length,'Slack action IDs must be unique within each block');}}
  await releasePreview(ctx,'v0.0.1');
  const button=sent.at(-1).blocks.find(b=>b.type==='actions').elements[0];const key=JSON.parse(button.value).key;
  assert.match(key,/^release-preview:/,'preview must bind target and content, not carry a bare version');
@@ -36,7 +33,6 @@ try{
  assert.equal(await captureFeedback(feedbackCtx,'알림이 편해졌어요'),true);
  assert.equal(await captureFeedback(feedbackCtx,'알림이 편해졌어요'),true);
  const feedback=[...records.values()].filter(r=>r.kind==='feedback');assert.equal(feedback.length,1);assert.equal(feedback[0].body.authorId,'UMEMBER');
- await adminCommand(ctx,'피드백 보기');assert.match(sent.at(-1).text,/알림이 편해졌어요/);
  assert.equal(await captureFeedback({...feedbackCtx,thread:'unrelated'},'잡담'),false);
  console.log('PASS townhall: bound preview, old/changed/expired/nonowner blocked, one publication, cross-channel feedback lookup, no real Slack calls');
 }finally{globalThis.fetch=originalFetch;}

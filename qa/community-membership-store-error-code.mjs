@@ -9,21 +9,11 @@ const mockBoth = (name, implementation) => {
   mock.module(`../src/${name}.ts`, () => implementation);
   mock.module(`../src/${name}`, () => implementation);
 };
-mockBoth("community-interest-due", { runInterestDue: storeFailure });
-mockBoth("community-interest-reconcile", {
-  reconcileInterestIntake: async () => ({ possiblyMore: false, retryNeeded: false, nextCursor: null }),
-});
-mockBoth("community-referral-reconcile", {
-  reconcileInvitePrivateIntake: async () => ({ possiblyMore: false, nextCursor: null }),
-});
-mockBoth("community-referral-store", {
-  CommunityReferralStore: class {},
-});
 mockBoth("community-retention-schedule", {
   runRetentionQueues: async () => ({ possiblyMore: false, failed: false }),
 });
 mockBoth("community-membership-due", {
-  nextMembershipDue: async () => null,
+  nextMembershipDue: storeFailure,
 });
 
 const { runMembershipDue } = await import("../src/community-membership-schedule.ts");
@@ -35,9 +25,6 @@ try {
     {
       COMMUNITY_PUBLIC_CHANNEL_ID: "CPUBLIC",
       DATABASE_MAINTENANCE: "false",
-      LIFECYCLE_MODE: "disabled",
-      REFERRALS_ENABLED: "false",
-      INVITE_PRIVATE_OBJECTS: { async delete() {} },
       SLACK_TEAM_ID: "TQA",
       COMMUNITY_ADMIN_ID: "UADMIN",
     },
@@ -52,7 +39,7 @@ try {
 assert.equal(errors.length, 1);
 const event = JSON.parse(errors[0]);
 assert.equal(event.event, "community.membership.queue.failed");
-assert.equal(event.queue, "interest");
+assert.equal(event.queue, "next_due");
 assert.equal(event.errorType, "StoreError");
 assert.equal(event.errorCode, "unavailable");
 assert.equal(Object.hasOwn(event, "message"), false);

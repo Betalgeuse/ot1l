@@ -172,8 +172,9 @@ assert.equal(posts[0].text.includes(latest.body), false);
 assert.equal(posts[0].text.includes(env.COMMUNITY_GUIDE_CANVAS_URL), true);
 assert.equal(posts[0].blocks[0].accessory.url, env.COMMUNITY_GUIDE_CANVAS_URL);
 assert.equal(
-  posts[0].blocks.find((block) => block.type === "actions")?.elements[0]?.action_id,
-  "community_referral_link",
+  posts[0].blocks.some((block) => block.type === "actions"),
+  false,
+  "the plain welcome guide carries no invite, feedback or Product Owner buttons",
 );
 assert.deepEqual(posts[0].blocks.map((block) => block.slack_file?.id).filter(Boolean), []);
 const repaired = await replaceWelcomeGuideForUser("UREPAIR", env);

@@ -66,8 +66,7 @@ assert.deepEqual(
     ["guide", "CWELCOME", "UNEW"],
     ["introduction", "CINTRO", "UNEW"],
     ["reminder", "CDAILY", "UNEW"],
-    ["townhall", "CTOWN", "UNEW"],
   ],
   "team_join must fan out to every new-member consumer even when channel_join events are absent",
 );
-console.log("PASS team_join fans out welcome, introduction, reminder, and townhall surfaces");
+console.log("PASS team_join fans out welcome, introduction and reminder surfaces");

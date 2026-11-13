@@ -66,7 +66,7 @@ try {
   assert.equal(emojiCalls, 1, "an existing dispatch skips message recomposition and Slack emoji lookup");
   assert.equal(dispatchWrites, 1);
   const actions = posts[0].blocks.flatMap(b => b.elements ?? []);
-  for (const id of ["community_quick_goal", "community_quick_review", "community_maintainer_activate", "community_bug_open"])
+  for (const id of ["community_quick_goal", "community_quick_review", "community_past_review_list"])
     assert.ok(actions.some(a => a.action_id === id), `missing daily control: ${id}`);
   assert.ok(actions.filter(a => a.value).every(a => JSON.parse(a.value).ownerId === "actor"));
 

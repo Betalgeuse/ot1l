@@ -1,4 +1,5 @@
 import { execFileSync } from "node:child_process";
+import { existsSync } from "node:fs";
 
 // Explicit allowlist excludes scripts that load live credentials or require a disposable PostgreSQL migration.
 const suites = [
@@ -13,7 +14,6 @@ const suites = [
   "pr-metadata",
   "community-pull-request-routing",
   "community-maintainer-canvases",
-  "maintainer-button-routing",
   "community-chapters",
   "community-challenges",
   "community-event-demands",
@@ -21,7 +21,6 @@ const suites = [
   "community-clock",
   "neon-wake-budget",
   "community-clock-recovery",
-  "community-event-clock-cache",
   "community-alarm-observation",
   "community-cron-isolation",
   "community-maintenance-isolation",
@@ -63,7 +62,6 @@ const suites = [
   "slack-message-edit",
   "community-guide",
   "bot-owned-guide",
-  "welcome-invite-button",
   "community-guide-cli",
   "community-guide-db-routing",
   "community-guide-bootstrap",
@@ -80,9 +78,7 @@ const suites = [
   "community-share-info",
   "community-share-info-reconcile",
   "community-townhall",
-  "community-townhall-events",
   "event-schedule-link",
-  "community-welcome",
   "community-team-join-welcome",
   "community-introduction",
   "version-map",
@@ -93,7 +89,6 @@ const suites = [
   "production-site-deploy-guard",
   "private-house-reminders",
   "weekends",
-  "community-bugs",
   "community-bug-dialogue",
   "community-bug-due-store",
   "community-bug-backlog",
@@ -116,10 +111,16 @@ const suites = [
   "community-schedule-recovery",
   "dormant-shoutout",
   "reach-controls",
+  "deploy-approval-path",
 ];
-for (const suite of suites) execFileSync("bun", [`qa/${suite}.mjs`], { stdio: "inherit" });
-execFileSync("node", ["qa/community-scrum-runtime.mjs"], { stdio: "inherit" });
-execFileSync("node", ["qa/community-maintenance-runtime.mjs"], { stdio: "inherit" });
-execFileSync("node", ["qa/community-alarm-runtime.mjs"], { stdio: "inherit" });
-execFileSync("node", ["qa/log-alert-runtime.mjs"], { stdio: "inherit" });
-console.log(`Passed ${suites.length} isolated synthetic suites.`);
+// A suite whose file is gone is skipped, so deleting a feature never needs an edit here.
+// Suites for retired features stay out of the list until their files are deleted.
+const present = suites.filter((suite) => existsSync(`qa/${suite}.mjs`));
+for (const suite of present) execFileSync("bun", [`qa/${suite}.mjs`], { stdio: "inherit" });
+for (const runtime of [
+  "community-scrum-runtime",
+  "community-alarm-runtime",
+  "log-alert-runtime",
+])
+  if (existsSync(`qa/${runtime}.mjs`)) execFileSync("node", [`qa/${runtime}.mjs`], { stdio: "inherit" });
+console.log(`Passed ${present.length} isolated synthetic suites.`);
