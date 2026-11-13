@@ -53,7 +53,7 @@ export function welcomeGuideLink(userId: string, env: GuideSurfaceEnv) {
     text,
     blocks: [
       linkSection(
-        `<@${userId}> 어서 오세요!!!\n*ONE THING* 작성 방법과 채널 안내는 고정 사용설명서에서 확인해 주세요.`,
+        `<@${userId}> 어서 오세요!!!\n*ONE THING* 작성 방법은 고정 사용설명서에서 확인해 주세요.`,
         canvasUrl,
       ),
     ],

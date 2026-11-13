@@ -134,8 +134,8 @@ try {
   assert.equal(calls.filter((call) => call.method === "conversations.create").length, 1);
   assert.equal(calls.filter((call) => call.method === "chat.postMessage" && call.payload.channel === "CTOWNHALL1").length, 1);
   const canvas = calls.find((call) => call.method === "canvases.edit").payload;
-  assert.match(canvas.changes[0].document_content.markdown, /CNEWCHAPTER/);
-  assert.match(canvas.changes[0].document_content.markdown, /논문과 실험/);
+  assert.doesNotMatch(canvas.changes[0].document_content.markdown, /CNEWCHAPTER/);
+  assert.doesNotMatch(canvas.changes[0].document_content.markdown, /논문과 실험/);
 
   await createCommunityChapter(context, parsed);
   assert.equal(calls.filter((call) => call.method === "conversations.create").length, 1);

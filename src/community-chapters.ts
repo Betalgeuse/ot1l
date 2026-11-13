@@ -196,21 +196,7 @@ export async function syncCommunityChapterGuide(
   );
   await syncWelcomeGuideSurface(
     { ...guide, version: WELCOME_GUIDE_RELEASE.version },
-    renderGuideChannels(
-      guide.body,
-      context.env,
-      chapters.flatMap((chapter) =>
-        chapter.channelId
-          ? [
-              {
-                channelId: chapter.channelId,
-                title: chapter.title,
-                description: chapter.description,
-              },
-            ]
-          : [],
-      ),
-    ),
+    renderGuideChannels(guide.body, context.env),
     context.env,
   );
   await Promise.all(
