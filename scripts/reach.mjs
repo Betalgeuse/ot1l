@@ -17,8 +17,48 @@ function listSources(root, dir = "src") {
   return out.sort();
 }
 
-function stripComments(text) {
-  return text.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:"'`\\])\/\/.*$/gm, "$1");
+// Removes comments but keeps string and template literals verbatim, so "/*" or "//" inside a literal
+// cannot hide the code after it. Quotes end at a newline so a quote inside a regex literal stays local.
+export function stripComments(text) {
+  let out = "";
+  for (let i = 0; i < text.length; ) {
+    const char = text[i];
+    const next = text[i + 1];
+    if (char === "/" && next === "/") {
+      while (i < text.length && text[i] !== "\n") i += 1;
+    } else if (char === "/" && next === "*") {
+      const end = text.indexOf("*/", i + 2);
+      i = end === -1 ? text.length : end + 2;
+      out += " ";
+    } else if (char === '"' || char === "'" || char === "`") {
+      let j = i + 1;
+      while (j < text.length && text[j] !== char && (char === "`" || text[j] !== "\n")) {
+        j += text[j] === "\\" ? 2 : 1;
+      }
+      out += text.slice(i, j + 1);
+      i = j + 1;
+    } else {
+      out += char;
+      i += 1;
+    }
+  }
+  return out;
+}
+
+// ops/reach-keep.txt: one "path reason" per line. Kept files are entries that no import chain reaches
+// (policy data read by tooling, files imported only by scripts). Their imports count as live.
+export function readKeep(root) {
+  const file = join(root, "ops/reach-keep.txt");
+  if (!existsSync(file)) return [];
+  return readFileSync(file, "utf8")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line && !line.startsWith("#"))
+    .map((line) => {
+      const [path = "", ...reason] = line.split(/\s+/);
+      if (reason.length === 0) throw new Error(`reach-keep.txt needs a reason for ${path}`);
+      return { path, reason: reason.join(" ") };
+    });
 }
 
 // Returns literal specifiers and a flag for any import/require whose target is not a string literal.
@@ -66,13 +106,15 @@ export function wranglerMain(root) {
   return mains;
 }
 
-export function analyze(root, entries) {
+export function analyze(root, entries, keep = []) {
   const files = listSources(root);
   const known = new Set(files);
   const status = new Map(files.map((file) => [file, "dead"]));
   const reasons = new Map();
-  const queue = entries.filter((entry) => known.has(entry));
-  for (const entry of entries) if (!known.has(entry)) reasons.set(entry, ["entry missing"]);
+  const kept = keep.map((item) => item.path);
+  const queue = [...entries, ...kept].filter((entry) => known.has(entry));
+  for (const entry of [...entries, ...kept])
+    if (!known.has(entry)) reasons.set(entry, ["entry missing"]);
   for (const file of queue) status.set(file, "live");
   while (queue.length > 0) {
     const file = queue.pop();
@@ -91,6 +133,7 @@ export function analyze(root, entries) {
       reasons.set(file, problems);
     }
   }
+  for (const path of kept) if (status.get(path) === "live" && !entries.includes(path)) status.set(path, "keep");
   return { status, reasons };
 }
 
@@ -105,15 +148,19 @@ function main(argv) {
     else if (argv[index] === "--check") check = true;
   }
   const roots = entries.length > 0 ? entries : ["src/worker-entry.ts", ...wranglerMain(base)];
-  const { status, reasons } = analyze(base, [...new Set(roots)]);
+  const keep = readKeep(base);
+  const { status, reasons } = analyze(base, [...new Set(roots)], keep);
   const rows = (name) => [...status].filter(([, value]) => value === name).map(([file]) => file);
   const dead = rows("dead");
+  const missingKeep = keep.filter((item) => !status.has(item.path));
   const inconclusive = rows("inconclusive");
   console.log(`entries: ${roots.join(", ")}`);
-  console.log(`live ${rows("live").length}, inconclusive ${inconclusive.length}, dead ${dead.length}`);
+  console.log(`live ${rows("live").length}, keep ${rows("keep").length}, inconclusive ${inconclusive.length}, dead ${dead.length}`);
   for (const file of inconclusive) console.log(`inconclusive ${file}: ${(reasons.get(file) ?? []).join("; ")}`);
+  for (const item of keep) console.log(`keep ${item.path}: ${item.reason}`);
+  for (const item of missingKeep) console.log(`keep entry missing ${item.path}`);
   for (const file of dead) console.log(`dead ${relative(base, join(base, file))}`);
-  if (check && (dead.length > 0 || inconclusive.length > 0)) process.exit(1);
+  if (check && (dead.length > 0 || inconclusive.length > 0 || missingKeep.length > 0)) process.exit(1);
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main(process.argv.slice(2));

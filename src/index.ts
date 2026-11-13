@@ -3,6 +3,7 @@ export { CommunityClock } from "./community-clock";
 import { readBoardLink } from "./board-link";
 import { handleCommunityEvent } from "./community-events";
 import { communityInteraction } from "./community-interactions";
+import { handleLinearWebhook } from "./community-linear-webhook";
 import type { CommunityEnv } from "./community-runtime";
 import { confirmMention, eventPayload, handleMention, verificationResponse } from "./events";
 import { BodySizeError, InputError, koreaDate, object, readBody } from "./input";
@@ -43,6 +44,8 @@ export async function handleRequest(
     if (request.method === "GET" && url.pathname === "/health") {
       return Response.json({ status: "ok" });
     }
+    if (url.pathname === "/linear/webhook")
+      return handleLinearWebhook(request, env, (promise) => ctx.waitUntil(promise));
     if (env.DATABASE_MAINTENANCE === "true" && url.pathname.startsWith("/slack/"))
       return new Response("잠시 데이터 정리 중입니다. 곧 다시 시도해 주세요.", {
         status: 503,
