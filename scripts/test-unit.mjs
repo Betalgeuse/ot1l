@@ -100,6 +100,7 @@ const suites = [
   "community-membership-store-error-code",
   "applicant-retention",
   "weekly-recorders",
+  "decision-webhook",
   "alarm-purge-proof",
   "community-feedback-channel-ignored",
   "referral-empty-queue-null",
