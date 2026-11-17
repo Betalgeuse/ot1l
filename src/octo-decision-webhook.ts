@@ -1,11 +1,11 @@
 import type { Env } from "./index";
+import { BodySizeError, readBody } from "./input";
 import { NeonStore } from "./store";
 
 type Sql = Pick<NeonStore, "queryJson">;
 type WebhookEnv = Pick<Env, "DATABASE_URL" | "OCTO_DECISION_WEBHOOK_SECRET">;
 
 const TOLERANCE_SECONDS = 300;
-const MAX_BODY_BYTES = 16_384;
 const FIELDS = ["approval_ref", "unit", "intent", "choice", "via"] as const;
 const encoder = new TextEncoder();
 
@@ -32,7 +32,7 @@ export async function verifyStandardWebhook(
   signatureHeader: string,
 ): Promise<boolean> {
   const keyBytes = base64Bytes(secret.replace(/^whsec_/, ""));
-  if (!keyBytes?.length) return false;
+  if (!keyBytes?.length) throw new Error("malformed webhook secret");
   const key = await crypto.subtle.importKey(
     "raw",
     keyBytes,
@@ -71,7 +71,12 @@ function parseReceipt(raw: string): Receipt | null {
   const d = data as Record<string, unknown>;
   const str = (v: unknown): v is string => typeof v === "string" && v.length <= 512;
   if (!str(d.decision_id) || !d.decision_id) return null;
-  if (!Number.isSafeInteger(d.version) || (d.version as number) < 0) return null;
+  if (
+    !Number.isSafeInteger(d.version) ||
+    (d.version as number) < 0 ||
+    (d.version as number) > 2_147_483_647
+  )
+    return null;
   const fields = {} as Record<(typeof FIELDS)[number], string>;
   for (const name of FIELDS) {
     const v = d[name];
@@ -100,8 +105,13 @@ export async function handleOctoDecisionWebhook(
     return fail(400, "headers");
   if (Math.abs(Math.floor(now() / 1000) - Number(timestamp)) > TOLERANCE_SECONDS)
     return fail(401, "unauthorized");
-  const raw = await request.text();
-  if (raw.length > MAX_BODY_BYTES) return fail(400, "body");
+  let raw: string;
+  try {
+    raw = await readBody(request);
+  } catch (error) {
+    if (error instanceof BodySizeError) return fail(400, "body");
+    throw error;
+  }
   let verified: boolean;
   try {
     verified = await verifyStandardWebhook(

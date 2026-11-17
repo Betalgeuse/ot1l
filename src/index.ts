@@ -49,7 +49,7 @@ export async function handleRequest(
     }
     if (url.pathname === "/metrics/weekly-recorders")
       return await serveWeeklyRecorders(request, env);
-    if (url.pathname === "/octo/decisions") return handleOctoDecisionWebhook(request, env);
+    if (url.pathname === "/octo/decisions") return await handleOctoDecisionWebhook(request, env);
     if (url.pathname === "/linear/webhook")
       return handleLinearWebhook(request, env, (promise) => ctx.waitUntil(promise));
     if (env.DATABASE_MAINTENANCE === "true" && url.pathname.startsWith("/slack/"))

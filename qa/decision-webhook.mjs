@@ -90,12 +90,23 @@ assert.equal((await signedBad("e5", JSON.stringify({ type: "decision.resolved", 
 assert.equal((await signedBad("e6", JSON.stringify({ ...JSON.parse(withData({})), timestamp: 5 }))).status, 400);
 assert.equal(rows.size, 2);
 
+assert.equal((await signedBad("v1", withData({ version: 2147483648 }))).status, 400);
+assert.equal((await signedBad("v2", withData({ version: -1 }))).status, 400);
+assert.equal((await signedBad("v3", withData({ version: 2147483647 }))).status, 202);
+const hangul = "가".repeat(6000);
+assert.ok(hangul.length < 16384 && new TextEncoder().encode(hangul).length > 16384);
+assert.equal((await signedBad("big", withData({ intent: hangul }))).status, 400);
+for (const bad of ["whsec_!!!not-base64!!!", "whsec_", "whsec_AAAA"]) {
+  const r = await post("m1", payload("dm"), { e: { ...env, OCTO_DECISION_WEBHOOK_SECRET: bad }, sig: "v1,AAAA" });
+  assert.equal(r.status, bad === "whsec_AAAA" ? 401 : 503, bad);
+}
+
 // 503: secret unset, DB failure
 assert.equal((await post("s1", payload(), { e: { ...env, OCTO_DECISION_WEBHOOK_SECRET: undefined } })).status, 503);
 failDb = true;
 assert.equal((await post("s2", payload("d77"))).status, 503);
 failDb = false;
-assert.equal(rows.size, 2);
+assert.equal(rows.size, 3);
 
 await purgeDecisionWebhookReceipts({ queryJson: async (q) => { assert.match(q, /purge/); return { purged: 0 }; } });
 globalThis.fetch = realFetch;
