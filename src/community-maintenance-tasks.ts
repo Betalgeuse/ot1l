@@ -9,6 +9,7 @@ import type { CommunityEnv } from "./community-runtime";
 import { runCommunityPrompts } from "./community-scheduler";
 import { CommunityStore } from "./community-store";
 import { InputError } from "./input";
+import { purgeDecisionWebhookReceipts } from "./octo-decision-webhook";
 import { NeonStore } from "./store";
 
 export const TEAM_MAINTENANCE_TASKS = [
@@ -17,6 +18,7 @@ export const TEAM_MAINTENANCE_TASKS = [
   "pr_metadata",
   "agent_notifications",
   "weekly_recorders",
+  "decision_receipts",
 ] as const;
 export const CHANNEL_MAINTENANCE_TASKS = ["garden", "membership", "prompts"] as const;
 
@@ -26,6 +28,7 @@ export const MAINTENANCE_CADENCE_MINUTES: Readonly<Record<string, number>> = {
   pr_metadata: 30,
   agent_notifications: 30,
   weekly_recorders: 30,
+  decision_receipts: 30,
   garden: 30,
   membership: 30,
   prompts: 5,
@@ -96,6 +99,9 @@ export async function runMaintenanceTask(
       return;
     case "agent_notifications":
       if (env.BUG_RUNNER_ENABLED === "true") await sendAgentNotifications(env, new Date(at));
+      return;
+    case "decision_receipts":
+      await purgeDecisionWebhookReceipts(new NeonStore(env.DATABASE_URL));
       return;
     case "garden":
       if (channel) await runDueGardenDeliveries(env, channel, at);

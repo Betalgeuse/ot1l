@@ -8,6 +8,7 @@ import type { CommunityEnv } from "./community-runtime";
 import { confirmMention, eventPayload, handleMention, verificationResponse } from "./events";
 import { BodySizeError, InputError, koreaDate, object, readBody } from "./input";
 import { handleIntentPilot, type PilotEnv } from "./intent-pilot";
+import { handleOctoDecisionWebhook } from "./octo-decision-webhook";
 import { paletteModal } from "./palette-modal";
 import { processRecord } from "./process";
 import { renderBoard } from "./render/board";
@@ -27,6 +28,7 @@ export type Env = PilotEnv &
     readonly BOARD_SIGNING_SECRET: string;
     readonly PUBLIC_BASE_URL: string;
     readonly DAILY_SCRUM_CHANNEL_ID: string;
+    readonly OCTO_DECISION_WEBHOOK_SECRET?: string;
   };
 export type Context = { waitUntil(promise: Promise<unknown>): void };
 export type Runtime = {
@@ -47,6 +49,7 @@ export async function handleRequest(
     }
     if (url.pathname === "/metrics/weekly-recorders")
       return await serveWeeklyRecorders(request, env);
+    if (url.pathname === "/octo/decisions") return await handleOctoDecisionWebhook(request, env);
     if (url.pathname === "/linear/webhook")
       return handleLinearWebhook(request, env, (promise) => ctx.waitUntil(promise));
     if (env.DATABASE_MAINTENANCE === "true" && url.pathname.startsWith("/slack/"))
