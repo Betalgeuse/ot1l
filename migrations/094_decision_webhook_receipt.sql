@@ -6,7 +6,7 @@ SELECT pg_advisory_xact_lock(hashtextextended('otl:decision-webhook-receipt:094'
 CREATE TABLE otl.decision_webhook_receipt (
   webhook_id text PRIMARY KEY,
   decision_id text NOT NULL, approval_ref text NOT NULL, unit text NOT NULL,
-  intent text NOT NULL, choice text NOT NULL, via text NOT NULL, effect text NOT NULL,
+  intent text NOT NULL, choice text NOT NULL, via text NOT NULL, effect_name text NOT NULL,
   version integer NOT NULL, body_sha256 text NOT NULL,
   received_at timestamptz NOT NULL DEFAULT now()
 );
@@ -24,9 +24,9 @@ BEGIN
   IF EXISTS(SELECT 1 FROM otl.decision_webhook_receipt
     WHERE decision_id=p->>'decisionId' AND version>=(p->>'version')::integer)
     THEN RETURN jsonb_build_object('status','duplicate'); END IF;
-  INSERT INTO otl.decision_webhook_receipt(webhook_id,decision_id,approval_ref,unit,intent,choice,via,effect,version,body_sha256)
+  INSERT INTO otl.decision_webhook_receipt(webhook_id,decision_id,approval_ref,unit,intent,choice,via,effect_name,version,body_sha256)
     VALUES(p->>'webhookId',p->>'decisionId',p->>'approvalRef',p->>'unit',p->>'intent',p->>'choice',
-      p->>'via',p->>'effect',(p->>'version')::integer,p->>'bodySha256')
+      p->>'via',p->>'effectName',(p->>'version')::integer,p->>'bodySha256')
     ON CONFLICT (webhook_id) DO NOTHING RETURNING webhook_id INTO inserted;
   RETURN jsonb_build_object('status',CASE WHEN inserted IS NULL THEN 'duplicate' ELSE 'accepted' END);
 END $$;

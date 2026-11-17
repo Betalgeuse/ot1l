@@ -30,9 +30,9 @@ const NOW = 1_800_000_000_000;
 const sign = (id, ts, body, k = key) => `v1,${createHmac("sha256", k).update(`${id}.${ts}.${body}`).digest("base64")}`;
 const payload = (decisionId = "d1", version = 1) =>
   JSON.stringify({
-    type: "decision.resolved",
+    type: "decision.made",
     timestamp: "2027-01-15T08:00:00Z",
-    data: { decision_id: decisionId, approval_ref: "a1", unit: "otl1", intent: "i", choice: "yes", via: "telegram", effect: "none", version },
+    data: { decision_id: decisionId, approval_ref: "a1", unit: "otl1", intent: "i", choice: "yes", via: "tower", effect: { name: "note", extra: 1 }, version },
   });
 async function post(id, body, { ts = NOW / 1000, sig, e = env } = {}) {
   const headers = { "webhook-id": id, "webhook-timestamp": String(ts), "webhook-signature": sig ?? sign(id, ts, body) };
@@ -81,6 +81,13 @@ assert.equal((await signedBad("b2", JSON.stringify({ type: "x", timestamp: "t", 
 assert.equal((await signedBad("b3", JSON.stringify({ type: 1, data: {} }))).status, 400);
 const noHeaders = await handleOctoDecisionWebhook(new Request("https://w.example/octo/decisions", { method: "POST", body: "{}" }), env, () => NOW);
 assert.equal(noHeaders.status, 400);
+const withData = (patch) => JSON.stringify({ type: "decision.made", timestamp: "2027-01-15T08:00:00Z", data: { decision_id: "dx", approval_ref: "a", unit: "u", intent: "i", choice: "c", via: "tower", effect: { name: "note" }, version: 1, ...patch } });
+assert.equal((await signedBad("e1", withData({ effect: "note" }))).status, 400);
+assert.equal((await signedBad("e2", withData({ effect: null }))).status, 400);
+assert.equal((await signedBad("e3", withData({ effect: {} }))).status, 400);
+assert.equal((await signedBad("e4", withData({ effect: { name: "x".repeat(65) } }))).status, 400);
+assert.equal((await signedBad("e5", JSON.stringify({ type: "decision.resolved", timestamp: "t", data: {} }))).status, 400);
+assert.equal((await signedBad("e6", JSON.stringify({ ...JSON.parse(withData({})), timestamp: 5 }))).status, 400);
 assert.equal(rows.size, 2);
 
 // 503: secret unset, DB failure

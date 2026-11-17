@@ -6,7 +6,7 @@ type WebhookEnv = Pick<Env, "DATABASE_URL" | "OCTO_DECISION_WEBHOOK_SECRET">;
 
 const TOLERANCE_SECONDS = 300;
 const MAX_BODY_BYTES = 16_384;
-const FIELDS = ["approval_ref", "unit", "intent", "choice", "via", "effect"] as const;
+const FIELDS = ["approval_ref", "unit", "intent", "choice", "via"] as const;
 const encoder = new TextEncoder();
 
 const respond = (status: number, body: Record<string, string>) => Response.json(body, { status });
@@ -53,6 +53,7 @@ export async function verifyStandardWebhook(
 type Receipt = {
   readonly decisionId: string;
   readonly version: number;
+  readonly effectName: string;
   readonly fields: Record<(typeof FIELDS)[number], string>;
 };
 
@@ -65,7 +66,7 @@ function parseReceipt(raw: string): Receipt | null {
   }
   if (typeof body !== "object" || body === null || Array.isArray(body)) return null;
   const { type, timestamp, data } = body as Record<string, unknown>;
-  if (typeof type !== "string" || !type || timestamp === undefined) return null;
+  if (type !== "decision.made" || typeof timestamp !== "string") return null;
   if (typeof data !== "object" || data === null || Array.isArray(data)) return null;
   const d = data as Record<string, unknown>;
   const str = (v: unknown): v is string => typeof v === "string" && v.length <= 512;
@@ -77,7 +78,11 @@ function parseReceipt(raw: string): Receipt | null {
     if (!str(v)) return null;
     fields[name] = v;
   }
-  return { decisionId: d.decision_id, version: d.version as number, fields };
+  const effect = d.effect;
+  if (typeof effect !== "object" || effect === null || Array.isArray(effect)) return null;
+  const name = (effect as Record<string, unknown>).name;
+  if (typeof name !== "string" || !name || name.length > 64) return null;
+  return { decisionId: d.decision_id, version: d.version as number, effectName: name, fields };
 }
 
 export async function handleOctoDecisionWebhook(
@@ -124,7 +129,7 @@ export async function handleOctoDecisionWebhook(
           intent: receipt.fields.intent,
           choice: receipt.fields.choice,
           via: receipt.fields.via,
-          effect: receipt.fields.effect,
+          effectName: receipt.effectName,
           version: receipt.version,
           bodySha256: hex(await crypto.subtle.digest("SHA-256", encoder.encode(raw))),
         }),
